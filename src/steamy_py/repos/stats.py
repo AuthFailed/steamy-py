@@ -100,12 +100,12 @@ class StatsAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get global stats: {e}")
 
     async def get_user_stats_for_game(
-        self, steam_id: str, app_id: int
+        self, steamid: str, app_id: int
     ) -> UserStatsResponse:
         """Get user statistics for a specific game.
 
         Args:
-            steam_id: Steam ID of the player
+            steamid: Steam ID of the player
             app_id: Steam App ID
 
         Returns:
@@ -118,7 +118,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steam_id)
+        self._validate_steam_id(steamid)
         self._validate_app_id(app_id)
 
         try:
@@ -126,7 +126,7 @@ class StatsAPI(BaseAPI):
                 interface="ISteamUserStats",
                 method="GetUserStatsForGame",
                 version="v2",
-                params={"steamid": steam_id, "appid": str(app_id)},
+                params={"steamid": steamid, "appid": str(app_id)},
             )
 
             if "playerstats" not in response_data:
@@ -140,7 +140,7 @@ class StatsAPI(BaseAPI):
             if "error" in playerstats:
                 error_msg = playerstats["error"]
                 if "private" in error_msg.lower():
-                    raise PrivateProfileError(steam_id)
+                    raise PrivateProfileError(steamid)
                 elif "not found" in error_msg.lower():
                     raise GameNotFoundError(str(app_id))
                 else:
@@ -152,7 +152,7 @@ class StatsAPI(BaseAPI):
         except (PrivateProfileError, GameNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error getting user stats for {steam_id}, app {app_id}: {e}")
+            logger.error(f"Error getting user stats for {steamid}, app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get user stats: {e}")
@@ -290,12 +290,12 @@ class StatsAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get news: {e}")
 
     async def get_user_achievements_only(
-        self, steam_id: str, app_id: int
+        self, steamid: str, app_id: int
     ) -> list[UserAchievement]:
         """Get only user achievements (convenience method).
 
         Args:
-            steam_id: Steam ID of the player
+            steamid: Steam ID of the player
             app_id: Steam App ID
 
         Returns:
@@ -308,14 +308,14 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        user_stats = await self.get_user_stats_for_game(steam_id, app_id)
+        user_stats = await self.get_user_stats_for_game(steamid, app_id)
         return user_stats.achievements
 
-    async def get_user_stats_only(self, steam_id: str, app_id: int) -> list[UserStat]:
+    async def get_user_stats_only(self, steamid: str, app_id: int) -> list[UserStat]:
         """Get only user statistics (convenience method).
 
         Args:
-            steam_id: Steam ID of the player
+            steamid: Steam ID of the player
             app_id: Steam App ID
 
         Returns:
@@ -328,29 +328,29 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        user_stats = await self.get_user_stats_for_game(steam_id, app_id)
+        user_stats = await self.get_user_stats_for_game(steamid, app_id)
         return user_stats.stats
 
-    def _validate_steam_id(self, steam_id: str) -> None:
+    def _validate_steam_id(self, steamid: str) -> None:
         """Validate Steam ID format.
 
         Args:
-            steam_id: Steam ID to validate
+            steamid: Steam ID to validate
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
         """
-        if not steam_id:
-            raise InvalidSteamIDError(steam_id, "Steam ID cannot be empty")
+        if not steamid:
+            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
 
-        if not steam_id.isdigit():
-            raise InvalidSteamIDError(steam_id, "Steam ID must be numeric")
+        if not steamid.isdigit():
+            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
 
-        if len(steam_id) != 17:
-            raise InvalidSteamIDError(steam_id, "Steam ID must be 17 digits long")
+        if len(steamid) != 17:
+            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
 
-        if not steam_id.startswith("7656119"):
-            raise InvalidSteamIDError(steam_id, "Invalid Steam ID format")
+        if not steamid.startswith("7656119"):
+            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
 
     def _validate_app_id(self, app_id: int) -> None:
         """Validate App ID format.
