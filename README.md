@@ -35,7 +35,7 @@ JSON.parse(application_config.dataset.loyalty_webapi_token)
 
 # Examples
 
-In the 'examples' directory, you can find examples of how to use the package.
+In the `examples` directory, you can find examples of how to use the package.
 
 Basic example:
 
