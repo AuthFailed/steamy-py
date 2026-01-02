@@ -30,7 +30,7 @@ class GameAPI(BaseAPI):
 
     async def get_owned_games(
         self,
-        steam_id: str,
+        steamid: str,
         include_appinfo: bool = True,
         include_played_free_games: bool = False,
         appids_filter: list[int] | None = None,
@@ -38,7 +38,7 @@ class GameAPI(BaseAPI):
         """Get games owned by a Steam user.
 
         Args:
-            steam_id: Steam ID of the user
+            steamid: Steam ID of the user
             include_appinfo: Include game name and logo information
             include_played_free_games: Include free games that have been played
             appids_filter: Optional list of App IDs to filter results
@@ -52,10 +52,10 @@ class GameAPI(BaseAPI):
             PlayerNotFoundError: If player not found
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steam_id)
+        self._validate_steam_id(steamid)
 
         params = {
-            "steamid": steam_id,
+            "steamid": steamid,
             "include_appinfo": "1" if include_appinfo else "0",
             "include_played_free_games": "1" if include_played_free_games else "0",
         }
@@ -76,7 +76,7 @@ class GameAPI(BaseAPI):
 
             if not response_data["response"]:
                 # Empty response usually means private profile
-                raise PrivateProfileError(steam_id)
+                raise PrivateProfileError(steamid)
 
             response_obj = GetOwnedGamesResponse(**response_data)
             return response_obj.response.games
@@ -84,7 +84,7 @@ class GameAPI(BaseAPI):
         except PrivateProfileError:
             raise
         except Exception as e:
-            logger.error(f"Error getting owned games for {steam_id}: {e}")
+            logger.error(f"Error getting owned games for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get owned games: {e}") from e
@@ -116,12 +116,12 @@ class GameAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get app list: {e}") from e
 
     async def get_player_achievements(
-        self, steam_id: str, app_id: int, language: str = "english"
+        self, steamid: str, app_id: int, language: str = "english"
     ) -> list[Achievement]:
         """Get player achievements for a specific game.
 
         Args:
-            steam_id: Steam ID of the player
+            steamid: Steam ID of the player
             app_id: Steam App ID of the game
             language: Language for achievement names
 
@@ -135,7 +135,7 @@ class GameAPI(BaseAPI):
             PrivateProfileError: If profile is private
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steam_id)
+        self._validate_steam_id(steamid)
         self._validate_app_id(app_id)
 
         try:
@@ -143,7 +143,7 @@ class GameAPI(BaseAPI):
                 interface="ISteamUserStats",
                 method="GetPlayerAchievements",
                 version="v1",
-                params={"steamid": steam_id, "appid": str(app_id), "l": language},
+                params={"steamid": steamid, "appid": str(app_id), "l": language},
             )
 
             if "playerstats" not in response_data:
@@ -155,7 +155,7 @@ class GameAPI(BaseAPI):
             if not playerstats.get("success", False):
                 error = playerstats.get("error", "Unknown error")
                 if "profile is private" in error.lower():
-                    raise PrivateProfileError(steam_id)
+                    raise PrivateProfileError(steamid)
                 elif "invalid appid" in error.lower() or "not found" in error.lower():
                     raise GameNotFoundError(str(app_id))
                 else:
@@ -167,9 +167,7 @@ class GameAPI(BaseAPI):
         except (PrivateProfileError, GameNotFoundError):
             raise
         except Exception as e:
-            logger.error(
-                f"Error getting achievements for {steam_id}, app {app_id}: {e}"
-            )
+            logger.error(f"Error getting achievements for {steamid}, app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get player achievements: {e}") from e
@@ -285,26 +283,26 @@ class GameAPI(BaseAPI):
             all_apps = await self.get_app_list()
             return [app for app in all_apps if search_term in app.name.lower()]
 
-    def _validate_steam_id(self, steam_id: str) -> None:
+    def _validate_steam_id(self, steamid: str) -> None:
         """Validate Steam ID format.
 
         Args:
-            steam_id: Steam ID to validate
+            steamid: Steam ID to validate
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
         """
-        if not steam_id:
-            raise InvalidSteamIDError(steam_id, "Steam ID cannot be empty")
+        if not steamid:
+            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
 
-        if not steam_id.isdigit():
-            raise InvalidSteamIDError(steam_id, "Steam ID must be numeric")
+        if not steamid.isdigit():
+            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
 
-        if len(steam_id) != 17:
-            raise InvalidSteamIDError(steam_id, "Steam ID must be 17 digits long")
+        if len(steamid) != 17:
+            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
 
-        if not steam_id.startswith("7656119"):
-            raise InvalidSteamIDError(steam_id, "Invalid Steam ID format")
+        if not steamid.startswith("7656119"):
+            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
 
     def _validate_app_id(self, app_id: int) -> None:
         """Validate App ID format.

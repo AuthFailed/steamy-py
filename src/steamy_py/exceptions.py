@@ -44,11 +44,11 @@ class RateLimitError(SteamAPIError):
 class PlayerNotFoundError(SteamAPIError):
     """Player/Steam ID not found."""
 
-    def __init__(self, steam_id: str, message: str | None = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Player with Steam ID '{steam_id}' not found"
+            message = f"Player with Steam ID '{steamid}' not found"
         super().__init__(message, status_code=404)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class GameNotFoundError(SteamAPIError):
@@ -64,11 +64,11 @@ class GameNotFoundError(SteamAPIError):
 class InvalidSteamIDError(SteamAPIError):
     """Invalid Steam ID format."""
 
-    def __init__(self, steam_id: str, message: str | None = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Invalid Steam ID format: '{steam_id}'"
+            message = f"Invalid Steam ID format: '{steamid}'"
         super().__init__(message, status_code=400)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class InvalidAppIDError(SteamAPIError):
@@ -84,11 +84,11 @@ class InvalidAppIDError(SteamAPIError):
 class PrivateProfileError(SteamAPIError):
     """Player profile is private or not accessible."""
 
-    def __init__(self, steam_id: str, message: str | None = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Profile for Steam ID '{steam_id}' is private or not accessible"
+            message = f"Profile for Steam ID '{steamid}' is private or not accessible"
         super().__init__(message, status_code=403)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class ServiceUnavailableError(SteamAPIError):

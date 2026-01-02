@@ -160,7 +160,7 @@ class MarketAPI(BaseAPI):
 
     async def get_inventory(
         self,
-        steam_id: str,
+        steamid: str,
         app_id: int,
         context_id: str = "2",
         start_assetid: str | None = None,
@@ -169,7 +169,7 @@ class MarketAPI(BaseAPI):
         """Get Steam inventory for a user.
 
         Args:
-            steam_id: Steam ID of the user
+            steamid: Steam ID of the user
             app_id: Steam App ID
             context_id: Inventory context ID (usually "2")
             start_assetid: Starting asset ID for pagination
@@ -183,11 +183,11 @@ class MarketAPI(BaseAPI):
             PrivateProfileError: If inventory is private
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steam_id)
+        self._validate_steam_id(steamid)
 
         try:
             url = (
-                f"https://steamcommunity.com/inventory/{steam_id}/{app_id}/{context_id}"
+                f"https://steamcommunity.com/inventory/{steamid}/{app_id}/{context_id}"
             )
 
             params = {"l": "english", "count": str(count)}
@@ -201,9 +201,9 @@ class MarketAPI(BaseAPI):
             if "error" in response_data:
                 error_msg = response_data["error"]
                 if "private" in error_msg.lower():
-                    raise PrivateProfileError(steam_id)
+                    raise PrivateProfileError(steamid)
                 elif "not found" in error_msg.lower():
-                    raise PlayerNotFoundError(steam_id)
+                    raise PlayerNotFoundError(steamid)
                 else:
                     raise SteamAPIError(f"Inventory error: {error_msg}")
 
@@ -212,7 +212,7 @@ class MarketAPI(BaseAPI):
         except (PrivateProfileError, PlayerNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error getting inventory for {steam_id}: {e}")
+            logger.error(f"Error getting inventory for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get inventory: {e}")
@@ -314,23 +314,23 @@ class MarketAPI(BaseAPI):
             sort_dir="desc",
         )
 
-    def _validate_steam_id(self, steam_id: str) -> None:
+    def _validate_steam_id(self, steamid: str) -> None:
         """Validate Steam ID format.
 
         Args:
-            steam_id: Steam ID to validate
+            steamid: Steam ID to validate
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
         """
-        if not steam_id:
-            raise InvalidSteamIDError(steam_id, "Steam ID cannot be empty")
+        if not steamid:
+            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
 
-        if not steam_id.isdigit():
-            raise InvalidSteamIDError(steam_id, "Steam ID must be numeric")
+        if not steamid.isdigit():
+            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
 
-        if len(steam_id) != 17:
-            raise InvalidSteamIDError(steam_id, "Steam ID must be 17 digits long")
+        if len(steamid) != 17:
+            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
 
-        if not steam_id.startswith("7656119"):
-            raise InvalidSteamIDError(steam_id, "Invalid Steam ID format")
+        if not steamid.startswith("7656119"):
+            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
