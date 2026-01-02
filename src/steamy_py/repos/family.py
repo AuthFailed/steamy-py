@@ -3,8 +3,6 @@
 import logging
 from typing import Optional
 
-from steamy_py.models.family import FamilyGroupStatusResponse
-
 from ..exceptions import AuthenticationError, SteamAPIError
 from ..models.family import FamilyGroupStatusResponse, SteamResponse
 from .base import BaseAPI
@@ -168,16 +166,17 @@ class FamilyAPI(BaseAPI):
             if "Access token is required" in str(e):
                 raise AuthenticationError(
                     "Access token is required for Family API endpoints"
-                )
+                ) from e
             raise
         except Exception as e:
             logger.error(f"Error getting family group: {e}")
-            raise SteamAPIError(f"Failed to get family group: {e}")
+            raise SteamAPIError(f"Failed to get family group: {e}") from e
 
     async def get_family_group_for_user(
         self, steamid: Optional[str] = None
     ) -> FamilyGroupStatusResponse:
-        """Gets the family group id for the authenticated user or a user specified by a support account.
+        """Gets the family group id for the authenticated user
+         or a user specified by a support account.
 
         Args:
             steamid: Steam ID of user (for support/admin accounts only).
@@ -207,11 +206,11 @@ class FamilyAPI(BaseAPI):
             if "Access token is required" in str(e):
                 raise AuthenticationError(
                     "Access token is required for Family API endpoints"
-                )
+                ) from e
             raise
         except Exception as e:
             logger.error(f"Error getting family group for user: {e}")
-            raise SteamAPIError(f"Failed to get family group for user: {e}")
+            raise SteamAPIError(f"Failed to get family group for user: {e}") from e
 
     async def get_invite_check_results(
         self, family_group_id: int | None = None, steamid: int | None = None
@@ -229,7 +228,8 @@ class FamilyAPI(BaseAPI):
     async def get_playtime_summary(
         self, family_group_id: Optional[int] = None
     ) -> SteamResponse:
-        """Get the playtimes in all apps from the shared library for the whole family group.
+        """Get the playtimes in all apps from the shared library
+         for the whole family group.
 
         Args:
             family_group_id: Requester's family group id
@@ -259,11 +259,11 @@ class FamilyAPI(BaseAPI):
             if "Access token is required" in str(e):
                 raise AuthenticationError(
                     "Access token is required for Family API endpoints"
-                )
+                ) from e
             raise
         except Exception as e:
             logger.error(f"Error getting playtime summary: {e}")
-            raise SteamAPIError(f"Failed to get playtime summary: {e}")
+            raise SteamAPIError(f"Failed to get playtime summary: {e}") from e
 
     async def get_preferred_lenders(self, family_group_id: int | None = None):
         """
@@ -463,7 +463,8 @@ class FamilyAPI(BaseAPI):
     async def set_family_cooldown_overrides(
         self, family_group_id: int | None = None, cooldown_count: int | None = None
     ):
-        """Set the number of times a family group's cooldown time should be ignored for joins.
+        """Set the number of times a family group's cooldown time
+         should be ignored for joins.
 
         Args:
             family_group_id: Requester's family group id
