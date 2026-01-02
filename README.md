@@ -1,3 +1,17 @@
+# Installation
+
+Package is available on [PyPi](https://pypi.org/project/steamy-py/), you could install it with:
+
+```bash
+pip install steamy-py
+```
+
+or
+
+```bash
+uv add steamy-py
+```
+
 # Authorization
 
 Most methods require an API key, which can be obtained at https://steamcommunity.com/dev/apikey
@@ -16,5 +30,17 @@ Here's how to get a community token:
 2. Run the following script:
 
 ```js
-JSON.parse(application_config.dataset.loyalty_webapi_token) (or manually copy data-loyalty_webapi_token from application_config element)
+JSON.parse(application_config.dataset.loyalty_webapi_token)
+```
+
+# Examples
+
+In the 'examples' directory, you can find examples of how to use the package.
+
+Basic example:
+
+```py
+async with Steam(api_key="YOUR_API_KEY") as steam:
+    friends = await steam.player.get_friends_list(steam_id=1234567890)
+    print(friends)
 ```
