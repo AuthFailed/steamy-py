@@ -1,6 +1,6 @@
 """Custom exceptions for Steam API wrapper."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class SteamAPIError(Exception):
@@ -9,8 +9,8 @@ class SteamAPIError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
-        response_data: Optional[Dict[str, Any]] = None,
+        status_code: int | None = None,
+        response_data: dict[str, Any] | None = None,
     ):
         """Initialize Steam API error.
 
@@ -35,7 +35,7 @@ class RateLimitError(SteamAPIError):
     """Rate limit exceeded."""
 
     def __init__(
-        self, message: str = "Rate limit exceeded", retry_after: Optional[int] = None
+        self, message: str = "Rate limit exceeded", retry_after: int | None = None
     ):
         super().__init__(message, status_code=429)
         self.retry_after = retry_after
@@ -44,17 +44,17 @@ class RateLimitError(SteamAPIError):
 class PlayerNotFoundError(SteamAPIError):
     """Player/Steam ID not found."""
 
-    def __init__(self, steam_id: str, message: Optional[str] = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Player with Steam ID '{steam_id}' not found"
+            message = f"Player with Steam ID '{steamid}' not found"
         super().__init__(message, status_code=404)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class GameNotFoundError(SteamAPIError):
     """Game/App ID not found."""
 
-    def __init__(self, app_id: str, message: Optional[str] = None):
+    def __init__(self, app_id: str, message: str | None = None):
         if message is None:
             message = f"Game with App ID '{app_id}' not found"
         super().__init__(message, status_code=404)
@@ -64,17 +64,17 @@ class GameNotFoundError(SteamAPIError):
 class InvalidSteamIDError(SteamAPIError):
     """Invalid Steam ID format."""
 
-    def __init__(self, steam_id: str, message: Optional[str] = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Invalid Steam ID format: '{steam_id}'"
+            message = f"Invalid Steam ID format: '{steamid}'"
         super().__init__(message, status_code=400)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class InvalidAppIDError(SteamAPIError):
     """Invalid App ID format."""
 
-    def __init__(self, app_id: str, message: Optional[str] = None):
+    def __init__(self, app_id: str, message: str | None = None):
         if message is None:
             message = f"Invalid App ID format: '{app_id}'"
         super().__init__(message, status_code=400)
@@ -84,11 +84,11 @@ class InvalidAppIDError(SteamAPIError):
 class PrivateProfileError(SteamAPIError):
     """Player profile is private or not accessible."""
 
-    def __init__(self, steam_id: str, message: Optional[str] = None):
+    def __init__(self, steamid: str, message: str | None = None):
         if message is None:
-            message = f"Profile for Steam ID '{steam_id}' is private or not accessible"
+            message = f"Profile for Steam ID '{steamid}' is private or not accessible"
         super().__init__(message, status_code=403)
-        self.steam_id = steam_id
+        self.steamid = steamid
 
 
 class ServiceUnavailableError(SteamAPIError):
@@ -108,7 +108,7 @@ class ConfigurationError(SteamAPIError):
 class ResponseParsingError(SteamAPIError):
     """Error parsing Steam API response."""
 
-    def __init__(self, message: str, raw_response: Optional[str] = None):
+    def __init__(self, message: str, raw_response: str | None = None):
         super().__init__(message)
         self.raw_response = raw_response
 
@@ -116,6 +116,6 @@ class ResponseParsingError(SteamAPIError):
 class NetworkError(SteamAPIError):
     """Network or connection error."""
 
-    def __init__(self, message: str, original_error: Optional[Exception] = None):
+    def __init__(self, message: str, original_error: Exception | None = None):
         super().__init__(message)
         self.original_error = original_error

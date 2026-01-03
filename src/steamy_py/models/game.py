@@ -1,7 +1,8 @@
 """Game/App related data models for Steam API."""
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 from pydantic import Field
 
 from .base import SteamModel, SteamResponse
@@ -11,22 +12,22 @@ class OwnedGame(SteamModel):
     """Game owned by a Steam user."""
 
     appid: int = Field(description="Unique identifier for the game")
-    name: Optional[str] = Field(default=None, description="Game name")
+    name: str | None = Field(default=None, description="Game name")
     playtime_forever: int = Field(description="Total playtime in minutes")
-    img_icon_url: Optional[str] = Field(default=None, description="Icon image filename")
-    img_logo_url: Optional[str] = Field(default=None, description="Logo image filename")
+    img_icon_url: str | None = Field(default=None, description="Icon image filename")
+    img_logo_url: str | None = Field(default=None, description="Logo image filename")
 
     # Recent playtime data
-    playtime_windows_forever: Optional[int] = Field(
+    playtime_windows_forever: int | None = Field(
         default=None, description="Windows playtime in minutes"
     )
-    playtime_mac_forever: Optional[int] = Field(
+    playtime_mac_forever: int | None = Field(
         default=None, description="Mac playtime in minutes"
     )
-    playtime_linux_forever: Optional[int] = Field(
+    playtime_linux_forever: int | None = Field(
         default=None, description="Linux playtime in minutes"
     )
-    playtime_2weeks: Optional[int] = Field(
+    playtime_2weeks: int | None = Field(
         default=None, description="Playtime in last 2 weeks (minutes)"
     )
 
@@ -36,19 +37,19 @@ class OwnedGame(SteamModel):
         return round(self.playtime_forever / 60, 1)
 
     @property
-    def playtime_2weeks_hours(self) -> Optional[float]:
+    def playtime_2weeks_hours(self) -> float | None:
         """Get recent playtime in hours."""
         return round(self.playtime_2weeks / 60, 1) if self.playtime_2weeks else None
 
     @property
-    def icon_url(self) -> Optional[str]:
+    def icon_url(self) -> str | None:
         """Get full icon URL."""
         if self.img_icon_url:
             return f"http://media.steampowered.com/steamcommunity/public/images/apps/{self.appid}/{self.img_icon_url}.jpg"
         return None
 
     @property
-    def logo_url(self) -> Optional[str]:
+    def logo_url(self) -> str | None:
         """Get full logo URL."""
         if self.img_logo_url:
             return f"http://media.steampowered.com/steamcommunity/public/images/apps/{self.appid}/{self.img_logo_url}.jpg"
@@ -70,10 +71,8 @@ class Achievement(SteamModel):
     unlocktime: int = Field(
         description="Unix timestamp when achieved (0 if not achieved)"
     )
-    name: Optional[str] = Field(default=None, description="Achievement display name")
-    description: Optional[str] = Field(
-        default=None, description="Achievement description"
-    )
+    name: str | None = Field(default=None, description="Achievement display name")
+    description: str | None = Field(default=None, description="Achievement description")
 
     @property
     def is_achieved(self) -> bool:
@@ -81,7 +80,7 @@ class Achievement(SteamModel):
         return self.achieved == 1
 
     @property
-    def unlock_date(self) -> Optional[datetime]:
+    def unlock_date(self) -> datetime | None:
         """Get achievement unlock date."""
         if self.is_achieved and self.unlocktime > 0:
             return datetime.fromtimestamp(self.unlocktime)
@@ -100,7 +99,7 @@ class GameSchema(SteamModel):
 
     gameName: str = Field(description="Game name")
     gameVersion: str = Field(description="Game version")
-    availableGameStats: Optional[Dict[str, Any]] = Field(
+    availableGameStats: dict[str, Any] | None = Field(
         default=None, description="Available game statistics"
     )
 
@@ -113,7 +112,7 @@ class SchemaAchievement(SteamModel):
     description: str = Field(description="Achievement description")
     icon: str = Field(description="Achievement icon URL")
     icongray: str = Field(description="Achievement icon URL (locked)")
-    hidden: Optional[int] = Field(default=0, description="Hidden achievement flag")
+    hidden: int | None = Field(default=0, description="Hidden achievement flag")
 
     @property
     def is_hidden(self) -> bool:
@@ -134,7 +133,7 @@ class OwnedGamesResponse(SteamModel):
     """Response wrapper for GetOwnedGames."""
 
     game_count: int = Field(description="Total number of games")
-    games: List[OwnedGame] = Field(
+    games: list[OwnedGame] = Field(
         default_factory=list, description="List of owned games"
     )
 
@@ -142,7 +141,7 @@ class OwnedGamesResponse(SteamModel):
 class AppListResponse(SteamModel):
     """Response wrapper for GetAppList."""
 
-    apps: List[SteamApp] = Field(description="List of Steam applications")
+    apps: list[SteamApp] = Field(description="List of Steam applications")
 
 
 class PlayerAchievementsResponse(SteamModel):
@@ -150,7 +149,7 @@ class PlayerAchievementsResponse(SteamModel):
 
     steamID: str = Field(description="Player Steam ID")
     gameName: str = Field(description="Game name")
-    achievements: List[Achievement] = Field(
+    achievements: list[Achievement] = Field(
         default_factory=list, description="Player achievements"
     )
     success: bool = Field(description="Request success status")
@@ -161,8 +160,8 @@ class UserStatsResponse(SteamModel):
 
     steamID: str = Field(description="Player Steam ID")
     gameName: str = Field(description="Game name")
-    stats: List[GameStat] = Field(default_factory=list, description="Player statistics")
-    achievements: List[Achievement] = Field(
+    stats: list[GameStat] = Field(default_factory=list, description="Player statistics")
+    achievements: list[Achievement] = Field(
         default_factory=list, description="Player achievements"
     )
 
@@ -217,20 +216,20 @@ class AppDetails(SteamModel):
     is_free: bool = Field(description="Free to play status")
     short_description: str = Field(description="Short description")
     header_image: str = Field(description="Header image URL")
-    website: Optional[str] = Field(default=None, description="Official website")
-    developers: List[str] = Field(default_factory=list, description="Developer names")
-    publishers: List[str] = Field(default_factory=list, description="Publisher names")
-    price_overview: Optional[Dict[str, Any]] = Field(
+    website: str | None = Field(default=None, description="Official website")
+    developers: list[str] = Field(default_factory=list, description="Developer names")
+    publishers: list[str] = Field(default_factory=list, description="Publisher names")
+    price_overview: dict[str, Any] | None = Field(
         default=None, description="Pricing information"
     )
-    platforms: Dict[str, bool] = Field(description="Platform availability")
-    categories: List[Dict[str, Any]] = Field(
+    platforms: dict[str, bool] = Field(description="Platform availability")
+    categories: list[dict[str, Any]] = Field(
         default_factory=list, description="Game categories"
     )
-    genres: List[Dict[str, Any]] = Field(
+    genres: list[dict[str, Any]] = Field(
         default_factory=list, description="Game genres"
     )
-    release_date: Dict[str, Any] = Field(description="Release date information")
+    release_date: dict[str, Any] = Field(description="Release date information")
 
     @property
     def is_released(self) -> bool:
@@ -238,6 +237,6 @@ class AppDetails(SteamModel):
         return not self.release_date.get("coming_soon", True)
 
     @property
-    def platform_list(self) -> List[str]:
+    def platform_list(self) -> list[str]:
         """Get list of supported platforms."""
         return [platform for platform, supported in self.platforms.items() if supported]

@@ -1,6 +1,5 @@
 """Base model classes for Steam API responses."""
 
-from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 
@@ -20,21 +19,21 @@ class SteamResponse(SteamModel):
     """Base response wrapper for Steam API responses."""
 
     success: bool = True
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class PaginatedResponse(SteamModel):
     """Base for paginated API responses."""
 
-    total: Optional[int] = None
+    total: int | None = None
     has_more: bool = False
-    next_cursor: Optional[str] = None
+    next_cursor: str | None = None
 
 
 class ErrorResponse(SteamModel):
     """Steam API error response model."""
 
     success: bool = False
-    error: Optional[str] = None
-    error_code: Optional[int] = None
-    error_msg: Optional[str] = None
+    error: str | None = None
+    error_code: int | None = None
+    error_msg: str | None = None

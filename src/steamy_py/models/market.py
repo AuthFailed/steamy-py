@@ -1,6 +1,7 @@
 """Market related data models for Steam API."""
 
-from typing import List, Optional, Dict, Any
+from typing import Any, List
+
 from pydantic import Field
 
 from .base import SteamModel, SteamResponse
@@ -12,22 +13,20 @@ class MarketItem(SteamModel):
     market_hash_name: str = Field(description="Market hash name for the item")
     market_name: str = Field(description="Display name in market")
     name: str = Field(description="Item name")
-    name_color: Optional[str] = Field(default=None, description="Name color hex")
-    type: Optional[str] = Field(default=None, description="Item type")
+    name_color: str | None = Field(default=None, description="Name color hex")
+    type: str | None = Field(default=None, description="Item type")
     commodity: bool = Field(default=False, description="Whether item is a commodity")
 
 
 class PriceInfo(SteamModel):
     """Item price information."""
 
-    lowest_price: Optional[str] = Field(
-        default=None, description="Lowest current price"
-    )
-    volume: Optional[str] = Field(default=None, description="24h volume")
-    median_price: Optional[str] = Field(default=None, description="Median price")
+    lowest_price: str | None = Field(default=None, description="Lowest current price")
+    volume: str | None = Field(default=None, description="24h volume")
+    median_price: str | None = Field(default=None, description="Median price")
 
     @property
-    def lowest_price_cents(self) -> Optional[int]:
+    def lowest_price_cents(self) -> int | None:
         """Get lowest price in cents."""
         if self.lowest_price:
             # Parse price string like "$1.23" -> 123
@@ -39,7 +38,7 @@ class PriceInfo(SteamModel):
         return None
 
     @property
-    def median_price_cents(self) -> Optional[int]:
+    def median_price_cents(self) -> int | None:
         """Get median price in cents."""
         if self.median_price:
             price_str = self.median_price.replace("$", "").replace(",", "")
@@ -56,8 +55,8 @@ class MarketListing(SteamModel):
     listingid: str = Field(description="Unique listing ID")
     price: int = Field(description="Price in cents")
     fee: int = Field(description="Steam fee in cents")
-    steamid_lister: Optional[str] = Field(default=None, description="Seller Steam ID")
-    item: Dict[str, Any] = Field(description="Item details")
+    steamid_lister: str | None = Field(default=None, description="Seller Steam ID")
+    item: dict[str, Any] = Field(description="Item details")
 
     @property
     def total_price(self) -> int:
@@ -91,12 +90,12 @@ class MarketHistoryEntry(SteamModel):
 class MarketSearch(SteamModel):
     """Market search parameters."""
 
-    query: Optional[str] = Field(default=None, description="Search query")
+    query: str | None = Field(default=None, description="Search query")
     start: int = Field(default=0, description="Starting index")
     count: int = Field(default=100, description="Number of results")
     sort_column: str = Field(default="popular", description="Sort column")
     sort_dir: str = Field(default="desc", description="Sort direction")
-    appid: Optional[int] = Field(default=None, description="Filter by app ID")
+    appid: int | None = Field(default=None, description="Filter by app ID")
 
 
 class InventoryItem(SteamModel):
@@ -118,30 +117,24 @@ class ItemDescription(SteamModel):
     classid: str = Field(description="Class ID")
     instanceid: str = Field(description="Instance ID")
     icon_url: str = Field(description="Icon URL path")
-    icon_url_large: Optional[str] = Field(
-        default=None, description="Large icon URL path"
-    )
-    icon_drag_url: Optional[str] = Field(default=None, description="Drag icon URL")
+    icon_url_large: str | None = Field(default=None, description="Large icon URL path")
+    icon_drag_url: str | None = Field(default=None, description="Drag icon URL")
     name: str = Field(description="Item name")
-    market_hash_name: Optional[str] = Field(
-        default=None, description="Market hash name"
-    )
-    market_name: Optional[str] = Field(default=None, description="Market name")
-    name_color: Optional[str] = Field(default=None, description="Name color")
-    background_color: Optional[str] = Field(
-        default=None, description="Background color"
-    )
+    market_hash_name: str | None = Field(default=None, description="Market hash name")
+    market_name: str | None = Field(default=None, description="Market name")
+    name_color: str | None = Field(default=None, description="Name color")
+    background_color: str | None = Field(default=None, description="Background color")
     type: str = Field(description="Item type")
     tradable: int = Field(description="Tradable flag")
     marketable: int = Field(description="Marketable flag")
     commodity: int = Field(description="Commodity flag")
-    market_tradable_restriction: Optional[int] = Field(
+    market_tradable_restriction: int | None = Field(
         default=None, description="Trade restriction days"
     )
-    descriptions: List[Dict[str, str]] = Field(
+    descriptions: list[dict[str, str]] = Field(
         default_factory=list, description="Item descriptions"
     )
-    tags: List[Dict[str, Any]] = Field(default_factory=list, description="Item tags")
+    tags: list[dict[str, Any]] = Field(default_factory=list, description="Item tags")
 
     @property
     def is_tradable(self) -> bool:
@@ -164,7 +157,7 @@ class ItemDescription(SteamModel):
         return f"https://community.cloudflare.steamstatic.com/economy/image/{self.icon_url}"
 
     @property
-    def full_large_icon_url(self) -> Optional[str]:
+    def full_large_icon_url(self) -> str | None:
         """Get full large icon URL."""
         if self.icon_url_large:
             return f"https://community.cloudflare.steamstatic.com/economy/image/{self.icon_url_large}"
@@ -176,9 +169,9 @@ class ItemPriceResponse(SteamResponse):
     """Response for item price lookup."""
 
     success: bool = Field(description="Request success")
-    lowest_price: Optional[str] = Field(default=None, description="Lowest price")
-    volume: Optional[str] = Field(default=None, description="24h volume")
-    median_price: Optional[str] = Field(default=None, description="Median price")
+    lowest_price: str | None = Field(default=None, description="Lowest price")
+    volume: str | None = Field(default=None, description="24h volume")
+    median_price: str | None = Field(default=None, description="Median price")
 
     def to_price_info(self) -> PriceInfo:
         """Convert to PriceInfo model."""
@@ -196,8 +189,8 @@ class MarketListingsResponse(SteamResponse):
     start: int = Field(description="Starting index")
     pagesize: int = Field(description="Page size")
     total_count: int = Field(description="Total results")
-    searchdata: Dict[str, Any] = Field(description="Search metadata")
-    results: List[Dict[str, Any]] = Field(
+    searchdata: dict[str, Any] = Field(description="Search metadata")
+    results: list[dict[str, Any]] = Field(
         default_factory=list, description="Listing results"
     )
 
@@ -213,9 +206,9 @@ class MarketHistoryResponse(SteamResponse):
     success: bool = Field(description="Request success")
     price_prefix: str = Field(description="Price currency prefix")
     price_suffix: str = Field(description="Price currency suffix")
-    prices: List[List] = Field(description="Price history data")
+    prices: list[List] = Field(description="Price history data")
 
-    def to_history_entries(self) -> List[MarketHistoryEntry]:
+    def to_history_entries(self) -> list[MarketHistoryEntry]:
         """Convert raw price data to history entries."""
         entries = []
         for price_data in self.prices:
@@ -233,21 +226,21 @@ class MarketHistoryResponse(SteamResponse):
 class InventoryResponse(SteamResponse):
     """Response for Steam inventory."""
 
-    assets: List[InventoryItem] = Field(
+    assets: list[InventoryItem] = Field(
         default_factory=list, description="Inventory items"
     )
-    descriptions: List[ItemDescription] = Field(
+    descriptions: list[ItemDescription] = Field(
         default_factory=list, description="Item descriptions"
     )
-    more_items: Optional[int] = Field(default=None, description="More items flag")
-    last_assetid: Optional[str] = Field(
+    more_items: int | None = Field(default=None, description="More items flag")
+    last_assetid: str | None = Field(
         default=None, description="Last asset ID for pagination"
     )
-    total_inventory_count: Optional[int] = Field(
+    total_inventory_count: int | None = Field(
         default=None, description="Total inventory count"
     )
     success: int = Field(description="Success flag")
-    rwgrsn: Optional[int] = Field(default=None, description="Request reason code")
+    rwgrsn: int | None = Field(default=None, description="Request reason code")
 
     @property
     def is_success(self) -> bool:

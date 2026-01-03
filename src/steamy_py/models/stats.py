@@ -1,7 +1,8 @@
 """Statistics related data models for Steam API."""
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Union
+from typing import Any, Union
+
 from pydantic import Field
 
 from .base import SteamModel, SteamResponse
@@ -26,7 +27,7 @@ class UserAchievement(SteamModel):
 
     name: str = Field(description="Achievement internal name")
     achieved: int = Field(description="Achievement status (1=achieved, 0=not achieved)")
-    unlocktime: Optional[int] = Field(
+    unlocktime: int | None = Field(
         default=0, description="Unix timestamp when achieved"
     )
 
@@ -36,7 +37,7 @@ class UserAchievement(SteamModel):
         return self.achieved == 1
 
     @property
-    def unlock_date(self) -> Optional[datetime]:
+    def unlock_date(self) -> datetime | None:
         """Get achievement unlock date."""
         if self.is_achieved and self.unlocktime and self.unlocktime > 0:
             return datetime.fromtimestamp(self.unlocktime)
@@ -101,11 +102,11 @@ class LeaderboardEntry(SteamModel):
     steamid: str = Field(description="Player Steam ID")
     rank: int = Field(description="Player rank")
     score: int = Field(description="Player score")
-    details: Optional[bytes] = Field(default=None, description="Additional details")
+    details: bytes | None = Field(default=None, description="Additional details")
 
     # Additional player info (if requested)
-    persona_name: Optional[str] = Field(default=None, description="Player display name")
-    avatar: Optional[str] = Field(default=None, description="Player avatar URL")
+    persona_name: str | None = Field(default=None, description="Player display name")
+    avatar: str | None = Field(default=None, description="Player avatar URL")
 
 
 # Response wrapper models
@@ -113,7 +114,7 @@ class GlobalStatsResponse(SteamModel):
     """Response wrapper for GetGlobalStatsForGame."""
 
     result: int = Field(description="Result code")
-    globalstats: Dict[str, Union[int, float]] = Field(
+    globalstats: dict[str, Union[int, float]] = Field(
         description="Global statistics data"
     )
 
@@ -122,7 +123,7 @@ class GlobalStatsResponse(SteamModel):
         """Check if request was successful."""
         return self.result == 1
 
-    def to_global_stats(self) -> List[GlobalStat]:
+    def to_global_stats(self) -> list[GlobalStat]:
         """Convert to list of GlobalStat objects."""
         return [
             GlobalStat(name=name, total=value)
@@ -135,8 +136,8 @@ class UserStatsResponse(SteamModel):
 
     steamID: str = Field(description="Player Steam ID")
     gameName: str = Field(description="Game name")
-    stats: List[UserStat] = Field(default_factory=list, description="User statistics")
-    achievements: List[UserAchievement] = Field(
+    stats: list[UserStat] = Field(default_factory=list, description="User statistics")
+    achievements: list[UserAchievement] = Field(
         default_factory=list, description="User achievements"
     )
 
@@ -144,11 +145,11 @@ class UserStatsResponse(SteamModel):
 class GlobalAchievementResponse(SteamModel):
     """Response wrapper for global achievement percentages."""
 
-    achievementpercentages: Dict[str, Any] = Field(
+    achievementpercentages: dict[str, Any] = Field(
         description="Achievement percentages"
     )
 
-    def to_achievement_stats(self) -> List[GlobalAchievementStat]:
+    def to_achievement_stats(self) -> list[GlobalAchievementStat]:
         """Convert to list of GlobalAchievementStat objects."""
         achievements = self.achievementpercentages.get("achievements", [])
         return [
@@ -166,9 +167,9 @@ class PlayerCountResponse(SteamModel):
 class NewsResponse(SteamModel):
     """Response wrapper for GetNewsForApp."""
 
-    appnews: Dict[str, Any] = Field(description="News data")
+    appnews: dict[str, Any] = Field(description="News data")
 
-    def to_news_items(self) -> List[NewsItem]:
+    def to_news_items(self) -> list[NewsItem]:
         """Convert to list of NewsItem objects."""
         newsitems = self.appnews.get("newsitems", [])
         return [NewsItem(**item) for item in newsitems]
@@ -179,7 +180,7 @@ class LeaderboardResponse(SteamModel):
 
     resultCount: int = Field(description="Number of results")
     totalLeaderboardEntryCount: int = Field(description="Total entries in leaderboard")
-    leaderboardEntries: List[LeaderboardEntry] = Field(
+    leaderboardEntries: list[LeaderboardEntry] = Field(
         description="Leaderboard entries"
     )
 
@@ -219,9 +220,9 @@ class GetPlayerCountResponse(SteamResponse):
 class GetNewsResponse(SteamResponse):
     """Top-level response for GetNewsForApp."""
 
-    appnews: Dict[str, Any] = Field(description="News data")
+    appnews: dict[str, Any] = Field(description="News data")
 
-    def to_news_items(self) -> List[NewsItem]:
+    def to_news_items(self) -> list[NewsItem]:
         """Convert to list of NewsItem objects."""
         newsitems = self.appnews.get("newsitems", [])
         return [NewsItem(**item) for item in newsitems]

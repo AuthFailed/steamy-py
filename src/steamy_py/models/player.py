@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import IntEnum
-from typing import List, Optional
+
 from pydantic import Field
 
 from .base import SteamModel, SteamResponse
@@ -42,37 +42,35 @@ class PlayerSummary(SteamModel):
     communityvisibilitystate: CommunityVisibilityState = Field(
         description="Profile visibility"
     )
-    profilestate: Optional[int] = Field(default=None, description="Profile setup state")
+    profilestate: int | None = Field(default=None, description="Profile setup state")
 
-    lastlogoff: Optional[int] = Field(
+    lastlogoff: int | None = Field(
         default=None, description="Last logoff time (Unix timestamp)"
     )
-    commentpermission: Optional[int] = Field(
+    commentpermission: int | None = Field(
         default=None, description="Comment permission setting"
     )
 
-    realname: Optional[str] = Field(
+    realname: str | None = Field(
         default=None, description="Player's real name (if public)"
     )
-    primaryclanid: Optional[str] = Field(
-        default=None, description="Primary clan/group ID"
-    )
-    timecreated: Optional[int] = Field(
+    primaryclanid: str | None = Field(default=None, description="Primary clan/group ID")
+    timecreated: int | None = Field(
         default=None, description="Account creation time (Unix timestamp)"
     )
 
-    gameid: Optional[str] = Field(default=None, description="Currently playing game ID")
-    gameserverip: Optional[str] = Field(
+    gameid: str | None = Field(default=None, description="Currently playing game ID")
+    gameserverip: str | None = Field(
         default=None, description="Game server IP if in-game"
     )
-    gameextrainfo: Optional[str] = Field(
+    gameextrainfo: str | None = Field(
         default=None, description="Rich presence game info"
     )
 
-    cityid: Optional[int] = Field(default=None, description="City ID")
-    loccountrycode: Optional[str] = Field(default=None, description="Country code")
-    locstatecode: Optional[str] = Field(default=None, description="State code")
-    loccityid: Optional[int] = Field(default=None, description="City ID")
+    cityid: int | None = Field(default=None, description="City ID")
+    loccountrycode: str | None = Field(default=None, description="Country code")
+    locstatecode: str | None = Field(default=None, description="State code")
+    loccityid: int | None = Field(default=None, description="City ID")
 
     @property
     def is_online(self) -> bool:
@@ -95,12 +93,12 @@ class Friend(SteamModel):
 
     steamid: str = Field(description="Steam ID of the friend")
     relationship: str = Field(description="Relationship type (usually 'friend')")
-    friend_since: Optional[int] = Field(
+    friend_since: int | None = Field(
         default=None, description="Unix timestamp when friendship started"
     )
 
     @property
-    def friend_since_datetime(self) -> Optional[datetime]:
+    def friend_since_datetime(self) -> datetime | None:
         """Get friendship start date as datetime object."""
         return datetime.fromtimestamp(self.friend_since) if self.friend_since else None
 
@@ -130,7 +128,7 @@ class PlayerBan(SteamModel):
 class VanityURLResolution(SteamModel):
     """Vanity URL resolution result."""
 
-    steamid: Optional[str] = Field(default=None, description="Resolved Steam ID")
+    steamid: str | None = Field(default=None, description="Resolved Steam ID")
     success: int = Field(description="Success code (1 = success)")
 
     @property
@@ -143,19 +141,19 @@ class VanityURLResolution(SteamModel):
 class PlayerSummariesResponse(SteamResponse):
     """Response wrapper for GetPlayerSummaries."""
 
-    players: List[PlayerSummary] = Field(description="List of player summaries")
+    players: list[PlayerSummary] = Field(description="List of player summaries")
 
 
 class FriendsListResponse(SteamResponse):
     """Response wrapper for GetFriendList."""
 
-    friends: List[Friend] = Field(default_factory=list, description="List of friends")
+    friends: list[Friend] = Field(default_factory=list, description="List of friends")
 
 
 class PlayerBansResponse(SteamResponse):
     """Response wrapper for GetPlayerBans."""
 
-    players: List[PlayerBan] = Field(description="List of player ban information")
+    players: list[PlayerBan] = Field(description="List of player ban information")
 
 
 class ResolveVanityURLResponse(SteamResponse):
