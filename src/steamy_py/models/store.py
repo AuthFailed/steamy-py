@@ -1,5 +1,7 @@
-"""Models for store responses: IStoreBrowseService, IStoreQueryService and
-store.steampowered.com/api/storesearch.
+"""Models for store responses: IStoreBrowseService, IStoreQueryService,
+IStoreMarketingService, ISteamChartsService, IStoreTopSellersService,
+IStoreService, ICommunityService, and the store.steampowered.com
+storesearch, packagedetails and appreviews pages.
 
 Service methods serialize protobuf messages to JSON and leave out every field
 at its default value, so every field here has a default. 64-bit ids arrive as
@@ -497,3 +499,571 @@ class StoreSearchResult(SteamModel):
 
     total: int = 0
     items: list[StoreSearchItem] = Field(default_factory=list)
+
+
+# -- IStoreBrowseService/GetStoreCategories ------------------------------------
+
+
+class EStoreCategoryType(IntEnum):
+    """Kind of store category (``StoreCategory.type``)."""
+
+    CATEGORY = 0
+    SUPPORTED_PLAYERS = 1
+    FEATURE = 2
+    CONTROLLER_SUPPORT = 3
+    CLOUD_GAMING = 4
+
+
+class StoreCategory(SteamModel):
+    """A store category, e.g. 2 "Single-player" or 28 "Full controller support".
+
+    The ids are the ones in ``StoreItem.categories``.
+    """
+
+    categoryid: int = 0
+    type: int = Field(0, description="An EStoreCategoryType")
+    internal_name: str = Field("", description='e.g. "Full Controller Support"')
+    display_name: str = Field("", description='e.g. "Full controller support"')
+    image_url: str = Field(
+        "", description='Relative icon path, e.g. "public/images/v6/ico/ico_cards.png"'
+    )
+    show_in_search: bool = False
+    computed: bool = False
+    edit_url: str = ""
+    edit_sort_order: int = 0
+
+
+class StoreCategories(SteamModel):
+    """Body of IStoreBrowseService/GetStoreCategories."""
+
+    categories: list[StoreCategory] = Field(default_factory=list)
+
+
+class StoreCategoriesResponse(SteamModel):
+    """Response of IStoreBrowseService/GetStoreCategories."""
+
+    response: StoreCategories = Field(default_factory=StoreCategories)
+
+
+# -- IStoreBrowseService/GetDLCForApps -----------------------------------------
+
+
+class StoreDLCData(SteamModel):
+    """A DLC of one of the requested apps."""
+
+    appid: int = Field(0, description="App id of the DLC")
+    parentappid: int = Field(0, description="App the DLC is for")
+    release_date: int = Field(0, description="Release date (Unix time)")
+    coming_soon: bool = False
+    price: int = Field(
+        0,
+        description=(
+            "Price; an int64 Steam sends as a string. Unverified: presumably "
+            "in cents of the context country's currency"
+        ),
+    )
+    discount: int = Field(0, description="Discount; unverified: presumably percent")
+    free: bool = False
+
+
+class StoreAppPlaytime(SteamModel):
+    """The signed-in user's playtime in one of the requested apps."""
+
+    appid: int = 0
+    playtime: int = Field(0, description="Playtime; unverified: presumably minutes")
+    last_played: int = Field(0, description="Last played (Unix time)")
+
+
+class DLCForApps(SteamModel):
+    """Body of IStoreBrowseService/GetDLCForApps."""
+
+    dlc_data: list[StoreDLCData] = Field(default_factory=list)
+    playtime: list[StoreAppPlaytime] = Field(default_factory=list)
+
+
+class DLCForAppsResponse(SteamModel):
+    """Response of IStoreBrowseService/GetDLCForApps."""
+
+    response: DLCForApps = Field(default_factory=DLCForApps)
+
+
+# -- IStoreBrowseService/GetDLCForAppsSolr -------------------------------------
+
+
+class AppDLCList(SteamModel):
+    """The DLC of one app."""
+
+    parent_appid: int = Field(0, description="App the DLC is for")
+    dlc_appids: list[int] = Field(default_factory=list)
+
+
+class DLCForAppsSolr(SteamModel):
+    """Body of IStoreBrowseService/GetDLCForAppsSolr."""
+
+    dlc_lists: list[AppDLCList] = Field(default_factory=list)
+
+
+class DLCForAppsSolrResponse(SteamModel):
+    """Response of IStoreBrowseService/GetDLCForAppsSolr."""
+
+    response: DLCForAppsSolr = Field(default_factory=DLCForAppsSolr)
+
+
+# -- ISteamChartsService -------------------------------------------------------
+
+
+class ConcurrentPlayersRank(SteamModel):
+    """A game's place on the chart of games by current players."""
+
+    rank: int = 0
+    appid: int = 0
+    item: StoreItem = Field(
+        default_factory=StoreItem, description="Store data, when requested"
+    )
+    concurrent_in_game: int = Field(0, description="Players in game now")
+    peak_in_game: int = Field(
+        0, description="Peak players in game; the period is unverified"
+    )
+
+
+class GamesByConcurrentPlayers(SteamModel):
+    """Body of ISteamChartsService/GetGamesByConcurrentPlayers."""
+
+    last_update: int = Field(0, description="When the counts were taken (Unix time)")
+    ranks: list[ConcurrentPlayersRank] = Field(default_factory=list)
+
+
+class GamesByConcurrentPlayersResponse(SteamModel):
+    """Response of ISteamChartsService/GetGamesByConcurrentPlayers."""
+
+    response: GamesByConcurrentPlayers = Field(default_factory=GamesByConcurrentPlayers)
+
+
+class MostPlayedGameRank(SteamModel):
+    """A game's place on the most played games chart."""
+
+    rank: int = 0
+    appid: int = 0
+    item: StoreItem = Field(
+        default_factory=StoreItem, description="Store data, when requested"
+    )
+    last_week_rank: int = Field(0, description="Rank a week before; 0 when not sent")
+    peak_in_game: int = Field(0, description="Peak players in game")
+    daily_active_players: int = 0
+
+
+class MostPlayedGames(SteamModel):
+    """Body of ISteamChartsService/GetMostPlayedGames."""
+
+    rollup_date: int = Field(0, description="Date of the chart's rollup (Unix time)")
+    ranks: list[MostPlayedGameRank] = Field(default_factory=list)
+
+
+class MostPlayedGamesResponse(SteamModel):
+    """Response of ISteamChartsService/GetMostPlayedGames."""
+
+    response: MostPlayedGames = Field(default_factory=MostPlayedGames)
+
+
+# -- IStoreMarketingService/GetItemsToFeature ----------------------------------
+
+
+class StoreCapsule(SteamModel):
+    """A featured store item: its id, and its data when requested."""
+
+    item_id: StoreItemID = Field(default_factory=StoreItemID)
+    item: StoreItem = Field(default_factory=StoreItem)
+
+
+class StoreSpotlight(SteamModel):
+    """A store spotlight: a promoted item with its own title, text and art."""
+
+    item_id: StoreItemID = Field(default_factory=StoreItemID)
+    associated_item: StoreItem = Field(default_factory=StoreItem)
+    spotlight_template: str = ""
+    spotlight_title: str = ""
+    spotlight_body: str = ""
+    asset_url: str = ""
+    spotlight_link_url: str = ""
+    start_date: int = Field(0, description="Unix time")
+    end_date: int = Field(0, description="Unix time")
+
+
+class ItemsToFeature(SteamModel):
+    """Body of IStoreMarketingService/GetItemsToFeature.
+
+    Each list is filled only when the request asked for it.
+    """
+
+    spotlights: list[StoreSpotlight] = Field(default_factory=list)
+    daily_deals: list[StoreCapsule] = Field(default_factory=list)
+    specials: list[StoreCapsule] = Field(default_factory=list)
+    purchase_recommendations: list[StoreCapsule] = Field(default_factory=list)
+
+
+class ItemsToFeatureResponse(SteamModel):
+    """Response of IStoreMarketingService/GetItemsToFeature."""
+
+    response: ItemsToFeature = Field(default_factory=ItemsToFeature)
+
+
+# -- IStoreQueryService/Query --------------------------------------------------
+
+
+class StoreQueryResult(SteamModel):
+    """Body of IStoreQueryService/Query.
+
+    ``ids`` lists the matches in order; ``store_items`` holds their data when
+    a data request was sent.
+    """
+
+    metadata: StoreQueryResultMetadata = Field(default_factory=StoreQueryResultMetadata)
+    ids: list[StoreItemID] = Field(default_factory=list)
+    store_items: list[StoreItem] = Field(default_factory=list)
+
+
+class StoreQueryResponse(SteamModel):
+    """Response of IStoreQueryService/Query."""
+
+    response: StoreQueryResult = Field(default_factory=StoreQueryResult)
+
+
+# -- IStoreTopSellersService/GetWeeklyTopSellers -------------------------------
+
+
+class TopSellersRank(SteamModel):
+    """An app's place on the weekly top sellers chart."""
+
+    rank: int = 0
+    appid: int = 0
+    item: StoreItem = Field(
+        default_factory=StoreItem, description="Store data, when requested"
+    )
+    last_week_rank: int = Field(0, description="Rank a week before; 0 when not sent")
+    consecutive_weeks: int = Field(0, description="Weeks in a row on the chart")
+    first_top100: bool = Field(
+        False, description="Unverified: the app's first week in the top 100"
+    )
+
+
+class WeeklyTopSellers(SteamModel):
+    """Body of IStoreTopSellersService/GetWeeklyTopSellers: one page of ranks."""
+
+    start_date: int = Field(0, description="Start of the week (Unix time)")
+    ranks: list[TopSellersRank] = Field(default_factory=list)
+    next_page_start: int = Field(
+        0, description="Pass as ``page_start`` for the next page"
+    )
+
+
+class WeeklyTopSellersResponse(SteamModel):
+    """Response of IStoreTopSellersService/GetWeeklyTopSellers."""
+
+    response: WeeklyTopSellers = Field(default_factory=WeeklyTopSellers)
+
+
+# -- ICommunityService/GetApps -------------------------------------------------
+
+
+class CommunityApp(SteamModel):
+    """An app as the Steam Community knows it (``CCDDBAppDetailCommon``)."""
+
+    appid: int = 0
+    name: str = ""
+    icon: str = Field(
+        "",
+        description=(
+            "Hash of the app's icon; the image is "
+            "https://shared.fastly.steamstatic.com/community_assets/images/apps/"
+            "<appid>/<icon>.jpg"
+        ),
+    )
+    tool: bool = False
+    demo: bool = False
+    media: bool = False
+    community_visible_stats: bool = Field(
+        False, description="Whether the app has stats or achievements to show"
+    )
+    friendly_name: str = ""
+    propagation: str = Field("", description="Steam does not document its values")
+    has_adult_content: bool = False
+    is_visible_in_steam_china: bool = False
+    app_type: int = Field(
+        0, description="Kind of app; unverified: presumably an EAppType (1 game)"
+    )
+    has_adult_content_sex: bool = False
+    has_adult_content_violence: bool = False
+    content_descriptorids: list[int] = Field(default_factory=list)
+    content_descriptorids_including_dlc: list[int] = Field(default_factory=list)
+
+
+class CommunityApps(SteamModel):
+    """Body of ICommunityService/GetApps."""
+
+    apps: list[CommunityApp] = Field(default_factory=list)
+
+
+class CommunityAppsResponse(SteamModel):
+    """Response of ICommunityService/GetApps."""
+
+    response: CommunityApps = Field(default_factory=CommunityApps)
+
+
+# -- IStoreService/GetGamesFollowed --------------------------------------------
+
+
+class GamesFollowed(SteamModel):
+    """Body of IStoreService/GetGamesFollowed."""
+
+    appids: list[int] = Field(default_factory=list)
+
+
+class GamesFollowedResponse(SteamModel):
+    """Response of IStoreService/GetGamesFollowed."""
+
+    response: GamesFollowed = Field(default_factory=GamesFollowed)
+
+
+# -- IStoreService/GetTagList --------------------------------------------------
+
+
+class StoreTag(SteamModel):
+    """A store tag and its name in the requested language."""
+
+    tagid: int = 0
+    name: str = Field("", description='e.g. "Strategy"')
+
+
+class TagList(SteamModel):
+    """Body of IStoreService/GetTagList."""
+
+    version_hash: str = Field(
+        "", description="Pass back as ``have_version_hash`` to skip an unchanged list"
+    )
+    tags: list[StoreTag] = Field(default_factory=list)
+
+
+class TagListResponse(SteamModel):
+    """Response of IStoreService/GetTagList."""
+
+    response: TagList = Field(default_factory=TagList)
+
+
+# -- IStoreService/GetUserGameInterestState ------------------------------------
+
+
+class EStoreDiscoveryQueueType(IntEnum):
+    """Kind of discovery queue (``UserGameInterestState.in_queues`` etc.)."""
+
+    NEW = 0
+    COMING_SOON = 1
+    RECOMMENDED = 2
+    EVERY_NEW_RELEASE = 3
+    ML_RECOMMENDER = 5
+    WISHLIST_ON_SALE = 6
+    DLC = 7
+    DLC_ON_SALE = 8
+    RECOMMENDED_COMING_SOON = 9
+    RECOMMENDED_FREE = 10
+    RECOMMENDED_ON_SALE = 11
+    RECOMMENDED_DEMOS = 12
+    DLC_NEW_RELEASES = 13
+    DLC_TOP_SELLERS = 14
+    DLC_UPCOMING = 15
+
+
+class EPlaytestStatus(IntEnum):
+    """The user's place in an app's playtest (``beta_status``)."""
+
+    NONE = 0
+    PENDING = 1
+    INVITED = 2
+    GRANTED = 3
+    EXPIRED = 4
+
+
+class DiscoveryQueueState(SteamModel):
+    """The app in one of the user's discovery queues."""
+
+    # Steam's proto declares k_EStoreDiscoveryQueueTypeNew (0) as the default.
+    type: int = Field(0, description="An EStoreDiscoveryQueueType")
+    skipped: bool = False
+    items_remaining: int = Field(0, description="Items left in the queue")
+    next_appid: int = Field(0, description="Next app in the queue")
+    experimental_cohort: int = 0
+
+
+class UserGameInterestState(SteamModel):
+    """Body of IStoreService/GetUserGameInterestState: the signed-in user's
+    relationship to an app."""
+
+    owned: bool = False
+    wishlist: bool = Field(False, description="On the user's wishlist")
+    ignored: bool = False
+    following: bool = False
+    in_queues: list[int] = Field(
+        default_factory=list,
+        description="EStoreDiscoveryQueueType of each queue the app is in",
+    )
+    queues_with_skip: list[int] = Field(
+        default_factory=list,
+        description="EStoreDiscoveryQueueType of each queue where the user skipped it",
+    )
+    queue_items_remaining: list[int] = Field(
+        default_factory=list, description="Items left, in the order of ``in_queues``"
+    )
+    queue_items_next_appid: list[int] = Field(
+        default_factory=list, description="Next app, in the order of ``in_queues``"
+    )
+    temporarily_owned: bool = Field(
+        False, description="Owned for a while only, e.g. a rental or free weekend"
+    )
+    queues: list[DiscoveryQueueState] = Field(default_factory=list)
+    ignored_reason: int = Field(
+        0, description="ERecommendationIgnoreReason the user ignored the app for"
+    )
+    # Steam's proto declares k_ETesterStatusNone (0) as the default.
+    beta_status: int = Field(0, description="An EPlaytestStatus")
+
+
+class UserGameInterestStateResponse(SteamModel):
+    """Response of IStoreService/GetUserGameInterestState."""
+
+    response: UserGameInterestState = Field(default_factory=UserGameInterestState)
+
+
+# -- store.steampowered.com/api/packagedetails ----------------------------------
+
+
+class PackageApp(SteamModel):
+    """An app in a package."""
+
+    id: int = Field(0, description="App id")
+    name: str = ""
+
+
+class PackagePrice(SteamModel):
+    """A package's price, in cents of ``currency``."""
+
+    currency: str = Field("", description='e.g. "USD"')
+    initial: int = Field(0, description="Price before discount, in cents")
+    final: int = Field(0, description="Price after discount, in cents")
+    discount_percent: int = 0
+    individual: int = Field(
+        0,
+        description=(
+            "Unverified: presumably the apps' total price when bought one by "
+            "one, in cents; 0 in some real replies"
+        ),
+    )
+
+
+class PackagePlatforms(SteamModel):
+    windows: bool = False
+    mac: bool = False
+    linux: bool = False
+
+
+class PackageController(SteamModel):
+    full_gamepad: bool = Field(False, description="Full controller support")
+
+
+class PackageReleaseDate(SteamModel):
+    coming_soon: bool = False
+    date: str = Field("", description='As displayed, e.g. "16 Jul, 2014"; may be ""')
+
+
+class PackageDetails(SteamModel):
+    """A package (sub) from store.steampowered.com/api/packagedetails."""
+
+    name: str = ""
+    page_image: str = Field("", description="URL of the package's header image")
+    header_image: str = Field(
+        "", description="Not in current real replies; kept for older ones"
+    )
+    small_logo: str = Field("", description="URL of the 231x87 capsule image")
+    page_content: str = ""
+    apps: list[PackageApp] = Field(default_factory=list)
+    price: PackagePrice | None = Field(
+        None, description="None when Steam sends no price (unverified: free packages)"
+    )
+    platforms: PackagePlatforms = Field(default_factory=PackagePlatforms)
+    controller: PackageController = Field(default_factory=PackageController)
+    release_date: PackageReleaseDate = Field(default_factory=PackageReleaseDate)
+
+
+# -- store.steampowered.com/appreviews ------------------------------------------
+
+
+class ReviewAuthor(SteamModel):
+    """The author of a review; playtimes are in minutes."""
+
+    steamid: str = Field("", description="SteamID64")
+    num_games_owned: int = 0
+    num_reviews: int = Field(0, description="Public reviews the author wrote")
+    playtime_forever: int = 0
+    playtime_last_two_weeks: int = 0
+    playtime_at_review: int = 0
+    deck_playtime_at_review: int = Field(
+        0, description="Steam Deck playtime when the review was written"
+    )
+    last_played: int = Field(0, description="Unix time")
+    personaname: str = ""
+    profile_url: str = ""
+
+
+class AppReview(SteamModel):
+    """A user review of an app."""
+
+    recommendationid: str = Field("", description="Review id (64-bit)")
+    author: ReviewAuthor = Field(default_factory=ReviewAuthor)
+    language: str = Field("", description='Language of the review, e.g. "english"')
+    review: str = Field("", description="Text of the review")
+    timestamp_created: int = Field(0, description="Unix time")
+    timestamp_updated: int = Field(0, description="Unix time")
+    voted_up: bool = Field(False, description="True for a positive review")
+    votes_up: int = Field(0, description="Users who found it helpful")
+    votes_funny: int = Field(0, description="Users who found it funny")
+    # Steam sends it as a string ("0.57925105094909668") or as a number (0.5).
+    weighted_vote_score: float = Field(0.0, description="Helpfulness score")
+    comment_count: int = 0
+    steam_purchase: bool = Field(False, description="Bought on Steam")
+    received_for_free: bool = Field(
+        False, description="The author ticked that they got it for free"
+    )
+    refunded: bool = False
+    written_during_early_access: bool = False
+    primarily_steam_deck: bool = Field(
+        False, description="Played mostly on Steam Deck when written"
+    )
+    developer_response: str = ""
+    timestamp_dev_responded: int = Field(0, description="Unix time")
+    app_release_date: int = Field(0, description="Unix time")
+    reactions: list[Any] = Field(
+        default_factory=list, description="Award reactions, raw JSON"
+    )
+
+
+class ReviewQuerySummary(SteamModel):
+    """Totals of a review query.
+
+    ``num_reviews`` counts the reviews on this page. Steam documents that
+    the score and totals come only with the first page (cursor "*"), and
+    only when ``review_type`` is "all"; otherwise they keep their defaults.
+    """
+
+    num_reviews: int = 0
+    review_score: int = Field(0, description="An EUserReviewScore")
+    review_score_desc: str = Field("", description='e.g. "Very Positive"')
+    total_positive: int = 0
+    total_negative: int = 0
+    total_reviews: int = 0
+
+
+class AppReviews(SteamModel):
+    """One page of store.steampowered.com/appreviews/<appid>?json=1."""
+
+    success: int = Field(0, description="1 when Steam answered the query")
+    query_summary: ReviewQuerySummary = Field(default_factory=ReviewQuerySummary)
+    reviews: list[AppReview] = Field(default_factory=list)
+    cursor: str = Field("", description="Pass as ``cursor`` for the next page")

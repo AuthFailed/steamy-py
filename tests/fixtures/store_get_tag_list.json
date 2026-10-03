@@ -1,0 +1,31 @@
+{
+  "response": {
+    "version_hash": "711684454",
+    "tags": [
+      {
+        "tagid": 9,
+        "name": "Strategy"
+      },
+      {
+        "tagid": 19,
+        "name": "Action"
+      },
+      {
+        "tagid": 21,
+        "name": "Adventure"
+      },
+      {
+        "tagid": 84,
+        "name": "Design & Illustration"
+      },
+      {
+        "tagid": 87,
+        "name": "Utilities"
+      },
+      {
+        "tagid": 113,
+        "name": "Free to Play"
+      }
+    ]
+  }
+}

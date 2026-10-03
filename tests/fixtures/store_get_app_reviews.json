@@ -1,0 +1,91 @@
+{
+  "success": 1,
+  "query_summary": {
+    "num_reviews": 14,
+    "review_score": 3,
+    "review_score_desc": "Negative",
+    "total_positive": 1,
+    "total_negative": 13,
+    "total_reviews": 14
+  },
+  "reviews": [
+    {
+      "recommendationid": "156911094",
+      "author": {
+        "steamid": "76561199196119526",
+        "num_games_owned": 84,
+        "num_reviews": 26,
+        "playtime_forever": 90,
+        "playtime_last_two_weeks": 0,
+        "playtime_at_review": 90,
+        "last_played": 1676000487
+      },
+      "language": "english",
+      "review": "Way to buggy, super laggy.",
+      "timestamp_created": 1706319884,
+      "timestamp_updated": 1706319884,
+      "voted_up": false,
+      "votes_up": 0,
+      "votes_funny": 0,
+      "weighted_vote_score": 0.5,
+      "comment_count": 0,
+      "steam_purchase": true,
+      "received_for_free": false,
+      "written_during_early_access": true,
+      "primarily_steam_deck": false
+    },
+    {
+      "recommendationid": "131406094",
+      "author": {
+        "steamid": "76561198064669251",
+        "num_games_owned": 0,
+        "num_reviews": 23,
+        "playtime_forever": 11,
+        "playtime_last_two_weeks": 0,
+        "playtime_at_review": 11,
+        "last_played": 1674484778
+      },
+      "language": "english",
+      "review": "no",
+      "timestamp_created": 1674484833,
+      "timestamp_updated": 1674484833,
+      "voted_up": false,
+      "votes_up": 5,
+      "votes_funny": 0,
+      "weighted_vote_score": "0.532467544078826904",
+      "comment_count": 0,
+      "steam_purchase": true,
+      "received_for_free": false,
+      "written_during_early_access": true,
+      "primarily_steam_deck": false
+    },
+    {
+      "recommendationid": "129995786",
+      "author": {
+        "steamid": "76561198385590578",
+        "num_games_owned": 0,
+        "num_reviews": 1,
+        "playtime_forever": 14,
+        "playtime_last_two_weeks": 0,
+        "playtime_at_review": 14,
+        "last_played": 1672715136
+      },
+      "language": "english",
+      "review": "Im running on 10 fps and trying to get anything to work was a challenge but i feel like this game has potential. Probably don't release it when its this undeveloped even if its early access.",
+      "timestamp_created": 1672715499,
+      "timestamp_updated": 1672715499,
+      "voted_up": false,
+      "votes_up": 2,
+      "votes_funny": 0,
+      "weighted_vote_score": "0.534883737564086914",
+      "comment_count": 0,
+      "steam_purchase": true,
+      "received_for_free": false,
+      "written_during_early_access": true,
+      "primarily_steam_deck": false,
+      "timestamp_dev_responded": 1672789186,
+      "developer_response": "If you could join the discord to discuss further and  I will work to solve frame rate issues as no issues like that had been reported yet.\n"
+    }
+  ],
+  "cursor": "AoJ4357nuoUDesDy7wM="
+}

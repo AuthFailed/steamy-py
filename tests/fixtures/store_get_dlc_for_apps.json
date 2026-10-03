@@ -1,0 +1,32 @@
+{
+  "response": {
+    "dlc_data": [
+      {
+        "appid": 2138330,
+        "parentappid": 1091500,
+        "release_date": 1695686400,
+        "price": "2999",
+        "discount": 20
+      },
+      {
+        "appid": 2060310,
+        "parentappid": 1091500,
+        "release_date": 1652745600,
+        "free": true
+      },
+      {
+        "appid": 3352890,
+        "parentappid": 1091500,
+        "coming_soon": true,
+        "price": "999"
+      }
+    ],
+    "playtime": [
+      {
+        "appid": 1091500,
+        "playtime": 5423,
+        "last_played": 1727740800
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "response": {
+    "rollup_date": 1778198400,
+    "ranks": [
+      {
+        "rank": 1,
+        "appid": 730,
+        "last_week_rank": 1,
+        "peak_in_game": 1321704
+      },
+      {
+        "rank": 34,
+        "appid": 550,
+        "last_week_rank": 31,
+        "peak_in_game": 29429
+      }
+    ]
+  }
+}
