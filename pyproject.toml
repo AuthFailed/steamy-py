@@ -46,6 +46,7 @@ dependencies = [
     "aiohttp>=3.13.2",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
+    "yarl>=1.17.0",
 ]
 
 [project.optional-dependencies]

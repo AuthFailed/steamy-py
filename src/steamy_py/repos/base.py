@@ -79,7 +79,10 @@ class BaseAPI:
             JSON response data
 
         Raises:
-            ClientError: On HTTP or API errors
+            SteamAPIError: On HTTP errors (``status_code`` is set), with the
+                RateLimitError, NetworkError and ResponseParsingError subclasses
+                for rate limiting, connection errors and invalid JSON
+            ValueError: If the credential for ``auth_type`` is missing
         """
         url = self._build_url(interface, method, version)
 
@@ -117,7 +120,10 @@ class BaseAPI:
             JSON response data
 
         Raises:
-            ClientError: On HTTP or API errors
+            SteamAPIError: On HTTP errors (``status_code`` is set), with the
+                RateLimitError, NetworkError and ResponseParsingError subclasses
+                for rate limiting, connection errors and invalid JSON
+            ValueError: If the credential for ``auth_type`` is missing
         """
         url = self._build_store_url(endpoint)
 

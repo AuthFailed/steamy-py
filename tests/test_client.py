@@ -7,6 +7,7 @@ import contextlib
 import heapq
 import itertools
 import logging
+import sys
 import traceback
 from collections.abc import AsyncIterator, Awaitable, Callable
 from functools import partial
@@ -16,7 +17,7 @@ from urllib.parse import quote, quote_plus
 
 import aiohttp
 import pytest
-from multidict import CIMultiDict, CIMultiDictProxy
+from multidict import CIMultiDict, CIMultiDictProxy, MultiDict
 from yarl import URL
 
 import steamy_py.client as client_module
@@ -426,6 +427,60 @@ async def test_request_does_not_mutate_caller_params(
     assert fake_steam.last.params == {"steamids": STEAMID, "key": API_KEY}
 
 
+@pytest.mark.parametrize("auth_type", ["none", "api_key"])
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param([("tag", "a"), ("tag", "b"), ("x", "1")], id="pairs"),
+        pytest.param(
+            MultiDict([("tag", "a"), ("tag", "b"), ("x", "1")]), id="multidict"
+        ),
+    ],
+)
+async def test_request_keeps_repeated_query_keys(
+    client: Client, fake_steam: FakeSteam, params: Any, auth_type: str
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+
+    await client.request(
+        "GET", url_for(fake_steam, NEWS_PATH), params=params, auth_type=auth_type
+    )
+
+    expected = [("tag", "a"), ("tag", "b"), ("x", "1")]
+    if auth_type == "api_key":
+        expected.append(("key", API_KEY))
+    assert list(fake_steam.last.query.items()) == expected
+
+
+async def test_credential_replaces_a_caller_supplied_credential_param(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
+
+    await client.request(
+        "GET",
+        url_for(fake_steam, SUMMARIES_PATH),
+        params={"key": "other", "steamids": STEAMID},
+    )
+
+    assert list(fake_steam.last.query.items()) == [
+        ("steamids", STEAMID),
+        ("key", API_KEY),
+    ]
+
+
+@pytest.mark.parametrize("params", ["steamids=1", b"steamids=1"])
+async def test_string_params_are_rejected_before_sending(
+    client: Client, fake_steam: FakeSteam, params: Any
+) -> None:
+    with pytest.raises(TypeError):
+        await client.request(
+            "GET", url_for(fake_steam, NEWS_PATH), params=params, auth_type="none"
+        )
+
+    assert fake_steam.requests == []
+
+
 async def test_reused_params_do_not_carry_credentials_between_requests(
     client: Client, fake_steam: FakeSteam
 ) -> None:
@@ -703,6 +758,29 @@ async def test_rate_limited_on_every_attempt_raises_rate_limit_error(
 
     assert excinfo.value.status_code == 429
     assert len(fake_steam.requests) == 3
+
+
+@pytest.mark.parametrize(
+    "statuses",
+    [
+        pytest.param([500, 429], id="500-then-429"),
+        pytest.param([429, 500, 429], id="429-500-429"),
+    ],
+)
+async def test_mixed_failures_raise_the_last_non_rate_limit_error(
+    make_client: ClientFactory, fake_steam: FakeSteam, statuses: list[int]
+) -> None:
+    for status in statuses:
+        headers = {"Retry-After": "0"} if status == 429 else {}
+        fake_steam.api("GET", SUMMARIES_PATH, status=status, headers=headers)
+    client = make_client(MAX_RETRIES=len(statuses) - 1)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert not isinstance(excinfo.value, RateLimitError)
+    assert excinfo.value.status_code == 500
+    assert len(fake_steam.requests) == len(statuses)
 
 
 @pytest.mark.xfail(
@@ -1074,6 +1152,24 @@ async def test_failure_is_not_chained_to_the_aiohttp_error(
     assert exc.__context__ is None
 
 
+def test_raise_unchained_drops_the_exception_being_handled() -> None:
+    error = NetworkError("sanitized")
+
+    with pytest.raises(NetworkError) as excinfo:
+        try:
+            raise ConnectionRefusedError(111, "Connection refused")
+        except ConnectionRefusedError:
+            client_module._raise_unchained(error)
+
+    assert excinfo.value is error
+    assert error.__context__ is None
+    assert error.__cause__ is None
+
+
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14) or not hasattr(asyncio.tasks, "_PyTask"),
+    reason="from 3.14 aiohttp cannot run inside asyncio.tasks._PyTask",
+)
 async def test_network_error_is_not_chained_under_pure_python_task(
     make_client: ClientFactory,
 ) -> None:
@@ -1135,6 +1231,10 @@ def test_redact_masks_configured_credentials_anywhere_in_text() -> None:
         pytest.param(str, id="literal"),
         pytest.param(partial(quote, safe=""), id="percent-encoded"),
         pytest.param(quote_plus, id="form-encoded"),
+        pytest.param(
+            lambda secret: URL("http://h/").with_query(key=secret).raw_query_string[4:],
+            id="yarl-encoded",
+        ),
     ],
 )
 def test_redact_masks_url_encoded_credentials(

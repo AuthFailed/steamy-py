@@ -4,11 +4,13 @@ import asyncio
 import logging
 import re
 import time
-from typing import Any, NoReturn
+from collections.abc import Iterable, Mapping
+from typing import Any, NoReturn, cast
 from urllib.parse import quote, quote_plus
 
 import aiohttp
 from aiohttp import ClientError, ClientSession, ClientTimeout
+from yarl import URL
 
 from ._version import __version__
 from .config import Settings
@@ -20,6 +22,8 @@ from .exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+Params = Mapping[str, Any] | Iterable[tuple[str, Any]]
 
 # Matches credential query parameters inside URLs embedded in error text.
 _CREDENTIAL_PARAM_RE = re.compile(
@@ -111,30 +115,48 @@ class Client:
         assert self._session is not None
         return self._session
 
-    def _apply_auth(self, params: dict[str, Any], auth_type: str) -> dict[str, Any]:
-        """Return a copy of ``params`` with the credential for ``auth_type`` added."""
-        params = dict(params)
+    def _apply_auth(
+        self, params: Params | None, auth_type: str
+    ) -> list[tuple[str, Any]]:
+        """Return ``params`` as (key, value) pairs with the credential added.
+
+        Repeated keys (from a MultiDict or a list of pairs) are kept. The
+        caller's object is never modified.
+        """
+        pairs: list[tuple[str, Any]]
+        if params is None:
+            pairs = []
+        elif isinstance(params, str | bytes):
+            raise TypeError("params must be a mapping or (key, value) pairs")
+        elif isinstance(params, Mapping):
+            pairs = list(cast("Mapping[str, Any]", params).items())
+        else:
+            pairs = list(params)
+
         if auth_type == "api_key":
             if not self.api_key:
                 raise ValueError("API key is required but not provided")
-            params["key"] = self.api_key
+            credential = ("key", self.api_key)
         elif auth_type == "access_token":
             if not self.access_token:
                 raise ValueError("Access token is required but not provided")
-            params["access_token"] = self.access_token
-        elif auth_type != "none":
+            credential = ("access_token", self.access_token)
+        elif auth_type == "none":
+            return pairs
+        else:
             raise ValueError(
                 f"Invalid auth_type: {auth_type}. "
                 "Must be 'api_key', 'access_token', or 'none'"
             )
-        return params
+        name, value = credential
+        return [pair for pair in pairs if pair[0] != name] + [(name, value)]
 
     async def _send(
         self,
         session: ClientSession,
         method: str,
         url: str,
-        params: dict[str, Any],
+        params: list[tuple[str, Any]],
         **kwargs,
     ) -> dict[str, Any]:
         """Send a single request and parse the JSON body.
@@ -171,7 +193,7 @@ class Client:
         self,
         method: str,
         url: str,
-        params: dict[str, Any] | None = None,
+        params: Params | None = None,
         auth_type: str = "api_key",
         **kwargs,
     ) -> dict[str, Any]:
@@ -180,7 +202,7 @@ class Client:
         Args:
             method: HTTP method (GET, POST, etc.)
             url: Complete URL to request
-            params: Query parameters
+            params: Query parameters, as a mapping or (key, value) pairs
             auth_type: Authentication type ("api_key", "access_token", or "none")
             **kwargs: Additional aiohttp parameters
 
@@ -193,11 +215,15 @@ class Client:
             NetworkError: On connection errors
             ResponseParsingError: On invalid JSON response
             ValueError: If the credential for ``auth_type`` is missing
+            TypeError: If ``params`` is a string
+
+        When attempts fail in different ways, the last error that was not a
+        rate limit is raised.
 
         Error messages and logs never contain the API key or access token.
         """
         session = await self._get_session()
-        request_params = self._apply_auth(params or {}, auth_type)
+        request_params = self._apply_auth(params, auth_type)
 
         await self._rate_limit()
 
@@ -205,6 +231,7 @@ class Client:
         # the original aiohttp error (which embeds the full URL with
         # credentials) attached as __cause__ or __context__.
         failure: SteamAPIError | None = None
+        only_rate_limited = True
         for attempt in range(self.settings.MAX_RETRIES + 1):
             logger.debug(
                 "Making %s request to %s (attempt %d)",
@@ -215,11 +242,13 @@ class Client:
             try:
                 return await self._send(session, method, url, request_params, **kwargs)
             except _RateLimitedError:
-                failure = RateLimitError(
-                    "Rate limited by Steam (HTTP 429) on every attempt"
-                )
+                if only_rate_limited:
+                    failure = RateLimitError(
+                        "Rate limited by Steam (HTTP 429) on every attempt"
+                    )
                 continue
             except ClientError as e:
+                only_rate_limited = False
                 failure = self._to_library_error(e)
 
             if attempt < self.settings.MAX_RETRIES:
@@ -244,7 +273,7 @@ class Client:
         """Remove the API key and access token from ``text``."""
         for secret in (self.api_key, self.access_token):
             if secret:
-                for form in {secret, quote(secret, safe=""), quote_plus(secret)}:
+                for form in _encoded_forms(secret):
                     text = text.replace(form, "***")
         return _CREDENTIAL_PARAM_RE.sub(r"\g<name>***", text)
 
@@ -261,6 +290,12 @@ class Client:
         if isinstance(error, aiohttp.ClientResponseError):
             return SteamAPIError(message, status_code=error.status)
         return NetworkError(message)
+
+
+def _encoded_forms(secret: str) -> set[str]:
+    """The ways ``secret`` can appear in a URL or in error text."""
+    yarl_form = URL.build(query={"x": secret}).raw_query_string.removeprefix("x=")
+    return {secret, quote(secret, safe=""), quote_plus(secret), yarl_form}
 
 
 def _raise_unchained(error: Exception) -> NoReturn:
