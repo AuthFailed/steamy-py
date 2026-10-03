@@ -65,7 +65,6 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "aioresponses>=0.7.8",
     "pytest>=8.4",
     "pytest-asyncio>=1.2",
     "pytest-cov>=7.0",
@@ -89,3 +88,22 @@ select = [
     "ASYNC", # flake8-async
     "RUF",   # ruff-specific rules
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-ra", "--strict-markers", "-m", "not live"]
+markers = [
+    "live: calls the real Steam Web API (needs STEAM_API_KEY; run with -m live)",
+]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["steamy_py"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
