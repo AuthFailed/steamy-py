@@ -33,14 +33,14 @@ async def main():
         # or a /profiles/ URL through SteamID.parse().
         steamid = SteamID.parse("STEAM_1:0:84901")
 
-        player = await steam.player.get_player_summary(steamid)
+        player = await steam.users.get_player_summary(steamid)
         if player is not None:
             print(player.personaname)
 
-        friends = await steam.player.get_friends_list(steamid)
+        friends = await steam.users.get_friends_list(steamid)
         print(f"{len(friends)} friends")
 
-        games = await steam.games.get_owned_games(steamid)
+        games = await steam.library.get_owned_games(steamid)
         print(f"Owns {len(games)} games")
 
 
@@ -53,14 +53,14 @@ More examples:
 # No credential needed
 async with Steam() as steam:
     count = await steam.stats.get_current_players(730)
-    news = await steam.stats.get_news_for_app(440, count=5)
-    details = await steam.games.get_app_details(620)
+    news = await steam.store.get_news_for_app(440, count=5)
+    details = await steam.store.get_app_details(620)
     price = await steam.market.get_item_price("AK-47 | Redline (Field-Tested)")
-    inventory = await steam.market.get_full_inventory("76561197960435530", 730)
+    inventory = await steam.economy.get_full_inventory("76561197960435530", 730)
 
 # Vanity name or profile URL to Steam ID
 async with Steam(api_key="YOUR_API_KEY") as steam:
-    steamid = await steam.player.resolve_vanity_url("robinwalker")
+    steamid = await steam.users.resolve_vanity_url("robinwalker")
 
 # Steam Families need the user's access token
 async with Steam(access_token="YOUR_ACCESS_TOKEN") as steam:
@@ -68,6 +68,26 @@ async with Steam(access_token="YOUR_ACCESS_TOKEN") as steam:
 ```
 
 See the [`examples`](examples) directory for more.
+
+### Namespaces
+
+| Namespace | What it covers |
+|---|---|
+| `steam.users` | Profiles, friends lists, bans, vanity URLs, badges, Steam level |
+| `steam.library` | Owned games, recently played games, last played times |
+| `steam.stats` | Achievements, user and global stats, schemas, player counts |
+| `steam.store` | App details, the app list, store items, search, news |
+| `steam.wishlist` | Wishlists |
+| `steam.workshop` | Workshop items |
+| `steam.friends` | The signed-in user's friends |
+| `steam.family` | Steam Families |
+| `steam.economy` | Community inventories |
+| `steam.market` | The community market |
+| `steam.util` | Server time, the list of supported API methods |
+
+`steam.player` and `steam.games` from 1.x still work but raise
+`DeprecationWarning`: use `steam.users`, and `steam.library` /
+`steam.store` / `steam.stats`.
 
 ## Authorization
 
