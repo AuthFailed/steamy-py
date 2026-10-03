@@ -602,18 +602,21 @@ class FamilyAPI(BaseAPI):
             AuthenticationError: If access token is not provided
             SteamAPIError: On API errors
         """
-        params = {
-            "family_groupid": str(family_groupid),
-            "include_own": int(include_own),
-            "include_excluded": int(include_excluded),
-            "include_free": int(include_free),
-            "include_non_games": int(include_non_games),
+        values = {
+            "family_groupid": family_groupid,
+            "include_own": include_own,
+            "include_excluded": include_excluded,
+            "include_free": include_free,
+            "include_non_games": include_non_games,
             "language": language,
+            "max_apps": max_apps,
+            "steamid": steamid,
         }
-        if max_apps is not None:
-            params["max_apps"] = str(max_apps)
-        if steamid is not None:
-            params["steamid"] = str(steamid)
+        params = {
+            name: int(value) if isinstance(value, bool) else str(value)
+            for name, value in values.items()
+            if value is not None
+        }
 
         try:
             response_data = await self._request(

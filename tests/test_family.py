@@ -938,6 +938,24 @@ async def test_get_shared_library_apps_sends_every_option(
     }
 
 
+async def test_get_shared_library_apps_omits_options_passed_as_none(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", rpc_path("GetSharedLibraryApps"), json=SHARED_LIBRARY)
+
+    await steam.family.get_shared_library_apps(
+        FAMILY_GROUPID,
+        include_own=None,  # type: ignore[arg-type]
+        language=None,  # type: ignore[arg-type]
+    )
+
+    sent = fake_steam.last.params
+    assert "include_own" not in sent
+    assert "language" not in sent
+    assert sent["family_groupid"] == GROUP
+    assert sent["access_token"] == ACCESS_TOKEN
+
+
 async def test_get_shared_library_apps_parses_apps(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
