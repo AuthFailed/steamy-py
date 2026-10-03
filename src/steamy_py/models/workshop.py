@@ -276,3 +276,99 @@ class RemoteStorageFileDetailsResponse(SteamModel):
     response: RemoteStorageFileDetailsList = Field(
         default_factory=RemoteStorageFileDetailsList
     )
+
+
+class EUCMListType(IntEnum):
+    """A user's Workshop list (``list_type`` of Subscribe and Unsubscribe).
+
+    Values from the Steam client's ``EUCMListType`` as published by
+    OpenSteamworks and opensteamworks' enums.steamd.
+    """
+
+    SUBSCRIBED = 1
+    FAVORITES = 2
+    PLAYED = 3
+    COMPLETED = 4
+    SHORTCUT_FAVORITES = 5
+    FOLLOWED = 6
+
+
+# -- IPublishedFileService/GetUserFiles -------------------------------------------
+
+
+class UserFilesApp(SteamModel):
+    """An app the returned items belong to
+    (``CPublishedFile_GetUserFiles_Response_App``)."""
+
+    appid: int = 0
+    name: str = ""
+    shortcutid: int = 0
+    private: bool = False
+
+
+class UserFilesResult(SteamModel):
+    """``CPublishedFile_GetUserFiles_Response``: one page of a user's items."""
+
+    total: int = Field(0, description="Number of items matching the request")
+    startindex: int = Field(
+        0, description="Position of the page's first item, counted from 1"
+    )
+    publishedfiledetails: list[PublishedFileDetails] = Field(default_factory=list)
+    apps: list[UserFilesApp] = Field(
+        default_factory=list, description="Filled when return_apps is set"
+    )
+
+
+class UserFilesResponse(SteamModel):
+    """IPublishedFileService/GetUserFiles: one page of a user's items."""
+
+    response: UserFilesResult = Field(default_factory=UserFilesResult)
+
+
+# -- IPublishedFileService/Subscribe and Unsubscribe ------------------------------
+
+
+class EmptyServiceResult(SteamModel):
+    """An empty response message (``CPublishedFile_Subscribe_Response``,
+    ``CPublishedFile_Unsubscribe_Response``)."""
+
+
+class EmptyServiceResponse(SteamModel):
+    """Response of a service method whose response message has no fields."""
+
+    response: EmptyServiceResult = Field(default_factory=EmptyServiceResult)
+
+
+# -- ISteamRemoteStorage/GetCollectionDetails -------------------------------------
+
+
+class CollectionChild(SteamModel):
+    """An item in a collection."""
+
+    publishedfileid: str = Field("", description="Published file id (64-bit)")
+    sortorder: int = Field(0, description="Position in the collection")
+    filetype: int = Field(0, description="Kind of item (EWorkshopFileType)")
+
+
+class CollectionDetails(SteamModel):
+    """A collection from ISteamRemoteStorage/GetCollectionDetails.
+
+    A collection Steam cannot find comes back with only its id and a
+    ``result`` other than 1.
+    """
+
+    publishedfileid: str = Field("", description="Published file id (64-bit)")
+    result: int = Field(0, description="EResult: 1 if the collection was found")
+    children: list[CollectionChild] = Field(default_factory=list)
+
+
+class CollectionDetailsList(SteamModel):
+    result: int = Field(0, description="EResult of the whole request")
+    resultcount: int = 0
+    collectiondetails: list[CollectionDetails] = Field(default_factory=list)
+
+
+class CollectionDetailsResponse(SteamModel):
+    """ISteamRemoteStorage/GetCollectionDetails: the requested collections."""
+
+    response: CollectionDetailsList = Field(default_factory=CollectionDetailsList)
