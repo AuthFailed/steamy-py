@@ -1,0 +1,49 @@
+{
+  "response": {
+    "game_count": 3,
+    "games": [
+      {
+        "appid": 220,
+        "name": "Half-Life 2",
+        "playtime_forever": 1311,
+        "img_icon_url": "fcfb366051782b8ebf2aa297f3b746395858cb62",
+        "has_community_visible_stats": true,
+        "playtime_windows_forever": 1289,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 22,
+        "playtime_deck_forever": 0,
+        "rtime_last_played": 1726784163,
+        "content_descriptorids": [2, 5],
+        "playtime_disconnected": 0
+      },
+      {
+        "appid": 440,
+        "name": "Team Fortress 2",
+        "playtime_2weeks": 95,
+        "playtime_forever": 48213,
+        "img_icon_url": "e3f595a92552da3d664ad00277fad2107345f743",
+        "has_community_visible_stats": true,
+        "playtime_windows_forever": 47025,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 1093,
+        "playtime_deck_forever": 95,
+        "rtime_last_played": 1727910021,
+        "content_descriptorids": [2, 5],
+        "playtime_disconnected": 0
+      },
+      {
+        "appid": 620,
+        "name": "Portal 2",
+        "playtime_forever": 0,
+        "img_icon_url": "2e478fc6874d06ae5baf0d147f6f21203291aa02",
+        "has_community_visible_stats": true,
+        "playtime_windows_forever": 0,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 0,
+        "playtime_deck_forever": 0,
+        "rtime_last_played": 0,
+        "playtime_disconnected": 0
+      }
+    ]
+  }
+}

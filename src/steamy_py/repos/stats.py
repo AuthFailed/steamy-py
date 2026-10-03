@@ -97,7 +97,7 @@ class StatsAPI(BaseAPI):
             logger.error(f"Error getting global stats for app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get global stats: {e}")
+            raise SteamAPIError(f"Failed to get global stats: {e}") from e
 
     async def get_user_stats_for_game(
         self, steamid: str, app_id: int
@@ -155,7 +155,7 @@ class StatsAPI(BaseAPI):
             logger.error(f"Error getting user stats for {steamid}, app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get user stats: {e}")
+            raise SteamAPIError(f"Failed to get user stats: {e}") from e
 
     async def get_global_achievement_percentages(
         self, app_id: int
@@ -197,7 +197,7 @@ class StatsAPI(BaseAPI):
             logger.error(f"Error getting achievement percentages for app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get achievement percentages: {e}")
+            raise SteamAPIError(f"Failed to get achievement percentages: {e}") from e
 
     async def get_current_players(self, app_id: int) -> PlayerCount:
         """Get current number of players for a game.
@@ -241,7 +241,7 @@ class StatsAPI(BaseAPI):
             logger.error(f"Error getting current players for app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get current players: {e}")
+            raise SteamAPIError(f"Failed to get current players: {e}") from e
 
     async def get_news_for_app(
         self, app_id: int, count: int = 20, max_length: int = 300
@@ -287,7 +287,7 @@ class StatsAPI(BaseAPI):
             logger.error(f"Error getting news for app {app_id}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get news: {e}")
+            raise SteamAPIError(f"Failed to get news: {e}") from e
 
     async def get_user_achievements_only(
         self, steamid: str, app_id: int

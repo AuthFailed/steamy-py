@@ -1,6 +1,6 @@
 """Market related data models for Steam API."""
 
-from typing import Any, List
+from typing import Any
 
 from pydantic import Field
 
@@ -206,7 +206,7 @@ class MarketHistoryResponse(SteamResponse):
     success: bool = Field(description="Request success")
     price_prefix: str = Field(description="Price currency prefix")
     price_suffix: str = Field(description="Price currency suffix")
-    prices: list[List] = Field(description="Price history data")
+    prices: list[list] = Field(description="Price history data")
 
     def to_history_entries(self) -> list[MarketHistoryEntry]:
         """Convert raw price data to history entries."""

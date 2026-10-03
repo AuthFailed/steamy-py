@@ -36,7 +36,9 @@ class Steam:
                 print(f"Owns {len(games)} games")
 
                 # Get market price
-                price = await steam.market.get_item_price("AK-47 | Redline (Field-Tested)")
+                price = await steam.market.get_item_price(
+                    "AK-47 | Redline (Field-Tested)"
+                )
                 if price:
                     print(f"Price: {price.lowest_price}")
 
@@ -54,8 +56,10 @@ class Steam:
         """Initialize the Steam API client.
 
         Args:
-            api_key: Steam API key for public endpoints. If not provided, will try to get from STEAM_API_KEY env var
-            access_token: Steam access token for user-specific endpoints. If not provided, will try to get from STEAM_ACCESS_TOKEN env var
+            api_key: Steam API key for public endpoints. Falls back to the
+                STEAM_API_KEY environment variable.
+            access_token: Steam access token for user-specific endpoints. Falls
+                back to the STEAM_ACCESS_TOKEN environment variable.
             settings: Optional settings configuration
             **kwargs: Additional arguments passed to Settings
 
@@ -63,7 +67,8 @@ class Steam:
             ConfigurationError: If no authentication credentials are provided
 
         Note:
-            Some endpoints require api_key, others require access_token. You can provide one or both.
+            Some endpoints require api_key, others require access_token. You can
+            provide one or both.
             - Player, Games, Stats APIs typically use api_key
             - Family, Friends, and other personal APIs typically use access_token
         """
@@ -81,8 +86,10 @@ class Steam:
         if not api_key and not access_token:
             raise ConfigurationError(
                 "Either Steam API key or access token is required. "
-                "API key: Get from https://steamcommunity.com/dev/apikey (set STEAM_API_KEY env var) "
-                "Access token: Get from Steam OAuth flow (set STEAM_ACCESS_TOKEN env var)"
+                "API key: Get from https://steamcommunity.com/dev/apikey "
+                "(set STEAM_API_KEY env var). "
+                "Access token: Get from Steam OAuth flow "
+                "(set STEAM_ACCESS_TOKEN env var)"
             )
 
         # Initialize settings

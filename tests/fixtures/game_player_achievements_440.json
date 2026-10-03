@@ -1,0 +1,30 @@
+{
+  "playerstats": {
+    "steamID": "76561197960435530",
+    "gameName": "Team Fortress 2",
+    "achievements": [
+      {
+        "apiname": "TF_PLAY_GAME_EVERYCLASS",
+        "achieved": 1,
+        "unlocktime": 1206047153,
+        "name": "Head of the Class",
+        "description": "Play a complete round with every class."
+      },
+      {
+        "apiname": "TF_PLAY_GAME_EVERYMAP",
+        "achieved": 1,
+        "unlocktime": 1206133580,
+        "name": "World Traveler",
+        "description": "Play a complete game on 2Fort, Dustbowl, Granary, Gravel Pit, Hydro, and Well (CP)."
+      },
+      {
+        "apiname": "TF_GET_HEALPOINTS",
+        "achieved": 0,
+        "unlocktime": 0,
+        "name": "Team Doctor",
+        "description": "Accumulate 25000 heal points as a Medic."
+      }
+    ],
+    "success": true
+  }
+}

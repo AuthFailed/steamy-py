@@ -1,5 +1,5 @@
-# Main Steam client
 # Core components (for advanced users)
+from ._version import __version__
 from .client import Client
 from .config import Settings
 
@@ -40,47 +40,39 @@ from .models import (
 from .repos import FamilyAPI, GameAPI, MarketAPI, PlayerAPI, StatsAPI
 from .steam import Steam
 
-__version__ = "1.0.0"
-
 __all__ = [
-    # Main client
-    "Steam",
-    # Core components
-    "Client",
-    "Settings",
-    # Exceptions
-    "SteamAPIError",
-    "AuthenticationError",
-    "RateLimitError",
-    "PlayerNotFoundError",
-    "GameNotFoundError",
-    "InvalidSteamIDError",
-    "InvalidAppIDError",
-    "PrivateProfileError",
-    "ServiceUnavailableError",
-    "ConfigurationError",
-    "ResponseParsingError",
-    "NetworkError",
-    # Common models
-    "PlayerSummary",
-    "Friend",
-    "PlayerBan",
-    "OwnedGame",
-    "SteamApp",
     "Achievement",
-    "PriceInfo",
-    "MarketListing",
-    "InventoryItem",
-    "GlobalStat",
-    "UserStat",
-    "PlayerCount",
-    "NewsItem",
-    # API classes
-    "PlayerAPI",
-    "GameAPI",
-    "MarketAPI",
-    "StatsAPI",
+    "AuthenticationError",
+    "Client",
+    "ConfigurationError",
     "FamilyAPI",
-    # Version
+    "Friend",
+    "GameAPI",
+    "GameNotFoundError",
+    "GlobalStat",
+    "InvalidAppIDError",
+    "InvalidSteamIDError",
+    "InventoryItem",
+    "MarketAPI",
+    "MarketListing",
+    "NetworkError",
+    "NewsItem",
+    "OwnedGame",
+    "PlayerAPI",
+    "PlayerBan",
+    "PlayerCount",
+    "PlayerNotFoundError",
+    "PlayerSummary",
+    "PriceInfo",
+    "PrivateProfileError",
+    "RateLimitError",
+    "ResponseParsingError",
+    "ServiceUnavailableError",
+    "Settings",
+    "StatsAPI",
+    "Steam",
+    "SteamAPIError",
+    "SteamApp",
+    "UserStat",
     "__version__",
 ]

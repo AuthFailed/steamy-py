@@ -79,12 +79,20 @@ class BaseAPI:
             JSON response data
 
         Raises:
-            ClientError: On HTTP or API errors
+            SteamAPIError: On HTTP errors (``status_code`` is set), with the
+                RateLimitError, NetworkError and ResponseParsingError subclasses
+                for rate limiting, connection errors and invalid JSON
+            ValueError: If the credential for ``auth_type`` is missing
         """
         url = self._build_url(interface, method, version)
 
         logger.debug(
-            f"Making {http_method} request to {interface}/{method}/{version} with auth: {auth_type}"
+            "Making %s request to %s/%s/%s with auth: %s",
+            http_method,
+            interface,
+            method,
+            version,
+            auth_type,
         )
 
         return await self.client.request(
@@ -112,12 +120,18 @@ class BaseAPI:
             JSON response data
 
         Raises:
-            ClientError: On HTTP or API errors
+            SteamAPIError: On HTTP errors (``status_code`` is set), with the
+                RateLimitError, NetworkError and ResponseParsingError subclasses
+                for rate limiting, connection errors and invalid JSON
+            ValueError: If the credential for ``auth_type`` is missing
         """
         url = self._build_store_url(endpoint)
 
         logger.debug(
-            f"Making {http_method} store request to {endpoint} with auth: {auth_type}"
+            "Making %s store request to %s with auth: %s",
+            http_method,
+            endpoint,
+            auth_type,
         )
 
         return await self.client.request(

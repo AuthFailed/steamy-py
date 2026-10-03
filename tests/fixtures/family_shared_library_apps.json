@@ -1,0 +1,46 @@
+{
+  "response": {
+    "apps": [
+      {
+        "appid": 220,
+        "owner_steamids": ["76561198012345678"],
+        "name": "Half-Life 2",
+        "sort_as": "Half-Life 2",
+        "capsule_filename": "capsule_184x69.jpg",
+        "img_icon_hash": "fcfb366051782b8ebf2aa297f3b746395858cb62",
+        "exclude_reason": 0,
+        "rt_time_acquired": 1101772800,
+        "rt_last_played": 1729036800,
+        "rt_playtime": 2835,
+        "app_type": 1,
+        "content_descriptors": [2, 5]
+      },
+      {
+        "appid": 620,
+        "owner_steamids": ["76561197960435530", "76561198012345678"],
+        "name": "Portal 2",
+        "capsule_filename": "capsule_184x69.jpg",
+        "img_icon_hash": "2e478fc6874d06ae5baf0d147f6f21203291aa02",
+        "exclude_reason": 0,
+        "rt_time_acquired": 1303171200,
+        "rt_last_played": 1730246400,
+        "rt_playtime": 1342,
+        "app_type": 1
+      },
+      {
+        "appid": 440,
+        "owner_steamids": ["76561198012345678"],
+        "name": "Team Fortress 2",
+        "capsule_filename": "capsule_184x69.jpg",
+        "img_icon_hash": "e3f595a92552da3d664ad00277fad2107345f743",
+        "exclude_reason": 3,
+        "rt_time_acquired": 1308096000,
+        "rt_last_played": 1728950400,
+        "rt_playtime": 61944,
+        "app_type": 1,
+        "content_descriptors": [2, 5]
+      }
+    ],
+    "owner_steamid": "76561197960435530"
+  }
+}

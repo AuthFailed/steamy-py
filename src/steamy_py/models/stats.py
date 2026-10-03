@@ -1,7 +1,7 @@
 """Statistics related data models for Steam API."""
 
 from datetime import datetime
-from typing import Any, Union
+from typing import Any
 
 from pydantic import Field
 
@@ -12,14 +12,14 @@ class GlobalStat(SteamModel):
     """Global game statistic."""
 
     name: str = Field(description="Statistic name")
-    total: Union[int, float] = Field(description="Total value across all players")
+    total: int | float = Field(description="Total value across all players")
 
 
 class UserStat(SteamModel):
     """User statistic for a game."""
 
     name: str = Field(description="Statistic name")
-    value: Union[int, float] = Field(description="Statistic value")
+    value: int | float = Field(description="Statistic value")
 
 
 class UserAchievement(SteamModel):
@@ -114,9 +114,7 @@ class GlobalStatsResponse(SteamModel):
     """Response wrapper for GetGlobalStatsForGame."""
 
     result: int = Field(description="Result code")
-    globalstats: dict[str, Union[int, float]] = Field(
-        description="Global statistics data"
-    )
+    globalstats: dict[str, int | float] = Field(description="Global statistics data")
 
     @property
     def is_success(self) -> bool:

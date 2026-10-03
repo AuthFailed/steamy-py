@@ -1,0 +1,61 @@
+{
+  "response": {
+    "players": [
+      {
+        "steamid": "76561197960435530",
+        "communityvisibilitystate": 3,
+        "profilestate": 1,
+        "personaname": "Robin",
+        "commentpermission": 1,
+        "profileurl": "https://steamcommunity.com/id/robinwalker/",
+        "avatar": "https://avatars.steamstatic.com/81b5478529dce13bf24b55ac42c1af7058aaf7a9.jpg",
+        "avatarmedium": "https://avatars.steamstatic.com/81b5478529dce13bf24b55ac42c1af7058aaf7a9_medium.jpg",
+        "avatarfull": "https://avatars.steamstatic.com/81b5478529dce13bf24b55ac42c1af7058aaf7a9_full.jpg",
+        "avatarhash": "81b5478529dce13bf24b55ac42c1af7058aaf7a9",
+        "lastlogoff": 1790903215,
+        "personastate": 0,
+        "realname": "Robin Walker",
+        "primaryclanid": "103582791429521412",
+        "timecreated": 1063407589,
+        "personastateflags": 0,
+        "loccountrycode": "US",
+        "locstatecode": "WA",
+        "loccityid": 3961
+      },
+      {
+        "steamid": "76561198012345678",
+        "communityvisibilitystate": 3,
+        "profilestate": 1,
+        "personaname": "frag_master",
+        "commentpermission": 1,
+        "profileurl": "https://steamcommunity.com/profiles/76561198012345678/",
+        "avatar": "https://avatars.steamstatic.com/2c3e1c6b0ab5d3e9a1d8c5a0e0f0b6b2c4a1d2e3.jpg",
+        "avatarmedium": "https://avatars.steamstatic.com/2c3e1c6b0ab5d3e9a1d8c5a0e0f0b6b2c4a1d2e3_medium.jpg",
+        "avatarfull": "https://avatars.steamstatic.com/2c3e1c6b0ab5d3e9a1d8c5a0e0f0b6b2c4a1d2e3_full.jpg",
+        "avatarhash": "2c3e1c6b0ab5d3e9a1d8c5a0e0f0b6b2c4a1d2e3",
+        "lastlogoff": 1790950012,
+        "personastate": 1,
+        "primaryclanid": "103582791429521408",
+        "timecreated": 1254412800,
+        "gameserverip": "162.254.197.36:27015",
+        "gameserversteamid": "90207346318472193",
+        "gameextrainfo": "Counter-Strike 2",
+        "gameid": "730",
+        "personastateflags": 0,
+        "loccountrycode": "DE"
+      },
+      {
+        "steamid": "76561198087654321",
+        "communityvisibilitystate": 1,
+        "profilestate": 1,
+        "personaname": "quiet_one",
+        "profileurl": "https://steamcommunity.com/profiles/76561198087654321/",
+        "avatar": "https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb.jpg",
+        "avatarmedium": "https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_medium.jpg",
+        "avatarfull": "https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg",
+        "avatarhash": "fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb",
+        "personastate": 0
+      }
+    ]
+  }
+}

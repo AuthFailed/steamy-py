@@ -1,6 +1,12 @@
-"""Market API endpoints for Steam Community Market."""
+"""Market API endpoints for Steam Community Market.
+
+These are unofficial steamcommunity.com endpoints, not part of the Steam Web
+API. They need no API key (and must never receive one), and Steam rate limits
+them much more aggressively than api.steampowered.com.
+"""
 
 import logging
+from typing import Any
 
 from ..exceptions import (
     InvalidSteamIDError,
@@ -22,12 +28,17 @@ logger = logging.getLogger(__name__)
 
 
 class MarketAPI(BaseAPI):
-    """Steam Community Market API endpoints."""
+    """Steam Community Market and inventory endpoints (steamcommunity.com)."""
 
-    def __init__(self, client):
-        """Initialize Market API."""
-        super().__init__(client)
-        self.market_base_url = "https://steamcommunity.com/market"
+    @property
+    def community_base_url(self) -> str:
+        """Base URL of the Steam Community site."""
+        return self.client.settings.STEAM_COMMUNITY_BASE_URL.rstrip("/")
+
+    @property
+    def market_base_url(self) -> str:
+        """Base URL of the Steam Community Market."""
+        return f"{self.community_base_url}/market"
 
     def _build_market_url(self, endpoint: str) -> str:
         """Build Steam Community Market URL.
@@ -41,17 +52,23 @@ class MarketAPI(BaseAPI):
         endpoint = endpoint.lstrip("/")
         return f"{self.market_base_url}/{endpoint}"
 
+    async def _request_community(
+        self, url: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """GET a steamcommunity.com URL without sending any credentials."""
+        return await self.client.request("GET", url, params=params, auth_type="none")
+
     async def get_item_price(
         self,
         market_hash_name: str,
-        app_id: int = 730,  # Default to CS:GO
+        app_id: int = 730,  # Counter-Strike 2
         currency: int = 1,  # USD
     ) -> PriceInfo | None:
         """Get current market price for an item.
 
         Args:
             market_hash_name: Item's market hash name
-            app_id: Steam App ID (default: 730 for CS:GO)
+            app_id: Steam App ID (default: 730, Counter-Strike 2)
             currency: Currency code (1=USD, 3=EUR, etc.)
 
         Returns:
@@ -63,15 +80,13 @@ class MarketAPI(BaseAPI):
         try:
             url = self._build_market_url("priceoverview/")
 
-            # Market API doesn't require authentication for price data
             params = {
                 "appid": str(app_id),
                 "market_hash_name": market_hash_name,
                 "currency": str(currency),
             }
 
-            # Remove API key for market requests
-            response_data = await self.client.request("GET", url, params=params)
+            response_data = await self._request_community(url, params)
 
             if not response_data.get("success"):
                 return None
@@ -83,10 +98,15 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting price for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get item price: {e}")
+            raise SteamAPIError(f"Failed to get item price: {e}") from e
 
     async def get_market_listings(
-        self, market_hash_name: str, app_id: int = 730, start: int = 0, count: int = 100
+        self,
+        market_hash_name: str,
+        app_id: int = 730,
+        start: int = 0,
+        count: int = 100,
+        currency: int = 1,
     ) -> MarketListingsResponse:
         """Get market listings for an item.
 
@@ -95,6 +115,7 @@ class MarketAPI(BaseAPI):
             app_id: Steam App ID
             start: Starting index for pagination
             count: Number of results to return
+            currency: Currency code (1=USD, 3=EUR, etc.)
 
         Returns:
             Market listings response
@@ -110,11 +131,11 @@ class MarketAPI(BaseAPI):
                 "market_hash_name": market_hash_name,
                 "start": str(start),
                 "count": str(count),
-                "currency": "1",  # USD
+                "currency": str(currency),
                 "format": "json",
             }
 
-            response_data = await self.client.request("GET", url, params=params)
+            response_data = await self._request_community(url, params)
 
             return MarketListingsResponse(**response_data)
 
@@ -122,7 +143,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting listings for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get market listings: {e}")
+            raise SteamAPIError(f"Failed to get market listings: {e}") from e
 
     async def get_price_history(
         self, market_hash_name: str, app_id: int = 730
@@ -144,7 +165,7 @@ class MarketAPI(BaseAPI):
 
             params = {"appid": str(app_id), "market_hash_name": market_hash_name}
 
-            response_data = await self.client.request("GET", url, params=params)
+            response_data = await self._request_community(url, params)
 
             if not response_data.get("success"):
                 return []
@@ -156,7 +177,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting price history for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get price history: {e}")
+            raise SteamAPIError(f"Failed to get price history: {e}") from e
 
     async def get_inventory(
         self,
@@ -165,6 +186,7 @@ class MarketAPI(BaseAPI):
         context_id: str = "2",
         start_assetid: str | None = None,
         count: int = 5000,
+        language: str = "english",
     ) -> InventoryResponse:
         """Get Steam inventory for a user.
 
@@ -174,6 +196,7 @@ class MarketAPI(BaseAPI):
             context_id: Inventory context ID (usually "2")
             start_assetid: Starting asset ID for pagination
             count: Maximum items to return
+            language: Language for item descriptions
 
         Returns:
             Inventory response
@@ -186,16 +209,14 @@ class MarketAPI(BaseAPI):
         self._validate_steam_id(steamid)
 
         try:
-            url = (
-                f"https://steamcommunity.com/inventory/{steamid}/{app_id}/{context_id}"
-            )
+            url = f"{self.community_base_url}/inventory/{steamid}/{app_id}/{context_id}"
 
-            params = {"l": "english", "count": str(count)}
+            params = {"l": language, "count": str(count)}
 
             if start_assetid:
                 params["start_assetid"] = start_assetid
 
-            response_data = await self.client.request("GET", url, params=params)
+            response_data = await self._request_community(url, params)
 
             # Check for common error responses
             if "error" in response_data:
@@ -215,7 +236,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting inventory for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get inventory: {e}")
+            raise SteamAPIError(f"Failed to get inventory: {e}") from e
 
     async def search_market(
         self,
@@ -254,15 +275,10 @@ class MarketAPI(BaseAPI):
                 "norender": "1",  # Get JSON instead of HTML
             }
 
-            if app_id:
-                params["category_730_ItemSet[]"] = "any"
-                params["category_730_ProPlayer[]"] = "any"
-                params["category_730_StickerCapsule[]"] = "any"
-                params["category_730_TournamentTeam[]"] = "any"
-                params["category_730_Weapon[]"] = "any"
+            if app_id is not None:
                 params["appid"] = str(app_id)
 
-            response_data = await self.client.request("GET", url, params=params)
+            response_data = await self._request_community(url, params)
 
             return MarketListingsResponse(**response_data)
 
@@ -270,7 +286,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error searching market: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to search market: {e}")
+            raise SteamAPIError(f"Failed to search market: {e}") from e
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100
@@ -289,29 +305,6 @@ class MarketAPI(BaseAPI):
         """
         return await self.search_market(
             query="", app_id=app_id, count=count, sort_column="popular", sort_dir="desc"
-        )
-
-    async def get_recent_items(
-        self, app_id: int | None = None, count: int = 100
-    ) -> MarketListingsResponse:
-        """Get recently listed market items.
-
-        Args:
-            app_id: Filter by app ID
-            count: Number of results
-
-        Returns:
-            Recent items
-
-        Raises:
-            SteamAPIError: On API errors
-        """
-        return await self.search_market(
-            query="",
-            app_id=app_id,
-            count=count,
-            sort_column="quantity",
-            sort_dir="desc",
         )
 
     def _validate_steam_id(self, steamid: str) -> None:

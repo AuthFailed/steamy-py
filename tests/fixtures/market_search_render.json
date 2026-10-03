@@ -1,0 +1,64 @@
+{
+  "success": true,
+  "start": 0,
+  "pagesize": 2,
+  "total_count": 23214,
+  "searchdata": {
+    "query": "",
+    "search_descriptions": false,
+    "total_count": 23214,
+    "pagesize": 2,
+    "prefix": "searchResults",
+    "class_prefix": "market"
+  },
+  "results": [
+    {
+      "name": "Dreams & Nightmares Case",
+      "hash_name": "Dreams & Nightmares Case",
+      "sell_listings": 103589,
+      "sell_price": 147,
+      "sell_price_text": "$1.47",
+      "app_icon": "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/730/8dbc71957312bbd3baea65848b545be9eae2a355.jpg",
+      "app_name": "Counter-Strike 2",
+      "asset_description": {
+        "appid": 730,
+        "classid": "4839650857",
+        "instanceid": "0",
+        "background_color": "",
+        "icon_url": "i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyL6kJ_m-B1Q7uCvZaZkNM-SA1iSzuF6v-R9TnG1nhFztmTWzNj6ci6RaFJyCJclRbVfthG8k4CyZb7ns1Te2t9Hni_7jjQJsHhAVrUOUA",
+        "tradable": 1,
+        "name": "Dreams & Nightmares Case",
+        "name_color": "D2D2D2",
+        "type": "Base Grade Container",
+        "market_name": "Dreams & Nightmares Case",
+        "market_hash_name": "Dreams & Nightmares Case",
+        "commodity": 1
+      },
+      "sale_price_text": "$1.40"
+    },
+    {
+      "name": "AK-47 | Redline (Field-Tested)",
+      "hash_name": "AK-47 | Redline (Field-Tested)",
+      "sell_listings": 2185,
+      "sell_price": 3011,
+      "sell_price_text": "$30.11",
+      "app_icon": "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/730/8dbc71957312bbd3baea65848b545be9eae2a355.jpg",
+      "app_name": "Counter-Strike 2",
+      "asset_description": {
+        "appid": 730,
+        "classid": "5154337733",
+        "instanceid": "188530139",
+        "background_color": "",
+        "icon_url": "-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmnjQO3-UdsZGHyd4_Bd1RvNQ7T_FDrw-_ng5Pu75iY1zI97bhLsvQz",
+        "tradable": 1,
+        "name": "AK-47 | Redline (Field-Tested)",
+        "name_color": "D2D2D2",
+        "type": "Classified Rifle",
+        "market_name": "AK-47 | Redline (Field-Tested)",
+        "market_hash_name": "AK-47 | Redline (Field-Tested)",
+        "commodity": 0
+      },
+      "sale_price_text": "$28.67"
+    }
+  ]
+}
