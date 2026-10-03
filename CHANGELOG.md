@@ -77,6 +77,10 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `category_730_*` filters whenever an app id is given ([#11]).
 - **Breaking:** `MarketAPI.market_base_url` is now a read-only property
   derived from the new `Settings.STEAM_COMMUNITY_BASE_URL` ([#11]).
+- **Breaking:** `MarketAPI.get_market_listings()` returns the new
+  `MarketListingsResponse` shape (`listinginfo`, `assets`, `currency`);
+  `search_market()` and `get_popular_items()` return `MarketSearchResponse`
+  (the previous fields, `searchdata` and `results`) ([#22]).
 - `aiohttp[speedups]` is now optional: install `steamy-py[speedups]` to get
   it ([#6]).
 - `__version__` and the `User-Agent` header now report the installed package
@@ -100,6 +104,9 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 - `Settings.STEAM_COMMUNITY_BASE_URL` ([#11]).
 - `currency` parameter for `MarketAPI.get_market_listings()` and `language`
   parameter for `MarketAPI.get_inventory()` ([#11]).
+- Inventory models keep `actions` (CS2 inspect links), `owner_descriptions`,
+  `owner_actions`, `market_actions`, restrictions and `asset_properties`
+  ([#22]).
 - `py.typed` marker, so type checkers use the package's annotations ([#6]).
 - Test suite, CI workflow and Dependabot configuration ([#8], [#9]).
 
@@ -112,6 +119,15 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Fixed
 
+- `MarketAPI.get_market_listings()` requested an HTML page; it now uses the
+  `/market/listings/{appid}/{hash}/render/` JSON endpoint ([#22]).
+- `MarketAPI.get_inventory()` failed on every non-empty inventory (`pos` is
+  now optional) and on descriptions with nested `app_data`; a private
+  inventory (HTTP 403) raises `PrivateProfileError` ([#22]).
+- Price-to-cents conversion no longer truncates (`$0.29` was 28) and parses
+  every currency format, not only `$` ([#22]).
+- `MarketAPI.get_price_history()` no longer crashes on a non-object reply
+  ([#22]).
 - Project URLs in the package metadata pointed to the wrong repository
   ([#6]).
 - `FamilyAPI.resend_invitation_to_family_group()` called
@@ -132,3 +148,4 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#17]: https://github.com/AuthFailed/steamy-py/issues/17
 [#18]: https://github.com/AuthFailed/steamy-py/issues/18
 [#19]: https://github.com/AuthFailed/steamy-py/issues/19
+[#22]: https://github.com/AuthFailed/steamy-py/issues/22
