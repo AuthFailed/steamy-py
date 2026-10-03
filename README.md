@@ -55,16 +55,27 @@ async with Steam() as steam:
     count = await steam.stats.get_current_players(730)
     news = await steam.store.get_news_for_app(440, count=5)
     details = await steam.store.get_app_details(620)
+    items = await steam.store.get_items([620, 440], include_assets=True)
+    found = await steam.store.store_search("portal")
+    wishlist = await steam.wishlist.get_wishlist("76561197960435530")
     price = await steam.market.get_item_price("AK-47 | Redline (Field-Tested)")
     inventory = await steam.economy.get_full_inventory("76561197960435530", 730)
+
+# API key (or access token)
+async with Steam(api_key="YOUR_API_KEY") as steam:
+    level = await steam.users.get_steam_level("76561197960435530")
+    recent = await steam.library.get_recently_played_games("76561197960435530")
+    page = await steam.workshop.query_files(appid=440, numperpage=10)
+    print([item.title for item in page.publishedfiledetails])
 
 # Vanity name or profile URL to Steam ID
 async with Steam(api_key="YOUR_API_KEY") as steam:
     steamid = await steam.users.resolve_vanity_url("robinwalker")
 
-# Steam Families need the user's access token
+# The signed-in user's data needs their access token
 async with Steam(access_token="YOUR_ACCESS_TOKEN") as steam:
     family = await steam.family.get_family_group_for_user()
+    friends = await steam.friends.get_friends_list()
 ```
 
 See the [`examples`](examples) directory for more.
@@ -97,10 +108,10 @@ missing. `Steam()` itself needs none.
 
 | Endpoints | Credential |
 |---|---|
-| Store, news, global stats, player counts, community market and inventory | none |
+| Store (app details, store items, search), news, global stats, player counts, wishlists, `ISteamRemoteStorage` workshop details, `steam.util`, community market and inventory | none |
 | `ISteamUser`, `ISteamUserStats` player methods (summaries, friends, bans, achievements, stats, schema) | API key |
-| `IPlayerService`, `IStoreService` (owned games, app list) | API key, or the access token when there is no key |
-| Steam Families (`IFamilyGroupsService`) | access token |
+| `IPlayerService` (owned and recently played games, badges, level), `IStoreService` (app list), `IPublishedFileService` (workshop details and queries) | API key, or the access token when there is no key |
+| Steam Families, the signed-in user's friends list and last played times | access token |
 | Market price history | `steamLoginSecure` cookie |
 
 Credentials are passed to `Steam(...)` or read from the environment:

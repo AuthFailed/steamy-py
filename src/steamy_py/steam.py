@@ -100,10 +100,13 @@ class Steam:
 
         Note:
             Each endpoint sends only the credential it needs:
-            - Store, news, global stats and player counts need none
+            - Store, news, global stats, player counts, wishlists and util
+              need none
             - ISteamUser and ISteamUserStats player methods need the API key
-            - IPlayerService and IStoreService methods take either
-            - Family methods need the access token
+            - IPlayerService, IStoreService and IPublishedFileService methods
+              take either
+            - Family, friends list and last played times need the access
+              token
         """
         api_key = api_key or os.getenv("STEAM_API_KEY")
         access_token = access_token or os.getenv("STEAM_ACCESS_TOKEN")
