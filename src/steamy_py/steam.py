@@ -2,6 +2,7 @@
 
 import logging
 import os
+import warnings
 
 from aiohttp import ClientSession
 from pydantic import ValidationError
@@ -9,11 +10,18 @@ from pydantic import ValidationError
 from .client import Client
 from .config import Settings
 from .exceptions import ConfigurationError, ResponseParsingError
+from .repos.economy import EconomyAPI
 from .repos.family import FamilyAPI
+from .repos.friends import FriendsAPI
 from .repos.game import GameAPI
+from .repos.library import LibraryAPI
 from .repos.market import MarketAPI
-from .repos.player import PlayerAPI
 from .repos.stats import StatsAPI
+from .repos.store import StoreAPI
+from .repos.users import UsersAPI
+from .repos.util import UtilAPI
+from .repos.wishlist import WishlistAPI
+from .repos.workshop import WorkshopAPI
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +30,15 @@ class Steam:
     """Main Steam Web API client.
 
     This is the primary entry point for interacting with the Steam Web API.
-    It provides access to all API categories through dedicated repository objects.
+    Endpoints are grouped by namespace:
+
+    - ``users``: profiles, friends lists, bans, vanity URLs, badges, levels
+    - ``library``: owned and recently played games
+    - ``stats``: achievements, stats, schemas, player counts
+    - ``store``: app details, the app list, store search, news
+    - ``wishlist``, ``workshop``, ``friends``, ``family``, ``util``
+    - ``economy``: community inventories
+    - ``market``: the community market
 
     Example:
         ```python
@@ -32,11 +48,11 @@ class Steam:
         async def main():
             async with Steam(api_key="your_api_key") as steam:
                 # Get player information
-                player = await steam.player.get_player_summary("76561197960435530")
+                player = await steam.users.get_player_summary("76561197960435530")
                 print(f"Player: {player.personaname}")
 
                 # Get owned games
-                games = await steam.games.get_owned_games("76561197960435530")
+                games = await steam.library.get_owned_games("76561197960435530")
                 print(f"Owns {len(games)} games")
 
                 # Get market price
@@ -114,14 +130,39 @@ class Steam:
             steam_login_secure=steam_login_secure,
         )
 
-        # Initialize API repositories
-        self.player = PlayerAPI(self.client)
-        self.games = GameAPI(self.client)
-        self.market = MarketAPI(self.client)
+        # API namespaces (#25)
+        self.users = UsersAPI(self.client)
+        self.library = LibraryAPI(self.client)
         self.stats = StatsAPI(self.client)
+        self.store = StoreAPI(self.client)
+        self.wishlist = WishlistAPI(self.client)
+        self.workshop = WorkshopAPI(self.client)
+        self.economy = EconomyAPI(self.client)
+        self.market = MarketAPI(self.client)
         self.family = FamilyAPI(self.client)
+        self.friends = FriendsAPI(self.client)
+        self.util = UtilAPI(self.client)
+        self._games = GameAPI(self.client)
 
         logger.debug("Steam API client initialized")
+
+    @property
+    def player(self) -> UsersAPI:
+        """Deprecated: use ``users``."""
+        warnings.warn(
+            "Steam.player is deprecated; use Steam.users",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.users
+
+    @property
+    def games(self) -> GameAPI:
+        """Deprecated: use ``library``, ``store`` and ``stats``.
+
+        Each method warns and calls its new home.
+        """
+        return self._games
 
     async def __aenter__(self):
         """Async context manager entry - creates session and authenticates."""

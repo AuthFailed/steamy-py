@@ -142,7 +142,7 @@ ENDPOINTS = [
         id="get_market_listings",
     ),
     pytest.param(
-        lambda steam: steam.market.get_inventory(STEAMID, 730),
+        lambda steam: steam.economy.get_inventory(STEAMID, 730),
         inventory_path(),
         {"json": EMPTY_INVENTORY},
         id="get_inventory",
@@ -597,7 +597,7 @@ async def test_get_inventory_sends_default_language_and_count(
 ) -> None:
     fake_steam.community("GET", inventory_path(), json=EMPTY_INVENTORY)
 
-    await steam.market.get_inventory(STEAMID, 730)
+    await steam.economy.get_inventory(STEAMID, 730)
 
     assert fake_steam.last.path == COMMUNITY_PREFIX + inventory_path()
     assert fake_steam.last.params == {"l": "english", "count": "2000"}
@@ -609,7 +609,7 @@ async def test_get_inventory_sends_context_language_count_and_start_assetid(
     path = inventory_path(app_id=753, context_id="6")
     fake_steam.community("GET", path, json=EMPTY_INVENTORY)
 
-    await steam.market.get_inventory(
+    await steam.economy.get_inventory(
         STEAMID,
         753,
         context_id="6",
@@ -631,7 +631,7 @@ async def test_get_inventory_parses_empty_inventory(
 ) -> None:
     fake_steam.community("GET", inventory_path(), json=EMPTY_INVENTORY)
 
-    inventory = await steam.market.get_inventory(STEAMID, 730)
+    inventory = await steam.economy.get_inventory(STEAMID, 730)
 
     assert inventory.is_success
     assert inventory.total_inventory_count == 0
@@ -647,7 +647,7 @@ async def test_get_inventory_parses_assets_and_descriptions(
         "GET", inventory_path(), json=load_fixture("market_inventory_730.json")
     )
 
-    inventory = await steam.market.get_inventory(STEAMID, 730)
+    inventory = await steam.economy.get_inventory(STEAMID, 730)
 
     assert inventory.is_success
     assert inventory.total_inventory_count == 412
@@ -715,7 +715,7 @@ async def test_get_inventory_rejects_invalid_steamid_before_any_request(
     fake_steam.community("GET", inventory_path(), json=EMPTY_INVENTORY)
 
     with pytest.raises(InvalidSteamIDError) as excinfo:
-        await steam.market.get_inventory(bad_id, 730)
+        await steam.economy.get_inventory(bad_id, 730)
 
     assert excinfo.value.steamid == bad_id
     assert fake_steam.requests == []
@@ -727,7 +727,7 @@ async def test_get_inventory_accepts_high_account_id(
     steamid = "76561200000000000"
     fake_steam.community("GET", inventory_path(steamid), json=EMPTY_INVENTORY)
 
-    await steam.market.get_inventory(steamid, 730)
+    await steam.economy.get_inventory(steamid, 730)
 
     assert fake_steam.last.path == COMMUNITY_PREFIX + inventory_path(steamid)
 
@@ -744,7 +744,7 @@ async def test_get_inventory_private_inventory_raises_private_profile_error(
     )
 
     with pytest.raises(PrivateProfileError) as excinfo:
-        await steam.market.get_inventory(STEAMID, 730)
+        await steam.economy.get_inventory(STEAMID, 730)
 
     assert excinfo.value.steamid == STEAMID
 
@@ -894,7 +894,7 @@ async def test_iter_inventory_pages_follows_last_assetid(
     fake_steam.community("GET", inventory_path(), json=first)
     fake_steam.community("GET", inventory_path(), json=second_inventory_page())
 
-    pages = [page async for page in steam.market.iter_inventory_pages(STEAMID, 730)]
+    pages = [page async for page in steam.economy.iter_inventory_pages(STEAMID, 730)]
 
     assert len(pages) == 2
     first_request, second_request = fake_steam.requests
@@ -910,7 +910,7 @@ async def test_get_full_inventory_merges_pages(
     fake_steam.community("GET", inventory_path(), json=first)
     fake_steam.community("GET", inventory_path(), json=second_inventory_page())
 
-    inventory = await steam.market.get_full_inventory(STEAMID, 730)
+    inventory = await steam.economy.get_full_inventory(STEAMID, 730)
 
     assert [asset.assetid for asset in inventory.assets] == [
         *(asset["assetid"] for asset in first["assets"]),
@@ -929,7 +929,7 @@ async def test_iter_inventory_pages_stops_when_steam_repeats_a_page(
     )
 
     with pytest.raises(SteamAPIError, match="same inventory page"):
-        async for _ in steam.market.iter_inventory_pages(STEAMID, 730):
+        async for _ in steam.economy.iter_inventory_pages(STEAMID, 730):
             pass
 
     assert len(fake_steam.requests) == 2

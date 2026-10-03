@@ -13,13 +13,21 @@ import pytest
 from steamy_py import (
     AuthenticationError,
     ConfigurationError,
+    EconomyAPI,
     FamilyAPI,
+    FriendsAPI,
     GameAPI,
+    LibraryAPI,
     MarketAPI,
     PlayerAPI,
     Settings,
     StatsAPI,
     Steam,
+    StoreAPI,
+    UsersAPI,
+    UtilAPI,
+    WishlistAPI,
+    WorkshopAPI,
 )
 from steamy_py.repos import BaseAPI
 from tests.fakesteam import ACCESS_TOKEN, API_KEY, STEAMID, FakeSteam, RecordedRequest
@@ -139,7 +147,7 @@ async def test_client_without_credentials_calls_keyless_endpoints(
     async with Steam(settings=settings, **credentials) as steam:
         count = await steam.stats.get_current_players(730)
         with pytest.raises(AuthenticationError, match="API key"):
-            await steam.player.get_player_summary(STEAMID)
+            await steam.users.get_player_summary(STEAMID)
 
     assert count.player_count == 1043578
     assert len(fake_steam.requests) == 1
@@ -297,11 +305,18 @@ def test_default_settings_target_the_real_steam_hosts(clean_config: Path) -> Non
 @pytest.mark.parametrize(
     ("attribute", "api_class"),
     [
-        ("player", PlayerAPI),
-        ("games", GameAPI),
-        ("market", MarketAPI),
+        ("users", UsersAPI),
+        ("library", LibraryAPI),
         ("stats", StatsAPI),
+        ("store", StoreAPI),
+        ("wishlist", WishlistAPI),
+        ("workshop", WorkshopAPI),
+        ("economy", EconomyAPI),
+        ("market", MarketAPI),
         ("family", FamilyAPI),
+        ("friends", FriendsAPI),
+        ("util", UtilAPI),
+        ("games", GameAPI),
     ],
 )
 def test_repositories_share_the_client(
@@ -313,6 +328,115 @@ def test_repositories_share_the_client(
 
     assert type(repo) is api_class
     assert repo.client is steam.client
+
+
+def test_player_is_a_deprecated_alias_of_users(settings: Settings) -> None:
+    steam = Steam(api_key=API_KEY, settings=settings)
+
+    with pytest.warns(DeprecationWarning, match=r"Steam\.users"):
+        assert steam.player is steam.users
+    assert PlayerAPI is UsersAPI
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "new_name"),
+    [
+        pytest.param(
+            lambda steam: steam.games.get_owned_games(STEAMID),
+            "/IPlayerService/GetOwnedGames/v1/",
+            {"response": {"game_count": 0}},
+            "Steam.library.get_owned_games",
+            id="get_owned_games",
+        ),
+        pytest.param(
+            lambda steam: steam.games.get_app_list_page(),
+            "/IStoreService/GetAppList/v1/",
+            {"response": {"apps": []}},
+            "Steam.store.get_app_list_page",
+            id="get_app_list_page",
+        ),
+        pytest.param(
+            lambda steam: steam.games.get_app_list(),
+            "/IStoreService/GetAppList/v1/",
+            {"response": {"apps": []}},
+            "Steam.store.get_app_list",
+            id="get_app_list",
+        ),
+        pytest.param(
+            lambda steam: steam.games.get_schema_for_game(440),
+            "/ISteamUserStats/GetSchemaForGame/v2/",
+            {"game": {"gameName": "TF2"}},
+            "Steam.stats.get_schema_for_game",
+            id="get_schema_for_game",
+        ),
+        pytest.param(
+            lambda steam: steam.games.get_player_achievements(STEAMID, 440),
+            "/ISteamUserStats/GetPlayerAchievements/v1/",
+            {"playerstats": {"steamID": STEAMID, "gameName": "TF2", "success": True}},
+            "Steam.stats.get_player_achievements",
+            id="get_player_achievements",
+        ),
+        pytest.param(
+            lambda steam: steam.games.search_games("x", owned_games=[]),
+            None,
+            None,
+            "Steam.store.search_games",
+            id="search_games",
+        ),
+        pytest.param(
+            lambda steam: steam.stats.get_news_for_app(440),
+            "/ISteamNews/GetNewsForApp/v2/",
+            {"appnews": {"appid": 440, "newsitems": [], "count": 0}},
+            "Steam.store.get_news_for_app",
+            id="stats.get_news_for_app",
+        ),
+    ],
+)
+async def test_moved_methods_warn_and_still_work(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Any,
+    path: str | None,
+    reply: Any,
+    new_name: str,
+) -> None:
+    if path is not None:
+        fake_steam.api("GET", path, json=reply)
+
+    with pytest.warns(DeprecationWarning, match=new_name.replace(".", r"\.")):
+        await call(steam)
+
+    assert len(fake_steam.requests) == (0 if path is None else 1)
+
+
+async def test_moved_app_details_and_iter_app_list_warn(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.store("GET", "/appdetails", json={"620": {"success": False}})
+    fake_steam.api("GET", "/IStoreService/GetAppList/v1/", json={"response": {}})
+
+    with pytest.warns(DeprecationWarning, match="Steam.store.get_app_details"):
+        assert await steam.games.get_app_details(620) is None
+    with pytest.warns(DeprecationWarning, match="Steam.store.iter_app_list"):
+        assert [app async for app in steam.games.iter_app_list()] == []
+
+
+async def test_moved_inventory_methods_warn_and_still_work(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    path = f"/inventory/{STEAMID}/730/2"
+    fake_steam.community(
+        "GET", path, json={"assets": [], "descriptions": [], "success": 1}
+    )
+
+    with pytest.warns(DeprecationWarning, match="Steam.economy.get_inventory"):
+        await steam.market.get_inventory(STEAMID, 730)
+    with pytest.warns(DeprecationWarning, match="Steam.economy.get_full_inventory"):
+        await steam.market.get_full_inventory(STEAMID, 730)
+    with pytest.warns(DeprecationWarning, match="Steam.economy.iter_inventory_pages"):
+        pages = [page async for page in steam.market.iter_inventory_pages(STEAMID, 730)]
+
+    assert len(pages) == 1
 
 
 # -- lifecycle -----------------------------------------------------------------

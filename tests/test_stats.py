@@ -86,7 +86,7 @@ ENDPOINTS = [
         id="get_current_players",
     ),
     pytest.param(
-        lambda steam: steam.stats.get_news_for_app(440),
+        lambda steam: steam.store.get_news_for_app(440),
         NEWS_PATH,
         id="get_news_for_app",
     ),
@@ -138,7 +138,7 @@ APP_ID_CALLS = [
         id="get_current_players",
     ),
     pytest.param(
-        lambda steam, app_id: steam.stats.get_news_for_app(app_id),
+        lambda steam, app_id: steam.store.get_news_for_app(app_id),
         id="get_news_for_app",
     ),
     pytest.param(
@@ -192,7 +192,7 @@ KEYLESS_ENDPOINTS = [
         id="get_current_players",
     ),
     pytest.param(
-        lambda steam: steam.stats.get_news_for_app(440),
+        lambda steam: steam.store.get_news_for_app(440),
         NEWS_PATH,
         {"appnews": {"appid": 440, "newsitems": [], "count": 0}},
         id="get_news_for_app",
@@ -383,7 +383,7 @@ async def test_get_news_for_app_sends_default_count_and_length(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=NO_NEWS)
 
-    await steam.stats.get_news_for_app(440)
+    await steam.store.get_news_for_app(440)
 
     assert fake_steam.last.method == "GET"
     assert fake_steam.last.path == NEWS_PATH
@@ -416,7 +416,7 @@ async def test_get_news_for_app_passes_count_and_length_through(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=NO_NEWS)
 
-    await steam.stats.get_news_for_app(440, count=count, max_length=max_length)
+    await steam.store.get_news_for_app(440, count=count, max_length=max_length)
 
     assert sent_params(fake_steam.last) == {"appid": "440", **expected}
 
@@ -426,7 +426,7 @@ async def test_get_news_for_app_sends_paging_and_filters(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=NO_NEWS)
 
-    await steam.stats.get_news_for_app(
+    await steam.store.get_news_for_app(
         440,
         end_date=1727740800,
         feeds=["tf2_blog", "steam_community_announcements"],
@@ -448,7 +448,7 @@ async def test_get_news_for_app_parses_news_items(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=load_fixture("stats_news_440.json"))
 
-    news = await steam.stats.get_news_for_app(440)
+    news = await steam.store.get_news_for_app(440)
 
     assert all(isinstance(item, NewsItem) for item in news)
     blog, announcement = news
@@ -473,7 +473,7 @@ async def test_get_news_for_app_news_item_helpers(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=load_fixture("stats_news_440.json"))
 
-    blog, announcement = await steam.stats.get_news_for_app(440)
+    blog, announcement = await steam.store.get_news_for_app(440)
 
     assert blog.is_official is False
     assert announcement.is_official is True
@@ -492,7 +492,7 @@ async def test_get_news_for_app_without_news_returns_empty_list(
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=body)
 
-    assert await steam.stats.get_news_for_app(440) == []
+    assert await steam.store.get_news_for_app(440) == []
 
 
 async def test_get_news_for_app_malformed_item_raises_steam_api_error(
@@ -505,7 +505,7 @@ async def test_get_news_for_app_malformed_item_raises_steam_api_error(
     )
 
     with pytest.raises(SteamAPIError, match="Failed to get news"):
-        await steam.stats.get_news_for_app(440)
+        await steam.store.get_news_for_app(440)
 
 
 # -- ISteamUserStats/GetUserStatsForGame ---------------------------------------

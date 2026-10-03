@@ -2,6 +2,7 @@
 
 import json
 import logging
+import warnings
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any, TypeVar, overload
@@ -46,6 +47,13 @@ class BaseAPI:
             client: Authenticated Steam API client
         """
         self.client = client
+
+    @staticmethod
+    def _deprecated(old: str, new: str) -> None:
+        """Warn that ``old`` is deprecated in favour of ``new``."""
+        warnings.warn(
+            f"{old} is deprecated; use {new}", DeprecationWarning, stacklevel=3
+        )
 
     @staticmethod
     @contextmanager
