@@ -122,12 +122,21 @@ class StatsAPI(BaseAPI):
         self._validate_app_id(app_id)
 
         try:
-            response_data = await self._request(
-                interface="ISteamUserStats",
-                method="GetUserStatsForGame",
-                version="v2",
-                params={"steamid": steamid, "appid": str(app_id)},
-            )
+            try:
+                response_data = await self._request(
+                    interface="ISteamUserStats",
+                    method="GetUserStatsForGame",
+                    version="v2",
+                    params={"steamid": steamid, "appid": str(app_id)},
+                )
+            except SteamAPIError as e:
+                # Steam answers a private profile with 403 and an app without
+                # stats with 400; the reason is in the JSON body.
+                body = e.response_data if isinstance(e.response_data, dict) else {}
+                error = body.get("playerstats", {}).get("error")
+                if not isinstance(error, str):
+                    raise
+                response_data = body
 
             if "playerstats" not in response_data:
                 raise GameNotFoundError(
@@ -138,13 +147,13 @@ class StatsAPI(BaseAPI):
 
             # Check for errors in the response
             if "error" in playerstats:
-                error_msg = playerstats["error"]
-                if "private" in error_msg.lower():
+                error_msg = playerstats["error"].lower()
+                if "private" in error_msg or "not public" in error_msg:
                     raise PrivateProfileError(steamid)
-                elif "not found" in error_msg.lower():
+                elif "not found" in error_msg or "no stats" in error_msg:
                     raise GameNotFoundError(str(app_id))
                 else:
-                    raise SteamAPIError(f"Steam API error: {error_msg}")
+                    raise SteamAPIError(f"Steam API error: {playerstats['error']}")
 
             response_obj = GetUserStatsGameResponse(**response_data)
             return response_obj.playerstats

@@ -10,6 +10,7 @@ import logging
 import sys
 import traceback
 from collections.abc import AsyncIterator, Awaitable, Callable
+from email.utils import formatdate
 from functools import partial
 from http import HTTPStatus
 from typing import Any
@@ -24,6 +25,7 @@ import steamy_py.client as client_module
 from steamy_py import (
     AuthenticationError,
     Client,
+    ConfigurationError,
     NetworkError,
     RateLimitError,
     ResponseParsingError,
@@ -386,7 +388,7 @@ async def test_request_defaults_to_api_key_auth(
         ),
     ],
 )
-async def test_missing_credential_raises_value_error_before_sending(
+async def test_missing_credential_raises_authentication_error_before_sending(
     make_client: ClientFactory,
     fake_steam: FakeSteam,
     auth_type: str,
@@ -395,10 +397,12 @@ async def test_missing_credential_raises_value_error_before_sending(
 ) -> None:
     client = make_client(**{"api_key": None, "access_token": None, **credentials})
 
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(AuthenticationError, match=message) as excinfo:
         await client.request(
             "GET", url_for(fake_steam, FAMILY_PATH), auth_type=auth_type
         )
+
+    assert excinfo.value.status_code is None
 
     assert fake_steam.requests == []
 
@@ -623,7 +627,6 @@ async def test_http_error_message_names_status_and_endpoint(
     assert "steamids" not in message
 
 
-@pytest.mark.xfail(reason="#10: 4xx client errors are retried", raises=AssertionError)
 @pytest.mark.parametrize("status", [400, 401, 403, 404])
 async def test_client_error_is_not_retried(
     make_client: ClientFactory, fake_steam: FakeSteam, status: int
@@ -637,10 +640,6 @@ async def test_client_error_is_not_retried(
     assert len(fake_steam.requests) == 1
 
 
-@pytest.mark.xfail(
-    reason="#10: HTTP errors never use the specific library exceptions",
-    raises=SteamAPIError,
-)
 @pytest.mark.parametrize(
     ("status", "error"),
     [(401, AuthenticationError), (503, ServiceUnavailableError)],
@@ -656,10 +655,6 @@ async def test_http_status_maps_to_specific_exception(
     assert excinfo.value.status_code == status
 
 
-@pytest.mark.xfail(
-    reason="#10: a redirect loop is reported as 'HTTP 0' with status_code 0",
-    raises=AssertionError,
-)
 async def test_redirect_loop_is_not_reported_as_http_status_zero(
     client: Client, fake_steam: FakeSteam
 ) -> None:
@@ -688,10 +683,6 @@ async def test_x_eresult_ok_returns_body(client: Client, fake_steam: FakeSteam) 
     assert data == FAMILY
 
 
-@pytest.mark.xfail(
-    reason="#18: x-eresult failure header is ignored on HTTP 200",
-    raises=pytest.fail.Exception,
-)
 async def test_x_eresult_failure_raises_steam_api_error(
     client: Client, fake_steam: FakeSteam
 ) -> None:
@@ -783,10 +774,6 @@ async def test_mixed_failures_raise_the_last_non_rate_limit_error(
     assert len(fake_steam.requests) == len(statuses)
 
 
-@pytest.mark.xfail(
-    reason="#10: sleeps for Retry-After even when no retry follows",
-    raises=AssertionError,
-)
 async def test_rate_limit_does_not_sleep_when_no_retry_is_left(
     client: Client, fake_steam: FakeSteam, virtual_time: VirtualTime
 ) -> None:
@@ -798,9 +785,6 @@ async def test_rate_limit_does_not_sleep_when_no_retry_is_left(
     assert virtual_time.sleeps == []
 
 
-@pytest.mark.xfail(
-    reason="#10: RateLimitError.retry_after is never set", raises=AssertionError
-)
 async def test_rate_limit_error_carries_retry_after(
     client: Client, fake_steam: FakeSteam, virtual_time: VirtualTime
 ) -> None:
@@ -812,23 +796,26 @@ async def test_rate_limit_error_carries_retry_after(
     assert excinfo.value.retry_after == 30
 
 
-@pytest.mark.xfail(
-    reason="#10: an HTTP-date Retry-After crashes with ValueError", raises=ValueError
+@pytest.mark.parametrize(
+    ("offset", "expected_wait"),
+    [pytest.param(7, 7.0, id="future"), pytest.param(-30, 0.0, id="past")],
 )
 async def test_http_date_retry_after_is_honoured(
-    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+    make_client: ClientFactory,
+    fake_steam: FakeSteam,
+    virtual_time: VirtualTime,
+    offset: int,
+    expected_wait: float,
 ) -> None:
-    fake_steam.api(
-        "GET",
-        SUMMARIES_PATH,
-        status=429,
-        headers={"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"},
-    )
+    virtual_time.now = 1_700_000_000.0
+    retry_at = formatdate(virtual_time.now + offset, usegmt=True)
+    fake_steam.api("GET", SUMMARIES_PATH, status=429, headers={"Retry-After": retry_at})
     fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
     client = make_client(MAX_RETRIES=1)
 
     assert await get_summaries(client, fake_steam) == SUMMARIES
     assert len(fake_steam.requests) == 2
+    assert virtual_time.sleeps == [pytest.approx(expected_wait)]
 
 
 # -- bad bodies and network failures ----------------------------------------
@@ -868,10 +855,6 @@ async def test_connection_refused_raises_network_error(
     assert "127.0.0.1:1" in str(excinfo.value)
 
 
-@pytest.mark.xfail(
-    reason="#10: a request timeout escapes as a bare TimeoutError",
-    raises=asyncio.TimeoutError,
-)
 async def test_timeout_raises_network_error(client: Client) -> None:
     async with silent_server() as base_url:
         with pytest.raises(NetworkError):
@@ -942,10 +925,6 @@ async def test_close_without_connect_is_a_no_op() -> None:
     assert client._session is None
 
 
-@pytest.mark.xfail(
-    reason="#10: request() after close() reuses the closed session",
-    raises=RuntimeError,
-)
 async def test_request_after_close_reconnects(
     client: Client, fake_steam: FakeSteam
 ) -> None:
@@ -991,10 +970,6 @@ async def test_rate_limiter_waits_out_the_rest_of_the_interval(
     assert virtual_time.sleeps == [pytest.approx(0.15)]
 
 
-@pytest.mark.xfail(
-    reason="#10: rate limiter lets concurrent requests through together",
-    raises=AssertionError,
-)
 async def test_rate_limiter_spaces_out_concurrent_requests(
     monkeypatch: pytest.MonkeyPatch, virtual_time: VirtualTime
 ) -> None:
@@ -1443,10 +1418,6 @@ async def test_http_method_helpers_use_their_verb(
     assert {**sent.query, **sent.form} == {"steamid": STEAMID, "key": API_KEY}
 
 
-@pytest.mark.xfail(
-    reason="#18: POST inputs are sent in the query string, not the form body",
-    raises=AssertionError,
-)
 async def test_post_request_sends_inputs_in_form_body(
     client: Client, fake_steam: FakeSteam
 ) -> None:
@@ -1464,3 +1435,352 @@ async def test_post_request_sends_inputs_in_form_body(
 
     sent = fake_steam.last
     assert {name: sent.form.get(name) for name in inputs} == inputs
+
+
+# -- request protocol (#10, #18) ----------------------------------------------
+
+COOLDOWN_PATH = "/IFamilyGroupsService/SetFamilyCooldownOverrides/v1/"
+
+
+async def post_cooldown(client: Client, fake_steam: FakeSteam) -> Any:
+    """POST a family service method with the access token."""
+    return await client.request(
+        "POST",
+        url_for(fake_steam, COOLDOWN_PATH),
+        params={"family_groupid": "4223817", "cooldown_count": "1"},
+        auth_type="access_token",
+    )
+
+
+async def test_post_sends_credential_in_form_body_not_query(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COOLDOWN_PATH, json={"response": {}})
+
+    await post_cooldown(client, fake_steam)
+
+    sent = fake_steam.last
+    assert sent.form.get("access_token") == ACCESS_TOKEN
+    assert "access_token" not in sent.query
+    assert sent.headers["Content-Type"] == "application/x-www-form-urlencoded"
+
+
+async def test_post_form_encodes_booleans_as_digits(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COOLDOWN_PATH, json={"response": {}})
+
+    await client.request(
+        "POST",
+        url_for(fake_steam, COOLDOWN_PATH),
+        params=[("include_own", True), ("include_free", False)],
+        auth_type="none",
+    )
+
+    assert list(fake_steam.last.form.items()) == [
+        ("include_own", "1"),
+        ("include_free", "0"),
+    ]
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+async def test_post_is_not_retried_after_a_server_error(
+    make_client: ClientFactory, fake_steam: FakeSteam, status: int
+) -> None:
+    fake_steam.api("POST", COOLDOWN_PATH, status=status, text="boom")
+    client = make_client(MAX_RETRIES=2)
+
+    with pytest.raises(SteamAPIError):
+        await post_cooldown(client, fake_steam)
+
+    assert len(fake_steam.requests) == 1
+
+
+async def test_post_is_retried_after_a_rate_limit(
+    make_client: ClientFactory, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COOLDOWN_PATH, status=429, headers={"Retry-After": "0"})
+    fake_steam.api("POST", COOLDOWN_PATH, json={"response": {}})
+    client = make_client(MAX_RETRIES=1)
+
+    assert await post_cooldown(client, fake_steam) == {"response": {}}
+    assert len(fake_steam.requests) == 2
+
+
+async def test_post_timeout_is_not_retried(
+    make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = make_client(MAX_RETRIES=2)
+    calls = 0
+
+    def timeout(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        raise asyncio.TimeoutError
+
+    session = await client._get_session()
+    monkeypatch.setattr(session, "request", timeout)
+
+    with pytest.raises(NetworkError, match="timed out"):
+        await client.request("POST", "http://steam.invalid/x", auth_type="none")
+
+    assert calls == 1
+
+
+async def test_get_timeout_is_retried(
+    make_client: ClientFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = make_client(MAX_RETRIES=2)
+    calls = 0
+
+    def timeout(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        raise asyncio.TimeoutError
+
+    session = await client._get_session()
+    monkeypatch.setattr(session, "request", timeout)
+
+    with pytest.raises(NetworkError):
+        await client.request("GET", "http://steam.invalid/x", auth_type="none")
+
+    assert calls == 3
+
+
+@pytest.mark.parametrize(
+    ("status", "error"),
+    [
+        (403, AuthenticationError),
+        (500, SteamAPIError),
+        (502, ServiceUnavailableError),
+        (504, ServiceUnavailableError),
+    ],
+)
+async def test_http_status_exception_types(
+    client: Client, fake_steam: FakeSteam, status: int, error: type[SteamAPIError]
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, **error_reply(status))
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert type(excinfo.value) is error
+    assert excinfo.value.status_code == status
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_auth_status_without_credential_is_not_an_authentication_error(
+    client: Client, fake_steam: FakeSteam, status: int
+) -> None:
+    # e.g. a private Steam Community inventory answers 403 to anonymous calls
+    fake_steam.api("GET", NEWS_PATH, **error_reply(status))
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await client.request(
+            "GET", url_for(fake_steam, NEWS_PATH), params=NEWS_PARAMS, auth_type="none"
+        )
+
+    assert type(excinfo.value) is SteamAPIError
+    assert excinfo.value.status_code == status
+
+
+async def test_http_error_keeps_the_json_body(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    body = {"playerstats": {"error": "Profile is not public", "success": False}}
+    fake_steam.api("GET", SUMMARIES_PATH, status=400, json=body)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert excinfo.value.response_data == body
+
+
+async def test_http_error_keeps_a_text_body(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, status=404, text="Not Found")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert excinfo.value.response_data == "Not Found"
+
+
+async def test_credentialed_request_does_not_follow_redirects(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET", SUMMARIES_PATH, status=302, text="", headers={"Location": NEWS_PATH}
+    )
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert excinfo.value.status_code == 302
+    assert [r.path for r in fake_steam.requests] == [SUMMARIES_PATH]
+
+
+async def test_anonymous_request_follows_redirects(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET", SUMMARIES_PATH, status=302, text="", headers={"Location": NEWS_PATH}
+    )
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+
+    data = await client.request(
+        "GET", url_for(fake_steam, SUMMARIES_PATH), auth_type="none"
+    )
+
+    assert data == NEWS
+
+
+async def test_retry_after_longer_than_max_retry_wait_is_not_waited_out(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, status=429, headers={"Retry-After": "120"})
+    client = make_client(MAX_RETRIES=3, MAX_RETRY_WAIT=60)
+
+    with pytest.raises(RateLimitError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert excinfo.value.retry_after == 120
+    assert virtual_time.sleeps == []
+    assert len(fake_steam.requests) == 1
+
+
+# -- x-eresult mapping (#18) --------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("eresult", "error", "attempts"),
+    [
+        pytest.param(2, SteamAPIError, 1, id="fail"),
+        pytest.param(8, SteamAPIError, 1, id="invalid-param"),
+        pytest.param(15, AuthenticationError, 1, id="access-denied"),
+        pytest.param(24, AuthenticationError, 1, id="insufficient-privilege"),
+        pytest.param(20, ServiceUnavailableError, 3, id="service-unavailable"),
+        pytest.param(84, RateLimitError, 3, id="rate-limit-exceeded"),
+    ],
+)
+async def test_x_eresult_maps_to_exception_and_retry_policy(
+    make_client: ClientFactory,
+    fake_steam: FakeSteam,
+    eresult: int,
+    error: type[SteamAPIError],
+    attempts: int,
+) -> None:
+    fake_steam.api(
+        "GET",
+        FAMILY_PATH,
+        json={"response": {}},
+        headers={"x-eresult": str(eresult), "x-error_message": "nope"},
+    )
+    client = make_client(MAX_RETRIES=2)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await client.request(
+            "GET", url_for(fake_steam, FAMILY_PATH), auth_type="access_token"
+        )
+
+    assert type(excinfo.value) is error
+    assert excinfo.value.eresult == eresult
+    assert excinfo.value.status_code == 200
+    assert excinfo.value.response_data == {"response": {}}
+    assert "nope" in str(excinfo.value)
+    assert len(fake_steam.requests) == attempts
+
+
+async def test_post_is_not_retried_after_a_transient_x_eresult(
+    make_client: ClientFactory, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "POST", COOLDOWN_PATH, json={"response": {}}, headers={"x-eresult": "20"}
+    )
+    client = make_client(MAX_RETRIES=2)
+
+    with pytest.raises(ServiceUnavailableError):
+        await post_cooldown(client, fake_steam)
+
+    assert len(fake_steam.requests) == 1
+
+
+async def test_garbage_x_eresult_is_ignored(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS, headers={"x-eresult": "abc"})
+
+    data = await client.request(
+        "GET", url_for(fake_steam, NEWS_PATH), params=NEWS_PARAMS, auth_type="none"
+    )
+
+    assert data == NEWS
+
+
+# -- configuration and external sessions (#10) ---------------------------------
+
+
+async def test_connection_limit_comes_from_settings(
+    make_client: ClientFactory,
+) -> None:
+    client = make_client(CONNECTION_LIMIT=7)
+
+    session = await client._get_session()
+
+    assert session.connector is not None
+    assert session.connector.limit == 7
+
+
+async def test_external_session_is_used_and_never_closed(
+    fake_steam: FakeSteam, settings: Settings
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    async with aiohttp.ClientSession() as session:
+        client = Client(settings=settings, session=session)
+
+        data = await client.request(
+            "GET", url_for(fake_steam, NEWS_PATH), params=NEWS_PARAMS, auth_type="none"
+        )
+        await client.close()
+
+        assert data == NEWS
+        assert client._session is session
+        assert not session.closed
+        assert fake_steam.last.headers["User-Agent"] == f"steamy-py/{__version__}"
+
+
+async def test_closed_external_session_raises_configuration_error(
+    settings: Settings,
+) -> None:
+    session = aiohttp.ClientSession()
+    await session.close()
+    client = Client(settings=settings, session=session)
+
+    with pytest.raises(ConfigurationError):
+        await client.request("GET", "http://steam.invalid/x", auth_type="none")
+
+
+async def test_input_json_is_sent_as_one_parameter(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", STEAM_LEVEL_PATH, json=STEAM_LEVEL)
+
+    await BaseAPI(client)._request(
+        "IPlayerService",
+        "GetSteamLevel",
+        params={"format": "json"},
+        input_json={"steamid": STEAMID, "appids": [440, 620]},
+    )
+
+    sent = fake_steam.last.params
+    assert sent["format"] == "json"
+    assert sent["input_json"] == f'{{"steamid":"{STEAMID}","appids":[440,620]}}'
+
+
+def test_indexed_encodes_repeated_fields() -> None:
+    assert BaseAPI._indexed("appids_filter", [440, 620]) == {
+        "appids_filter[0]": "440",
+        "appids_filter[1]": "620",
+    }

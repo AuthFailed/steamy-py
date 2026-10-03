@@ -2,7 +2,7 @@
 
 import logging
 
-from ..exceptions import AuthenticationError, SteamAPIError
+from ..exceptions import SteamAPIError
 from ..models.family import (
     FamilyGroupStatusResponse,
     SharedLibraryAppsResponse,
@@ -48,15 +48,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to cancel family group invite: {e}")
+            raise SteamAPIError(f"Failed to cancel family group invite: {e}") from e
 
     async def clear_cooldown_skip(
         self, steamid: int | None = None, invite_id: int | None = None
@@ -86,15 +82,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to clear cooldown skip: {e}")
+            raise SteamAPIError(f"Failed to clear cooldown skip: {e}") from e
 
     async def confirm_invite_to_family_group(
         self,
@@ -130,15 +122,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to confirm invite to family group: {e}")
+            raise SteamAPIError(f"Failed to confirm invite to family group: {e}") from e
 
     async def confirm_join_family_group(
         self,
@@ -174,15 +162,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to confirm join family group: {e}")
+            raise SteamAPIError(f"Failed to confirm join family group: {e}") from e
 
     async def create_family_group(self, name: str, steamid: int | None = None):
         """Creates a new family group.
@@ -211,15 +195,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to create family group: {e}")
+            raise SteamAPIError(f"Failed to create family group: {e}") from e
 
     async def delete_family_group(
         self,
@@ -247,15 +227,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to delete family group: {e}")
+            raise SteamAPIError(f"Failed to delete family group: {e}") from e
 
     async def force_accept_invite(
         self,
@@ -287,15 +263,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+            logger.error(f"Failed to force accept invite: {e}")
+            raise SteamAPIError(f"Failed to force accept invite: {e}") from e
 
     async def get_change_log(self, family_groupid: int | None = None):
         """Return a log of changes made to this family group.
@@ -321,14 +293,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting change log: {e}")
+            logger.error(f"Failed to get change log: {e}")
             raise SteamAPIError(f"Failed to get change log: {e}") from e
 
     async def get_family_group(
@@ -366,14 +334,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting family group: {e}")
+            logger.error(f"Failed to get family group: {e}")
             raise SteamAPIError(f"Failed to get family group: {e}") from e
 
     async def get_family_group_for_user(
@@ -408,14 +372,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return FamilyGroupStatusResponse.model_validate(response_data)
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting family group for user: {e}")
+            logger.error(f"Failed to get family group for user: {e}")
             raise SteamAPIError(f"Failed to get family group for user: {e}") from e
 
     async def get_invite_check_results(
@@ -445,14 +405,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting invite check results: {e}")
+            logger.error(f"Failed to get invite check results: {e}")
             raise SteamAPIError(f"Failed to get invite check results: {e}") from e
 
     async def get_playtime_summary(self, family_groupid: int) -> SteamResponse:
@@ -483,14 +439,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return SteamResponse.model_validate(response_data)
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting playtime summary: {e}")
+            logger.error(f"Failed to get playtime summary: {e}")
             raise SteamAPIError(f"Failed to get playtime summary: {e}") from e
 
     async def get_preferred_lenders(self, family_groupid: int | None = None):
@@ -515,14 +467,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting preferred lenders: {e}")
+            logger.error(f"Failed to get preferred lenders: {e}")
             raise SteamAPIError(f"Failed to get preferred lenders: {e}") from e
 
     async def get_purchase_requests(
@@ -545,7 +493,7 @@ class FamilyAPI(BaseAPI):
         """
         params = {}
         if request_ids is not None:
-            params["request_ids"] = ",".join(str(req_id) for req_id in request_ids)
+            params.update(self._indexed("request_ids", request_ids))
         if family_groupid is not None:
             params["family_groupid"] = str(family_groupid)
         if include_completed is not None:
@@ -562,14 +510,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting purchase requests: {e}")
+            logger.error(f"Failed to get purchase requests: {e}")
             raise SteamAPIError(f"Failed to get purchase requests: {e}") from e
 
     async def get_shared_library_apps(
@@ -627,14 +571,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return SharedLibraryAppsResponse.model_validate(response_data)
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting shared library apps: {e}")
+            logger.error(f"Failed to get shared library apps: {e}")
             raise SteamAPIError(f"Failed to get shared library apps: {e}") from e
 
     async def get_users_sharing_device(
@@ -670,14 +610,10 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting users sharing device: {e}")
+            logger.error(f"Failed to get users sharing device: {e}")
             raise SteamAPIError(f"Failed to get users sharing device: {e}") from e
 
     async def invite_to_family_group(
@@ -714,15 +650,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error joining to family group: {e}")
-            raise SteamAPIError(f"Failed to join to family group: {e}") from e
+            logger.error(f"Failed to invite to family group: {e}")
+            raise SteamAPIError(f"Failed to invite to family group: {e}") from e
 
     async def join_family_group(
         self, family_groupid: int | None = None, nonce: int | None = None
@@ -752,15 +684,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting invite to family group: {e}")
-            raise SteamAPIError(f"Failed to get invite to family group: {e}") from e
+            logger.error(f"Failed to join family group: {e}")
+            raise SteamAPIError(f"Failed to join family group: {e}") from e
 
     async def modify_family_group_details(
         self, family_groupid: int | None = None, name: str | None = None
@@ -790,15 +718,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to remove from family group: {e}")
-            raise SteamAPIError(f"Failed to remove from family group: {e}") from e
+            logger.error(f"Failed to modify family group details: {e}")
+            raise SteamAPIError(f"Failed to modify family group details: {e}") from e
 
     async def remove_from_family_group(
         self, family_groupid: int | None = None, steamid_to_remove: int | None = None
@@ -828,14 +752,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to remove from family group: {e}")
+            logger.error(f"Failed to remove from family group: {e}")
             raise SteamAPIError(f"Failed to remove from family group: {e}") from e
 
     async def request_purchase(
@@ -876,14 +796,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to request purchase: {e}")
+            logger.error(f"Failed to request purchase: {e}")
             raise SteamAPIError(f"Failed to request purchase: {e}") from e
 
     async def resend_invitation_to_family_group(
@@ -916,14 +832,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to resend invitation to family group: {e}")
+            logger.error(f"Failed to resend invitation to family group: {e}")
             raise SteamAPIError(
                 f"Failed to resend invitation to family group: {e}"
             ) from e
@@ -966,15 +878,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to response to requested purchase: {e}")
-            raise SteamAPIError(f"Failed to response to requested purchase: {e}") from e
+            logger.error(f"Failed to respond to requested purchase: {e}")
+            raise SteamAPIError(f"Failed to respond to requested purchase: {e}") from e
 
     async def rollback_family_group(
         self, family_groupid: int | None = None, rtime32_target: int | None = None
@@ -1004,14 +912,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to rollback family group: {e}")
+            logger.error(f"Failed to rollback family group: {e}")
             raise SteamAPIError(f"Failed to rollback family group: {e}") from e
 
     async def set_family_cooldown_overrides(
@@ -1043,14 +947,10 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to set family cooldown overrides: {e}")
+            logger.error(f"Failed to set family cooldown overrides: {e}")
             raise SteamAPIError(f"Failed to set family cooldown overrides: {e}") from e
 
     async def set_preferred_lender(
@@ -1087,15 +987,11 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error getting invite to family group: {e}")
-            raise SteamAPIError(f"Failed to get invite to family group: {e}") from e
+            logger.error(f"Failed to set preferred lender: {e}")
+            raise SteamAPIError(f"Failed to set preferred lender: {e}") from e
 
     async def undelete_family_group(self, family_groupid: int | None = None):
         """
@@ -1120,12 +1016,8 @@ class FamilyAPI(BaseAPI):
                 http_method="POST",
             )
             return response_data
-        except ValueError as e:
-            if "Access token is required" in str(e):
-                raise AuthenticationError(
-                    "Access token is required for Family API endpoints"
-                ) from e
+        except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Error to undelete family group: {e}")
+            logger.error(f"Failed to undelete family group: {e}")
             raise SteamAPIError(f"Failed to undelete family group: {e}") from e

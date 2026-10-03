@@ -376,10 +376,6 @@ async def test_first_request_connects_lazily(
         await steam.close()
 
 
-@pytest.mark.xfail(
-    reason="#10: requests after close() fail instead of reconnecting",
-    raises=RuntimeError,
-)
 async def test_request_after_close_reconnects_lazily(
     fake_steam: FakeSteam, settings: Settings
 ) -> None:

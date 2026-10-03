@@ -357,10 +357,6 @@ async def test_get_owned_games_omits_appids_filter_by_default(
     assert not any(name.startswith("appids_filter") for name in fake_steam.last.query)
 
 
-@pytest.mark.xfail(
-    reason="#18: appids_filter is comma-joined instead of appids_filter[N]",
-    raises=AssertionError,
-)
 async def test_get_owned_games_sends_appids_filter_as_indexed_params(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
