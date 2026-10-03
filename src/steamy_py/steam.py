@@ -3,10 +3,11 @@
 import logging
 
 from aiohttp import ClientSession
+from pydantic import ValidationError
 
 from .client import Client
 from .config import Settings
-from .exceptions import ConfigurationError
+from .exceptions import ConfigurationError, ResponseParsingError
 from .repos.family import FamilyAPI
 from .repos.game import GameAPI
 from .repos.market import MarketAPI
@@ -66,10 +67,12 @@ class Steam:
             settings: Optional settings configuration
             session: Optional aiohttp session to reuse; it is never closed by
                 this client
-            **kwargs: Additional arguments passed to Settings
+            **kwargs: Settings fields (e.g. ``MAX_RETRIES=5``); applied on top
+                of ``settings`` when both are given
 
         Raises:
-            ConfigurationError: If no authentication credentials are provided
+            ConfigurationError: If no authentication credentials are provided,
+                or a settings keyword is unknown or invalid
 
         Note:
             Some endpoints require api_key, others require access_token. You can
@@ -98,8 +101,16 @@ class Steam:
             )
 
         # Initialize settings
-        if settings is None:
-            settings = Settings(**kwargs)
+        try:
+            if settings is None:
+                settings = Settings(**kwargs)
+            elif kwargs:
+                # Field names are case-insensitive; normalize so the override
+                # replaces the dumped value instead of sitting next to it.
+                overrides = {name.upper(): value for name, value in kwargs.items()}
+                settings = Settings(**{**settings.model_dump(), **overrides})
+        except ValidationError as e:
+            raise ConfigurationError(f"Invalid settings: {e}") from e
 
         # Initialize HTTP client
         self.client = Client(
@@ -116,18 +127,16 @@ class Steam:
         self.stats = StatsAPI(self.client)
         self.family = FamilyAPI(self.client)
 
-        logger.info("Steam API client initialized")
+        logger.debug("Steam API client initialized")
 
     async def __aenter__(self):
         """Async context manager entry - creates session and authenticates."""
         await self.client.connect()
-        logger.info("Steam API client connected")
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit - closes session."""
         await self.client.close()
-        logger.info("Steam API client disconnected")
 
     async def connect(self):
         """Manually connect and authenticate.
@@ -148,49 +157,73 @@ class Steam:
         """Check if the client is connected."""
         return self.client._session is not None and not self.client._session.closed
 
+    async def _check_connection(self) -> str:
+        """Reach Steam, then make one cheap call with the configured credential.
+
+        Returns:
+            Which credential was checked ("api_key" or "access_token")
+
+        Raises:
+            SteamAPIError: If Steam is unreachable or rejects the credential
+        """
+        if not self.is_connected:
+            await self.connect()
+
+        base_url = self.client.settings.STEAM_API_BASE_URL.rstrip("/")
+        server_info = await self.client.request(
+            "GET", f"{base_url}/ISteamWebAPIUtil/GetServerInfo/v1/", auth_type="none"
+        )
+        if not isinstance(server_info, dict) or "servertime" not in server_info:
+            raise ResponseParsingError("Unexpected GetServerInfo response from Steam")
+
+        auth_type = "api_key" if self.client.api_key else "access_token"
+        app_list = await self.client.request(
+            "GET",
+            f"{base_url}/IStoreService/GetAppList/v1/",
+            params={"input_json": '{"max_results":1}'},
+            auth_type=auth_type,
+        )
+        if not isinstance(app_list, dict) or "response" not in app_list:
+            raise ResponseParsingError("Unexpected GetAppList response from Steam")
+        return auth_type
+
     async def test_connection(self) -> bool:
         """Test the Steam API connection and authentication.
+
+        Makes two small requests: ISteamWebAPIUtil/GetServerInfo, then one call
+        with the API key (or the access token when there is no key).
 
         Returns:
             True if connection and authentication are working, False otherwise
         """
         try:
-            if not self.is_connected:
-                await self.connect()
-
-            # Test with a simple API call
-            await self.games.get_app_list()
-            logger.info("Steam API connection test successful")
-            return True
-
+            await self._check_connection()
         except Exception as e:
-            logger.error(f"Steam API connection test failed: {e}")
+            logger.warning("Steam API connection test failed: %s", e)
             return False
+        logger.debug("Steam API connection test successful")
+        return True
 
     async def get_api_key_info(self) -> dict:
-        """Get information about the current API key usage.
+        """Get information about the configured credential.
 
         Note: Steam doesn't provide a direct endpoint for this, so this method
-        attempts to make a test call and returns basic information.
+        makes the same two small requests as ``test_connection``.
 
         Returns:
-            Dictionary with API key status information
+            Dictionary with credential status information
         """
         try:
-            if not self.is_connected:
-                await self.connect()
-
-            # Test API key with a simple call
-            apps = await self.games.get_app_list()
-
-            return {
-                "valid": True,
-                "connected": True,
-                "test_result": f"Successfully retrieved {len(apps)} Steam applications",
-            }
-
+            auth_type = await self._check_connection()
         except Exception as e:
             return {"valid": False, "connected": self.is_connected, "error": str(e)}
+
+        credential = "API key" if auth_type == "api_key" else "Access token"
+        return {
+            "valid": True,
+            "connected": True,
+            "test_result": f"{credential} accepted by Steam",
+        }
 
     def __repr__(self) -> str:
         """String representation of Steam client."""

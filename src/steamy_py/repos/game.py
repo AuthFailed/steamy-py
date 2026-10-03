@@ -1,6 +1,8 @@
 """Games/Apps API endpoints for Steam API."""
 
 import logging
+from collections.abc import AsyncIterator
+from typing import Any
 
 from ..exceptions import (
     GameNotFoundError,
@@ -12,6 +14,7 @@ from ..exceptions import (
 from ..models.game import (
     Achievement,
     AppDetails,
+    AppListResponse,
     GameSchema,
     GetAppListResponse,
     GetOwnedGamesResponse,
@@ -84,13 +87,115 @@ class GameAPI(BaseAPI):
         except PrivateProfileError:
             raise
         except Exception as e:
-            logger.error(f"Error getting owned games for {steamid}: {e}")
+            logger.error("Error getting owned games for %s: %s", steamid, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get owned games: {e}") from e
 
-    async def get_app_list(self) -> list[SteamApp]:
-        """Get list of all Steam applications.
+    async def get_app_list_page(
+        self,
+        last_appid: int = 0,
+        max_results: int = 10_000,
+        *,
+        include_games: bool = True,
+        include_dlc: bool = True,
+        include_software: bool = True,
+        include_videos: bool = True,
+        include_hardware: bool = True,
+        if_modified_since: int | None = None,
+        have_description_language: str | None = None,
+    ) -> AppListResponse:
+        """Get one page of Steam applications (IStoreService/GetAppList).
+
+        Args:
+            last_appid: Return apps after this App ID (0 for the first page)
+            max_results: Page size; Steam allows up to 50,000
+            include_games: Include games
+            include_dlc: Include DLC
+            include_software: Include software
+            include_videos: Include videos and series
+            include_hardware: Include hardware
+            if_modified_since: Only apps changed after this Unix timestamp
+            have_description_language: Only apps with a description in this
+                language (e.g. "english")
+
+        Returns:
+            The page; pass its ``last_appid`` back while ``have_more_results``
+
+        Raises:
+            SteamAPIError: On API errors
+        """
+        params: dict[str, Any] = {
+            "last_appid": last_appid,
+            "max_results": max_results,
+            "include_games": include_games,
+            "include_dlc": include_dlc,
+            "include_software": include_software,
+            "include_videos": include_videos,
+            "include_hardware": include_hardware,
+        }
+        if if_modified_since is not None:
+            params["if_modified_since"] = if_modified_since
+        if have_description_language is not None:
+            params["have_description_language"] = have_description_language
+
+        try:
+            response_data = await self._request(
+                interface="IStoreService",
+                method="GetAppList",
+                version="v1",
+                input_json=params,
+            )
+
+            if "response" not in response_data:
+                raise SteamAPIError("Invalid response structure from Steam API")
+
+            return GetAppListResponse(**response_data).response
+
+        except Exception as e:
+            logger.error("Error getting app list: %s", e)
+            if isinstance(e, SteamAPIError):
+                raise
+            raise SteamAPIError(f"Failed to get app list: {e}") from e
+
+    async def iter_app_list(
+        self, max_results: int = 10_000, **filters: Any
+    ) -> AsyncIterator[SteamApp]:
+        """Iterate over all Steam applications, one page request at a time.
+
+        Args:
+            max_results: Page size; Steam allows up to 50,000
+            **filters: Filters accepted by ``get_app_list_page``
+
+        Yields:
+            Steam applications in App ID order
+
+        Raises:
+            SteamAPIError: On API errors
+        """
+        last_appid = 0
+        while True:
+            page = await self.get_app_list_page(last_appid, max_results, **filters)
+            for app in page.apps:
+                yield app
+            if not page.have_more_results or not page.apps:
+                return
+            next_appid = page.last_appid or page.apps[-1].appid
+            if next_appid <= last_appid:
+                raise SteamAPIError("Steam returned the same app list page twice")
+            last_appid = next_appid
+
+    async def get_app_list(
+        self, max_results: int = 10_000, **filters: Any
+    ) -> list[SteamApp]:
+        """Get all Steam applications (IStoreService/GetAppList).
+
+        This pages through roughly 200,000 apps; prefer ``iter_app_list`` or
+        ``get_app_list_page`` with ``if_modified_since`` for regular syncs.
+
+        Args:
+            max_results: Page size; Steam allows up to 50,000
+            **filters: Filters accepted by ``get_app_list_page``
 
         Returns:
             List of Steam applications
@@ -98,22 +203,7 @@ class GameAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
-            response_data = await self._request(
-                interface="ISteamApps", method="GetAppList", version="v2"
-            )
-
-            if "applist" not in response_data:
-                raise SteamAPIError("Invalid response structure from Steam API")
-
-            response_obj = GetAppListResponse(**response_data)
-            return response_obj.applist.apps
-
-        except Exception as e:
-            logger.error(f"Error getting app list: {e}")
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get app list: {e}") from e
+        return [app async for app in self.iter_app_list(max_results, **filters)]
 
     async def get_player_achievements(
         self, steamid: str, app_id: int, language: str = "english"
@@ -167,7 +257,9 @@ class GameAPI(BaseAPI):
         except (PrivateProfileError, GameNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error getting achievements for {steamid}, app {app_id}: {e}")
+            logger.error(
+                "Error getting achievements for %s, app %s: %s", steamid, app_id, e
+            )
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get player achievements: {e}") from e
@@ -211,7 +303,7 @@ class GameAPI(BaseAPI):
         except GameNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting schema for app {app_id}: {e}")
+            logger.error("Error getting schema for app %s: %s", app_id, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get game schema: {e}") from e
@@ -248,7 +340,7 @@ class GameAPI(BaseAPI):
             return AppDetails(**app_data["data"])
 
         except Exception as e:
-            logger.error(f"Error getting app details for {app_id}: {e}")
+            logger.error("Error getting app details for %s: %s", app_id, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get app details: {e}") from e

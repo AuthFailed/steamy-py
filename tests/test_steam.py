@@ -23,40 +23,35 @@ from steamy_py import (
 from steamy_py.repos import BaseAPI
 from tests.fakesteam import ACCESS_TOKEN, API_KEY, STEAMID, FakeSteam, RecordedRequest
 
-# Variables ``Settings`` reads from the environment or a ``.env`` file.
-SETTINGS_ENV_VARS = (
-    "STEAM_API_BASE_URL",
-    "STEAM_STORE_BASE_URL",
-    "STEAM_COMMUNITY_BASE_URL",
-    "REQUEST_TIMEOUT",
-    "MAX_RETRIES",
-    "RETRY_DELAY",
-    "RATE_LIMIT_ENABLED",
-    "REQUESTS_PER_SECOND",
-    "LOG_LEVEL",
-    "LOG_FORMAT",
-)
+# Variables ``Settings`` reads from the environment.
+SETTINGS_ENV_VARS = tuple(f"STEAMY_{name}" for name in Settings.model_fields)
 
 # An IPlayerService method; service methods accept either credential.
 PROBE_PATH = "/IPlayerService/GetSteamLevel/v1/"
 PROBE_REPLY = {"response": {"player_level": 42}}
 
-# ``test_connection()`` / ``get_api_key_info()`` currently probe the deprecated
-# ISteamApps/GetAppList/v2 (#13). Real shape, trimmed from ~250k entries.
-APP_LIST_PATH = "/ISteamApps/GetAppList/v2/"
-APP_LIST = {
-    "applist": {
-        "apps": [
-            {"appid": 10, "name": "Counter-Strike"},
-            {"appid": 570, "name": "Dota 2"},
-            {"appid": 730, "name": "Counter-Strike 2"},
-        ]
-    }
-}
-
-# The cheap, keyless connectivity check #13 suggests instead.
+# ``test_connection()`` / ``get_api_key_info()`` first check Steam is reachable
+# with the keyless ISteamWebAPIUtil/GetServerInfo, then make one cheap call
+# with the configured credential (#13).
 SERVER_INFO_PATH = "/ISteamWebAPIUtil/GetServerInfo/v1/"
 SERVER_INFO = {"servertime": 1791025200, "servertimestring": "Sat Oct  3 11:00:00 2026"}
+STORE_APP_LIST_PATH = "/IStoreService/GetAppList/v1/"
+STORE_APP_LIST = {
+    "response": {
+        "apps": [
+            {
+                "appid": 10,
+                "name": "Counter-Strike",
+                "last_modified": 1745368572,
+                "price_change_number": 21319021,
+            }
+        ],
+        "have_more_results": True,
+        "last_appid": 10,
+    }
+}
+# The deprecated endpoint the health checks must no longer download.
+OLD_APP_LIST_PATH = "/ISteamApps/GetAppList/v2/"
 
 # What api.steampowered.com answers for a bad key.
 FORBIDDEN_HTML = (
@@ -209,27 +204,44 @@ def test_settings_kwargs_are_forwarded_to_settings(clean_config: Path) -> None:
 def test_settings_kwargs_win_over_the_environment(
     clean_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MAX_RETRIES", "1")
+    monkeypatch.setenv("STEAMY_MAX_RETRIES", "1")
 
     steam = Steam(api_key=API_KEY, MAX_RETRIES=5)
 
     assert steam.client.settings.MAX_RETRIES == 5
 
 
-@pytest.mark.xfail(
-    reason="#12: settings kwargs are silently dropped when settings= is given",
-    raises=AssertionError,
-)
-def test_settings_kwargs_are_not_silently_dropped_next_to_a_settings_object(
-    settings: Settings,
+@pytest.mark.parametrize("name", ["MAX_RETRIES", "max_retries"])
+def test_settings_kwargs_apply_on_top_of_a_settings_object(
+    settings: Settings, name: str
 ) -> None:
     assert settings.MAX_RETRIES == 0
-    try:
-        steam = Steam(api_key=API_KEY, settings=settings, MAX_RETRIES=5)
-    except (TypeError, ConfigurationError):
-        return  # rejecting the ambiguous call is fine too
+
+    steam = Steam(api_key=API_KEY, settings=settings, **{name: 5})
 
     assert steam.client.settings.MAX_RETRIES == 5
+    assert steam.client.settings.STEAM_API_BASE_URL == settings.STEAM_API_BASE_URL
+    assert settings.MAX_RETRIES == 0
+
+
+def test_lowercase_settings_kwargs_are_accepted(clean_config: Path) -> None:
+    steam = Steam(api_key=API_KEY, max_retries=5)
+
+    assert steam.client.settings.MAX_RETRIES == 5
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        pytest.param({"MAX_RETRYS": 5}, id="misspelled"),
+        pytest.param({"MAX_RETRIES": "many"}, id="invalid-value"),
+    ],
+)
+def test_bad_settings_kwargs_raise_configuration_error(
+    clean_config: Path, kwargs: dict[str, Any]
+) -> None:
+    with pytest.raises(ConfigurationError, match="Invalid settings"):
+        Steam(api_key=API_KEY, **kwargs)
 
 
 async def test_settings_kwargs_drive_the_requests(
@@ -434,23 +446,33 @@ async def test_repr_reports_connected(steam: Steam) -> None:
 # -- test_connection() / get_api_key_info() ------------------------------------
 
 
+def serve_health_check(fake_steam: FakeSteam) -> None:
+    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
+
+
 async def test_test_connection_succeeds_when_steam_answers(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    # #13: this probes the deprecated ISteamApps/GetAppList/v2.
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    serve_health_check(fake_steam)
 
     assert await steam.test_connection() is True
 
-    assert fake_steam.last.method == "GET"
-    assert fake_steam.last.path == APP_LIST_PATH
-    assert fake_steam.last.params == {"key": API_KEY}
+    server_info, credential_check = fake_steam.requests
+    assert server_info.path == SERVER_INFO_PATH
+    assert server_info.params == {}
+    assert credential_check.method == "GET"
+    assert credential_check.path == STORE_APP_LIST_PATH
+    assert credential_check.params == {
+        "input_json": '{"max_results":1}',
+        "key": API_KEY,
+    }
 
 
 async def test_test_connection_connects_when_needed(
     fake_steam: FakeSteam, settings: Settings
 ) -> None:
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    serve_health_check(fake_steam)
     steam = Steam(api_key=API_KEY, settings=settings)
     try:
         assert await steam.test_connection() is True
@@ -459,63 +481,83 @@ async def test_test_connection_connects_when_needed(
         await steam.close()
 
 
-@pytest.mark.parametrize(
-    "reply",
-    [
-        pytest.param(
-            {
-                "status": 500,
-                "text": "<html><body><h1>Internal Server Error</h1></body></html>",
-                "content_type": "text/html",
-            },
-            id="http-500",
-        ),
-        pytest.param(
-            {"status": 403, "text": FORBIDDEN_HTML, "content_type": "text/html"},
-            id="bad-key-403",
-        ),
-        pytest.param(
-            {"status": 200, "text": "<html>Error</html>", "content_type": "text/html"},
-            id="not-json",
-        ),
-        pytest.param({"status": 200, "json": {}}, id="unexpected-shape"),
-        pytest.param(None, id="endpoint-gone-404"),
-    ],
-)
-async def test_test_connection_returns_false_on_failure(
+FAILED_REPLIES = [
+    pytest.param(
+        {
+            "status": 500,
+            "text": "<html><body><h1>Internal Server Error</h1></body></html>",
+            "content_type": "text/html",
+        },
+        id="http-500",
+    ),
+    pytest.param(
+        {"status": 403, "text": FORBIDDEN_HTML, "content_type": "text/html"},
+        id="bad-key-403",
+    ),
+    pytest.param(
+        {"status": 200, "text": "<html>Error</html>", "content_type": "text/html"},
+        id="not-json",
+    ),
+    pytest.param({"status": 200, "json": {}}, id="unexpected-shape"),
+    pytest.param(None, id="endpoint-gone-404"),
+]
+
+
+@pytest.mark.parametrize("reply", FAILED_REPLIES)
+async def test_test_connection_returns_false_when_the_credential_check_fails(
     steam: Steam, fake_steam: FakeSteam, reply: dict[str, Any] | None
 ) -> None:
+    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
     if reply is not None:
-        fake_steam.api("GET", APP_LIST_PATH, **reply)
+        fake_steam.api("GET", STORE_APP_LIST_PATH, **reply)
 
     assert await steam.test_connection() is False
 
-    assert [r.path for r in fake_steam.requests] == [APP_LIST_PATH]
+    assert [r.path for r in fake_steam.requests] == [
+        SERVER_INFO_PATH,
+        STORE_APP_LIST_PATH,
+    ]
+
+
+@pytest.mark.parametrize("reply", FAILED_REPLIES)
+async def test_test_connection_returns_false_when_steam_is_unreachable(
+    steam: Steam, fake_steam: FakeSteam, reply: dict[str, Any] | None
+) -> None:
+    if reply is not None:
+        fake_steam.api("GET", SERVER_INFO_PATH, **reply)
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
+
+    assert await steam.test_connection() is False
+
+    assert [r.path for r in fake_steam.requests] == [SERVER_INFO_PATH]
 
 
 async def test_get_api_key_info_reports_a_working_key(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    # #13: this downloads the deprecated ISteamApps/GetAppList/v2.
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    serve_health_check(fake_steam)
 
     info = await steam.get_api_key_info()
 
     assert info == {
         "valid": True,
         "connected": True,
-        "test_result": "Successfully retrieved 3 Steam applications",
+        "test_result": "API key accepted by Steam",
     }
-    assert fake_steam.last.method == "GET"
-    assert fake_steam.last.path == APP_LIST_PATH
-    assert fake_steam.last.params == {"key": API_KEY}
+    assert fake_steam.last.path == STORE_APP_LIST_PATH
+    assert fake_steam.last.params["key"] == API_KEY
 
 
 async def test_get_api_key_info_reports_a_rejected_key_without_leaking_it(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
+    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
     fake_steam.api(
-        "GET", APP_LIST_PATH, status=403, text=FORBIDDEN_HTML, content_type="text/html"
+        "GET",
+        STORE_APP_LIST_PATH,
+        status=403,
+        text=FORBIDDEN_HTML,
+        content_type="text/html",
     )
 
     info = await steam.get_api_key_info()
@@ -530,7 +572,7 @@ async def test_get_api_key_info_reports_a_rejected_key_without_leaking_it(
 async def test_get_api_key_info_connects_when_needed(
     fake_steam: FakeSteam, settings: Settings
 ) -> None:
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    serve_health_check(fake_steam)
     steam = Steam(api_key=API_KEY, settings=settings)
     try:
         info = await steam.get_api_key_info()
@@ -544,8 +586,13 @@ async def test_get_api_key_info_connects_when_needed(
 async def test_test_connection_failure_does_not_log_credentials(
     steam: Steam, fake_steam: FakeSteam, caplog: pytest.LogCaptureFixture
 ) -> None:
+    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
     fake_steam.api(
-        "GET", APP_LIST_PATH, status=403, text=FORBIDDEN_HTML, content_type="text/html"
+        "GET",
+        STORE_APP_LIST_PATH,
+        status=403,
+        text=FORBIDDEN_HTML,
+        content_type="text/html",
     )
 
     with caplog.at_level(logging.DEBUG, logger="steamy_py"):
@@ -556,46 +603,34 @@ async def test_test_connection_failure_does_not_log_credentials(
     assert ACCESS_TOKEN not in caplog.text
 
 
-@pytest.mark.xfail(
-    reason="#13: health checks download the deprecated ISteamApps/GetAppList/v2",
-    raises=AssertionError,
-)
 @pytest.mark.parametrize("check", ["test_connection", "get_api_key_info"])
 async def test_health_checks_avoid_the_deprecated_app_list(
     steam: Steam, fake_steam: FakeSteam, check: str
 ) -> None:
-    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    serve_health_check(fake_steam)
+    fake_steam.api("GET", OLD_APP_LIST_PATH, json={"applist": {"apps": []}})
 
     await getattr(steam, check)()
 
-    assert fake_steam.requests_to(APP_LIST_PATH) == []
+    assert fake_steam.requests_to(OLD_APP_LIST_PATH) == []
     assert fake_steam.requests, "the health check must still reach Steam"
 
 
-@pytest.mark.xfail(
-    reason="#13: test_connection always uses the API key path",
-    raises=AssertionError,
-)
 async def test_test_connection_uses_the_access_token_when_there_is_no_key(
     fake_steam: FakeSteam, settings: Settings
 ) -> None:
-    fake_steam.api("GET", SERVER_INFO_PATH, json=SERVER_INFO)
+    serve_health_check(fake_steam)
 
     async with Steam(access_token=ACCESS_TOKEN, settings=settings) as steam:
-        await steam.test_connection()
+        assert await steam.test_connection() is True
 
-    assert any(
-        r.params.get("access_token") == ACCESS_TOKEN for r in fake_steam.requests
-    )
+    assert fake_steam.last.params["access_token"] == ACCESS_TOKEN
+    assert "key" not in fake_steam.last.params
 
 
 # -- process-wide side effects (#12) -------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason="#12: Client.__init__ calls logging.basicConfig()", raises=AssertionError
-)
 def test_constructing_steam_leaves_the_root_logger_alone(settings: Settings) -> None:
     with bare_root_logger() as root:
         level = root.level
@@ -605,10 +640,6 @@ def test_constructing_steam_leaves_the_root_logger_alone(settings: Settings) -> 
         assert root.level == level
 
 
-@pytest.mark.xfail(
-    reason="#12: LOG_LEVEL=info in the app's environment crashes Steam()",
-    raises=TypeError,
-)
 def test_lowercase_log_level_in_the_environment_does_not_break_steam(
     clean_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

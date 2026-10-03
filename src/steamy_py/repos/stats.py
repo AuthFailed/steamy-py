@@ -94,7 +94,7 @@ class StatsAPI(BaseAPI):
         except GameNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting global stats for app {app_id}: {e}")
+            logger.error("Error getting global stats for app %s: %s", app_id, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get global stats: {e}") from e
@@ -161,7 +161,9 @@ class StatsAPI(BaseAPI):
         except (PrivateProfileError, GameNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error getting user stats for {steamid}, app {app_id}: {e}")
+            logger.error(
+                "Error getting user stats for %s, app %s: %s", steamid, app_id, e
+            )
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get user stats: {e}") from e
@@ -203,7 +205,9 @@ class StatsAPI(BaseAPI):
         except GameNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting achievement percentages for app {app_id}: {e}")
+            logger.error(
+                "Error getting achievement percentages for app %s: %s", app_id, e
+            )
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get achievement percentages: {e}") from e
@@ -247,7 +251,7 @@ class StatsAPI(BaseAPI):
         except GameNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting current players for app {app_id}: {e}")
+            logger.error("Error getting current players for app %s: %s", app_id, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get current players: {e}") from e
@@ -293,7 +297,7 @@ class StatsAPI(BaseAPI):
             return response_obj.to_news_items()
 
         except Exception as e:
-            logger.error(f"Error getting news for app {app_id}: {e}")
+            logger.error("Error getting news for app %s: %s", app_id, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get news: {e}") from e

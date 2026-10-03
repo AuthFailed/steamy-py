@@ -1,3 +1,5 @@
+import logging
+
 # Core components (for advanced users)
 from ._version import __version__
 from .client import Client
@@ -76,3 +78,6 @@ __all__ = [
     "UserStat",
     "__version__",
 ]
+
+# A library leaves logging setup to the application (see #12).
+logging.getLogger(__name__).addHandler(logging.NullHandler())

@@ -85,6 +85,26 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   it ([#6]).
 - `__version__` and the `User-Agent` header now report the installed package
   version ([#6]).
+- **Breaking:** `Settings` no longer reads a `.env` file, and reads
+  environment variables only with the `STEAMY_` prefix
+  (`STEAMY_MAX_RETRIES`, not `MAX_RETRIES`). Field names are
+  case-insensitive (`Steam(max_retries=5)`), and an unknown or invalid
+  setting raises `ConfigurationError` from `Steam()` (`ValidationError` from
+  `Settings()`) instead of being ignored ([#12]).
+- `Steam(settings=..., MAX_RETRIES=5)` applies the keyword arguments on top
+  of `settings`; they were silently dropped ([#12]).
+- The library no longer configures logging: `Client()` does not call
+  `logging.basicConfig()`, the `steamy_py` logger has a `NullHandler`, and
+  connect/disconnect messages are logged at DEBUG, once ([#12]).
+- **Breaking:** `GameAPI.get_app_list()` uses `IStoreService/GetAppList/v1`
+  (Valve deprecated `ISteamApps/GetAppList/v2`) and pages through the list.
+  It asks for games, DLC, software, videos and hardware by default and takes
+  the endpoint's filters as keyword arguments. `AppListResponse` and
+  `GetAppListResponse` have the new response shape ([#13]).
+- `Steam.test_connection()` and `Steam.get_api_key_info()` call
+  `ISteamWebAPIUtil/GetServerInfo` plus one small request with the
+  configured credential (the access token when there is no key), instead of
+  downloading the whole app list ([#13]).
 
 ### Added
 
@@ -92,6 +112,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   session (never closed by the library), and `Settings.CONNECTION_LIMIT`
   ([#10]).
 - `SteamAPIError.eresult` ([#18]).
+- `GameAPI.get_app_list_page()` and `GameAPI.iter_app_list()`; `SteamApp`
+  carries `last_modified` and `price_change_number` ([#13]).
 - `include_family_group_response` parameter for
   `FamilyAPI.get_family_group_for_user()` ([#19]).
 - Family models keep `pending_group_invites` and `family_group`
@@ -112,6 +134,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Removed
 
+- **Breaking:** The `LOG_LEVEL` and `LOG_FORMAT` settings. An application
+  with `LOG_LEVEL=info` in its environment crashed `Steam()` ([#12]).
 - **Breaking:** `MarketAPI.get_recent_items()`. It sorted search results by
   quantity and never returned recently listed items ([#11]).
 - The `dev` extra (`steamy-py[dev]`). Development tools are now a uv
@@ -144,6 +168,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#10]: https://github.com/AuthFailed/steamy-py/issues/10
 [#9]: https://github.com/AuthFailed/steamy-py/issues/9
 [#11]: https://github.com/AuthFailed/steamy-py/issues/11
+[#12]: https://github.com/AuthFailed/steamy-py/issues/12
+[#13]: https://github.com/AuthFailed/steamy-py/issues/13
 [#14]: https://github.com/AuthFailed/steamy-py/issues/14
 [#17]: https://github.com/AuthFailed/steamy-py/issues/17
 [#18]: https://github.com/AuthFailed/steamy-py/issues/18

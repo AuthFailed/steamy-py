@@ -81,12 +81,6 @@ class Client:
         self._owns_session = session is None
         self._next_request_at = 0.0
 
-        # Setup logging
-        logging.basicConfig(
-            level=getattr(logging, self.settings.LOG_LEVEL),
-            format=self.settings.LOG_FORMAT,
-        )
-
     async def __aenter__(self):
         """Async context manager entry - creates session."""
         await self.connect()
@@ -109,7 +103,7 @@ class Client:
             headers=_DEFAULT_HEADERS,
         )
 
-        logger.info("Steam API client connected")
+        logger.debug("Steam API client connected")
 
     async def close(self):
         """Close the session (only if the client created it)."""
@@ -117,7 +111,7 @@ class Client:
             return
         if not self._session.closed:
             await self._session.close()
-            logger.info("Steam API client disconnected")
+            logger.debug("Steam API client disconnected")
         self._session = None
 
     async def _rate_limit(self):
