@@ -1,0 +1,28 @@
+{
+  "response": {
+    "apps": [
+      {
+        "appid": 620,
+        "name": "Portal 2",
+        "icon": "25a5a16b2423bf7487ac5340b5b0948cef48c5f8",
+        "community_visible_stats": true,
+        "app_type": 1
+      },
+      {
+        "appid": 440,
+        "name": "Team Fortress 2",
+        "icon": "e3f595a92552da3d664ad00277fad2107345f743",
+        "community_visible_stats": true,
+        "app_type": 1,
+        "content_descriptorids": [
+          2,
+          5
+        ],
+        "content_descriptorids_including_dlc": [
+          2,
+          5
+        ]
+      }
+    ]
+  }
+}

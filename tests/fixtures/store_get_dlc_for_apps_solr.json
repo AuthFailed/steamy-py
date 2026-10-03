@@ -1,0 +1,16 @@
+{
+  "response": {
+    "dlc_lists": [
+      {
+        "parent_appid": 1091500,
+        "dlc_appids": [
+          2138330,
+          2060310
+        ]
+      },
+      {
+        "parent_appid": 730
+      }
+    ]
+  }
+}

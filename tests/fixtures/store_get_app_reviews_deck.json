@@ -1,0 +1,65 @@
+{
+  "success": 1,
+  "query_summary": {
+    "num_reviews": 20,
+    "review_score": 9,
+    "review_score_desc": "Overwhelmingly Positive",
+    "total_positive": 219174,
+    "total_negative": 4741,
+    "total_reviews": 223915
+  },
+  "reviews": [
+    {
+      "recommendationid": "206819595",
+      "author": {
+        "steamid": "76561197970682761",
+        "num_games_owned": 0,
+        "num_reviews": 23,
+        "playtime_forever": 15387,
+        "playtime_last_two_weeks": 907,
+        "playtime_at_review": 12855,
+        "deck_playtime_at_review": 4194,
+        "last_played": 1761975139
+      },
+      "language": "english",
+      "review": "I do not need to explain what everyone has already 10/10, I will be playing this game when i'm 80 and in a nursing home.",
+      "timestamp_created": 1760572385,
+      "timestamp_updated": 1760572385,
+      "voted_up": true,
+      "votes_up": 15,
+      "votes_funny": 4,
+      "weighted_vote_score": "0.604918003082275391",
+      "comment_count": 1,
+      "steam_purchase": false,
+      "received_for_free": false,
+      "written_during_early_access": false,
+      "primarily_steam_deck": false
+    },
+    {
+      "recommendationid": "206156429",
+      "author": {
+        "steamid": "76561198846873936",
+        "num_games_owned": 0,
+        "num_reviews": 14,
+        "playtime_forever": 29929,
+        "playtime_last_two_weeks": 903,
+        "playtime_at_review": 28339,
+        "last_played": 1762115666
+      },
+      "language": "english",
+      "review": "Another GOod Recommendadtion by Me.   it is good game. Throw parties.   Manage your people. Kill.",
+      "timestamp_created": 1759883715,
+      "timestamp_updated": 1759883715,
+      "voted_up": true,
+      "votes_up": 6,
+      "votes_funny": 5,
+      "weighted_vote_score": "0.583652675151824951",
+      "comment_count": 0,
+      "steam_purchase": true,
+      "received_for_free": false,
+      "written_during_early_access": false,
+      "primarily_steam_deck": false
+    }
+  ],
+  "cursor": "AoMFQFYshcAAAAAFP+IWQgAAAABw476ZBg=="
+}

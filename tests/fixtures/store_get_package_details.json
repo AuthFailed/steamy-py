@@ -1,0 +1,35 @@
+{
+  "42467": {
+    "success": true,
+    "data": {
+      "name": "Europa Universalis IV: Indian Subcontinent Unit Pack",
+      "page_image": "https://cdn.akamai.steamstatic.com/steam/subs/42467/header.jpg?t=1447454201",
+      "small_logo": "https://cdn.akamai.steamstatic.com/steam/subs/42467/capsule_231x87.jpg?t=1447454201",
+      "apps": [
+        {
+          "id": 295221,
+          "name": "Europa Universalis IV: Indian Subcontinent Unit Pack"
+        }
+      ],
+      "price": {
+        "currency": "EUR",
+        "initial": 199,
+        "final": 199,
+        "discount_percent": 0,
+        "individual": 0
+      },
+      "platforms": {
+        "windows": true,
+        "mac": true,
+        "linux": true
+      },
+      "controller": {
+        "full_gamepad": false
+      },
+      "release_date": {
+        "coming_soon": false,
+        "date": "16 Jul, 2014"
+      }
+    }
+  }
+}

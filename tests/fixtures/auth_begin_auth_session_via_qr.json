@@ -1,0 +1,14 @@
+{
+  "response": {
+    "client_id": "6097734395127281917",
+    "challenge_url": "https://s.team/q/1/6097734395127281917",
+    "request_id": "+z73ockLXi1/TD++EeCp/w==",
+    "interval": 5,
+    "allowed_confirmations": [
+      {
+        "confirmation_type": 4
+      }
+    ],
+    "version": 1
+  }
+}

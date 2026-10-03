@@ -13,6 +13,7 @@ from ..models.game import (
 from ..models.library import (
     LastPlayedGame,
     LastPlayedTimesResponse,
+    PrivateAppsResponse,
     RecentlyPlayedGames,
     RecentlyPlayedGamesResponse,
 )
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class LibraryAPI(BaseAPI):
-    """A user's game library: owned and recently played games."""
+    """A user's game library: owned, recently played and private games."""
 
     async def get_owned_games(
         self,
@@ -176,3 +177,26 @@ class LibraryAPI(BaseAPI):
             auth_type="access_token",
         )
         return response.response.games
+
+    async def get_private_app_list(self) -> list[int]:
+        """Get the apps the signed-in user has marked private in their library.
+
+        Calls IAccountPrivateAppsService/GetPrivateAppList with the access
+        token; the user is the token's owner.
+
+        Returns:
+            App IDs of the private apps; empty when there are none
+
+        Raises:
+            AuthenticationError: If no access token is set
+            ResponseParsingError: If the response does not fit the model
+            SteamAPIError: On other API errors
+        """
+        response = await self._call_service(
+            "IAccountPrivateAppsService",
+            "GetPrivateAppList",
+            "get private app list",
+            model=PrivateAppsResponse,
+            auth_type="access_token",
+        )
+        return response.response.private_apps.appids

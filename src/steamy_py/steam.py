@@ -10,12 +10,15 @@ from pydantic import ValidationError
 from .client import Client
 from .config import Settings
 from .exceptions import ConfigurationError, ResponseParsingError
+from .repos.auth import AuthAPI
 from .repos.economy import EconomyAPI
 from .repos.family import FamilyAPI
 from .repos.friends import FriendsAPI
 from .repos.game import GameAPI
 from .repos.library import LibraryAPI
 from .repos.market import MarketAPI
+from .repos.notifications import NotificationsAPI
+from .repos.servers import ServersAPI
 from .repos.stats import StatsAPI
 from .repos.store import StoreAPI
 from .repos.users import UsersAPI
@@ -36,7 +39,10 @@ class Steam:
     - ``library``: owned and recently played games
     - ``stats``: achievements, stats, schemas, player counts
     - ``store``: app details, the app list, store search, news
-    - ``wishlist``, ``workshop``, ``friends``, ``family``, ``util``
+    - ``wishlist``, ``workshop``, ``friends``, ``family``, ``notifications``
+    - ``servers``: game servers
+    - ``auth``: QR sign-in and access tokens
+    - ``util``
     - ``economy``: community inventories
     - ``market``: the community market
 
@@ -144,6 +150,9 @@ class Steam:
         self.market = MarketAPI(self.client)
         self.family = FamilyAPI(self.client)
         self.friends = FriendsAPI(self.client)
+        self.notifications = NotificationsAPI(self.client)
+        self.servers = ServersAPI(self.client)
+        self.auth = AuthAPI(self.client)
         self.util = UtilAPI(self.client)
         self._games = GameAPI(self.client)
 

@@ -419,3 +419,98 @@ async def test_get_last_played_times_game_with_only_appid_gives_defaults(
     assert game.model_dump() == {
         name: 620 if name == "appid" else 0 for name in LastPlayedGame.model_fields
     }
+
+
+# -- IAccountPrivateAppsService/GetPrivateAppList ---------------------------------
+
+# library_private_app_list.json is built from service_accountprivateapps.proto;
+# no recorded reply was found.
+PRIVATE_APPS_PATH = "/IAccountPrivateAppsService/GetPrivateAppList/v1/"
+PRIVATE_APPS: dict[str, Any] = load_fixture("library_private_app_list.json")
+
+
+async def test_get_private_app_list_is_one_get_to_v1_with_access_token_only(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, json=PRIVATE_APPS)
+
+    await steam.library.get_private_app_list()
+
+    assert [(r.method, r.path) for r in fake_steam.requests] == [
+        ("GET", PRIVATE_APPS_PATH)
+    ]
+    # No inputs; the client has an API key too, but only the token is sent.
+    assert fake_steam.last.params == {"access_token": ACCESS_TOKEN}
+    assert "Authorization" not in fake_steam.last.headers
+
+
+async def test_get_private_app_list_works_with_access_token_only(
+    token_only_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, json=PRIVATE_APPS)
+
+    appids = await token_only_steam.library.get_private_app_list()
+
+    assert appids == [8930, 289070, 1145360]
+    assert fake_steam.last.params == {"access_token": ACCESS_TOKEN}
+
+
+async def test_get_private_app_list_without_access_token_raises_before_request(
+    key_only_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, json=PRIVATE_APPS)
+
+    with pytest.raises(AuthenticationError, match="Access token is required"):
+        await key_only_steam.library.get_private_app_list()
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param({"response": {}}, id="empty-response"),
+        pytest.param({"response": {"private_apps": {}}}, id="empty-private-apps"),
+    ],
+)
+async def test_get_private_app_list_without_apps_is_empty(
+    steam: Steam, fake_steam: FakeSteam, body: dict[str, Any]
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, json=body)
+
+    assert await steam.library.get_private_app_list() == []
+
+
+async def test_get_private_app_list_http_error_is_raised_as_steam_api_error(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await steam.library.get_private_app_list()
+
+    assert excinfo.value.status_code == 500
+    assert ACCESS_TOKEN not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(
+            {"response": {"private_apps": {"appids": ["portal"]}}},
+            id="non-numeric-appid",
+        ),
+        pytest.param(
+            {"response": {"private_apps": {"appids": 620}}}, id="appids-not-a-list"
+        ),
+        pytest.param({"response": {"private_apps": [620]}}, id="not-an-object"),
+    ],
+)
+async def test_get_private_app_list_malformed_body_raises_response_parsing_error(
+    steam: Steam, fake_steam: FakeSteam, body: dict[str, Any]
+) -> None:
+    fake_steam.api("GET", PRIVATE_APPS_PATH, json=body)
+
+    with pytest.raises(ResponseParsingError, match="Failed to get private app list"):
+        await steam.library.get_private_app_list()

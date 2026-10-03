@@ -1,0 +1,36 @@
+{
+  "response": {
+    "wishlist": true,
+    "following": true,
+    "in_queues": [
+      1,
+      2
+    ],
+    "queues_with_skip": [
+      2
+    ],
+    "queue_items_remaining": [
+      12,
+      7
+    ],
+    "queue_items_next_appid": [
+      1091500,
+      1172470
+    ],
+    "queues": [
+      {
+        "type": 1,
+        "items_remaining": 12,
+        "next_appid": 1091500
+      },
+      {
+        "type": 2,
+        "skipped": true,
+        "items_remaining": 7,
+        "next_appid": 1172470,
+        "experimental_cohort": 3
+      }
+    ],
+    "beta_status": 2
+  }
+}

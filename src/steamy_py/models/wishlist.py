@@ -8,6 +8,7 @@ a default.
 from pydantic import Field
 
 from .base import SteamModel
+from .store import StoreItem
 
 
 class WishlistItem(SteamModel):
@@ -48,3 +49,80 @@ class WishlistItemCountResponse(SteamModel):
     """Response of GetWishlistItemCount."""
 
     response: WishlistItemCount = Field(default_factory=WishlistItemCount)
+
+
+# -- AddToWishlist / RemoveFromWishlist ----------------------------------------------
+
+
+class WishlistUpdate(SteamModel):
+    """``CWishlist_AddToWishlist_Response`` and
+    ``CWishlist_RemoveFromWishlist_Response`` (the same single field)."""
+
+    wishlist_count: int = Field(
+        0, description="Number of apps on the wishlist, as Steam reports it"
+    )
+
+
+class WishlistUpdateResponse(SteamModel):
+    """Response of AddToWishlist and RemoveFromWishlist."""
+
+    response: WishlistUpdate = Field(default_factory=WishlistUpdate)
+
+
+# -- GetWishlistItemsOnSale ----------------------------------------------------------
+
+
+class WishlistSaleItem(SteamModel):
+    """An app on sale from the signed-in user's wishlist
+    (``CWishlist_GetWishlistItemsOnSale_Response_WishlistItem``)."""
+
+    appid: int = Field(0, description="Steam app ID")
+    store_item: StoreItem = Field(
+        default_factory=StoreItem,
+        description="Store data for the app, filled as the data request asked",
+    )
+
+
+class WishlistItemsOnSale(SteamModel):
+    """``CWishlist_GetWishlistItemsOnSale_Response``."""
+
+    items: list[WishlistSaleItem] = Field(default_factory=list)
+    total_items_on_sale: int = Field(0, description="Number of wishlisted apps on sale")
+
+
+class WishlistItemsOnSaleResponse(SteamModel):
+    """Response of GetWishlistItemsOnSale."""
+
+    response: WishlistItemsOnSale = Field(default_factory=WishlistItemsOnSale)
+
+
+# -- GetWishlistSortedFiltered -------------------------------------------------------
+
+
+class WishlistSortedItem(WishlistItem):
+    """An app on a sorted and filtered wishlist
+    (``CWishlist_GetWishlistSortedFiltered_Response_WishlistItem``)."""
+
+    store_item: StoreItem = Field(
+        default_factory=StoreItem,
+        description=(
+            "Store data for the app; filled only for the items in the "
+            "requested range, and only when store data was asked for"
+        ),
+    )
+    category_ids: list[str] = Field(
+        default_factory=list,
+        description="The user's wishlist categories holding the app (64-bit ids)",
+    )
+
+
+class WishlistSortedFiltered(SteamModel):
+    """``CWishlist_GetWishlistSortedFiltered_Response``."""
+
+    items: list[WishlistSortedItem] = Field(default_factory=list)
+
+
+class WishlistSortedFilteredResponse(SteamModel):
+    """Response of GetWishlistSortedFiltered."""
+
+    response: WishlistSortedFiltered = Field(default_factory=WishlistSortedFiltered)

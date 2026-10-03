@@ -1,0 +1,161 @@
+{
+  "response": {
+    "offer": {
+      "tradeofferid": "4989854170",
+      "accountid_other": 119913840,
+      "message": "hello from rust",
+      "expiration_time": 1643111352,
+      "trade_offer_state": 6,
+      "items_to_give": [
+        {
+          "appid": 440,
+          "contextid": "2",
+          "assetid": "10863796759",
+          "classid": "237182229",
+          "instanceid": "73651412",
+          "amount": "1",
+          "missing": false,
+          "est_usd": "4"
+        }
+      ],
+      "items_to_receive": [
+        {
+          "appid": 440,
+          "contextid": "2",
+          "assetid": "10134329353",
+          "classid": "11151781",
+          "instanceid": "2064823791",
+          "amount": "1",
+          "missing": false,
+          "est_usd": "4700"
+        }
+      ],
+      "is_our_offer": true,
+      "time_created": 1641901752,
+      "time_updated": 1641901815,
+      "from_real_time_trade": false,
+      "escrow_end_date": 0,
+      "confirmation_method": 2
+    },
+    "descriptions": [
+      {
+        "appid": 440,
+        "classid": "237182229",
+        "instanceid": "73651412",
+        "currency": false,
+        "background_color": "3C352E",
+        "icon_url": "fWFc82js0fmoRAP-qOIPu5THSWqfSmTELLqcUywGkijVjZULUrsm1j-9xgEGegouTxTgsSxQt5i-Mv6NGucF1YxmtZYCizNvxgd_NbWwZjZhcVWSA_AOWPRtrFC7UCVj6Z4zANG3r-tIOVK4uvXQm80",
+        "icon_url_large": "fWFc82js0fmoRAP-qOIPu5THSWqfSmTELLqcUywGkijVjZULUrsm1j-9xgEGegouTxTgsSxQt5i-Mv6NGucF1YxmtZYCizNvxgd_NbWwZjZhcVWSA_AOWPRtrFC7UCVj6Z4zANG3r-tIOVK4uvXQm80",
+        "descriptions": [
+          {
+            "type": "text",
+            "value": "This Robot Part can be added to a Killstreak Fabricator in creation of a Killstreak Kit."
+          }
+        ],
+        "tradable": true,
+        "actions": [
+          {
+            "link": "http://wiki.teamfortress.com/scripts/itemredirect.php?id=5707&lang=en_US",
+            "name": "Item Wiki Page..."
+          }
+        ],
+        "name": "Battle-Worn Robot Money Furnace",
+        "name_color": "7D6D00",
+        "type": "Level 1 Robot Part",
+        "market_name": "Battle-Worn Robot Money Furnace",
+        "market_hash_name": "Battle-Worn Robot Money Furnace",
+        "commodity": true,
+        "market_tradable_restriction": 7,
+        "market_marketable_restriction": 0,
+        "marketable": true,
+        "tags": [
+          {
+            "category": "Quality",
+            "internal_name": "Unique",
+            "localized_category_name": "Quality",
+            "localized_tag_name": "Unique",
+            "color": "7D6D00"
+          },
+          {
+            "category": "Type",
+            "internal_name": "Craft Item",
+            "localized_category_name": "Type",
+            "localized_tag_name": "Craft Item"
+          }
+        ]
+      },
+      {
+        "appid": 440,
+        "classid": "11151781",
+        "instanceid": "2064823791",
+        "currency": false,
+        "background_color": "3C352E",
+        "icon_url": "IzMF03bi9WpSBq-S-ekoE33L-iLqGFHVaU25ZzQNQcXdEH9myp0erksICfTYffEcEJhnqWSMU5OD2NgLxXcNnChXOjLx2Sk5MbUqMcbBnQz4ruyeU2D4ZyPMECnYCGFkHPEJYHbR_GKs5-nFEWrBQewkRFxRf6NX9DdNPJ-AaURv149Y-DTrxUJ7SRR7PNVId59LEVM7",
+        "icon_url_large": "IzMF03bi9WpSBq-S-ekoE33L-iLqGFHVaU25ZzQNQcXdEH9myp0erksICfTYffEcEJhnqWSMU5OD2NgLxXcNnChXOjLx2Sk5MbUqMcbBnQz4ruyeU2D4ZyPMECnYCGFkHPEJYHbR_GKs5-nFEWrBQewkRFxRf6NX9DdNPJ-AaURv149Y-DTrxUJ7SRR7PNVId59LEVM7",
+        "descriptions": [
+          {
+            "type": "text",
+            "value": "Paint Color: A Distinctive Lack of Hue",
+            "color": "756b5e"
+          },
+          {
+            "type": "text",
+            "value": "★ Unusual Effect: Purple Energy",
+            "color": "ffd700"
+          },
+          {
+            "type": "text",
+            "value": "Any old sap can pull teeth from a dead crocodile.\nIt takes a man to pull teeth from a live one."
+          }
+        ],
+        "tradable": true,
+        "actions": [
+          {
+            "link": "http://wiki.teamfortress.com/scripts/itemredirect.php?id=53&lang=en_US",
+            "name": "Item Wiki Page..."
+          },
+          {
+            "link": "steam://rungame/440/76561202255233023/+tf_econ_item_preview%20S%owner_steamid%A%assetid%D2305922914097556873",
+            "name": "Inspect in Game..."
+          }
+        ],
+        "name": "Unusual Trophy Belt",
+        "name_color": "8650AC",
+        "type": "Limited Level 64 Hat",
+        "market_name": "Unusual Trophy Belt",
+        "market_hash_name": "Unusual Trophy Belt",
+        "market_actions": [
+          {
+            "link": "steam://rungame/440/76561202255233023/+tf_econ_item_preview%20M%listingid%A%assetid%D2305922914097556873",
+            "name": "Inspect in Game..."
+          }
+        ],
+        "commodity": false,
+        "market_tradable_restriction": 7,
+        "market_marketable_restriction": 0,
+        "marketable": true,
+        "tags": [
+          {
+            "category": "Quality",
+            "internal_name": "rarity4",
+            "localized_category_name": "Quality",
+            "localized_tag_name": "Unusual",
+            "color": "8650AC"
+          },
+          {
+            "category": "Type",
+            "internal_name": "misc",
+            "localized_category_name": "Type",
+            "localized_tag_name": "Cosmetic"
+          },
+          {
+            "category": "Class",
+            "internal_name": "Sniper",
+            "localized_category_name": "Class",
+            "localized_tag_name": "Sniper"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -72,6 +72,13 @@ async with Steam(api_key="YOUR_API_KEY") as steam:
 async with Steam(api_key="YOUR_API_KEY") as steam:
     steamid = await steam.users.resolve_vanity_url("robinwalker")
 
+# Sign in with a QR code (scan it with the Steam mobile app)
+async with Steam() as steam:
+    session = await steam.auth.begin_auth_session_via_qr()
+    print(session.challenge_url)  # render this URL as a QR code
+    status = await steam.auth.wait_for_qr_approval(session)
+    access_token = status.access_token  # keep it secret
+
 # The signed-in user's data needs their access token
 async with Steam(access_token="YOUR_ACCESS_TOKEN") as steam:
     family = await steam.family.get_family_group_for_user()
@@ -84,15 +91,18 @@ See the [`examples`](examples) directory for more.
 
 | Namespace | What it covers |
 |---|---|
-| `steam.users` | Profiles, friends lists, bans, vanity URLs, badges, Steam level |
-| `steam.library` | Owned games, recently played games, last played times |
-| `steam.stats` | Achievements, user and global stats, schemas, player counts |
-| `steam.store` | App details, the app list, store items, search, news |
-| `steam.wishlist` | Wishlists |
-| `steam.workshop` | Workshop items |
-| `steam.friends` | The signed-in user's friends |
+| `steam.users` | Profiles, friends lists, bans, groups, vanity URLs, badges, levels, equipped profile items |
+| `steam.library` | Owned, recently played and private games, last played times |
+| `steam.stats` | Achievements and achievement progress, user and global stats, schemas, player counts |
+| `steam.store` | App and package details, the app list, store items, search and queries, charts, top sellers, categories, tags, DLC, reviews, news |
+| `steam.wishlist` | Wishlists; adding to and removing from the signed-in user's |
+| `steam.workshop` | Workshop items, queries, a user's files, collections, subscribing |
+| `steam.friends` | The signed-in user's friends, nicknames and what friends play |
 | `steam.family` | Steam Families |
-| `steam.economy` | Community inventories |
+| `steam.notifications` | The signed-in user's notifications |
+| `steam.servers` | The game server list, version checks |
+| `steam.auth` | QR sign-in and access tokens |
+| `steam.economy` | Inventories, item descriptions, trade offers and trade history |
 | `steam.market` | The community market |
 | `steam.util` | Server time, the list of supported API methods |
 
@@ -108,10 +118,10 @@ missing. `Steam()` itself needs none.
 
 | Endpoints | Credential |
 |---|---|
-| Store (app details, store items, search), news, global stats, player counts, wishlists, `ISteamRemoteStorage` workshop details, `steam.util`, community market and inventory | none |
-| `ISteamUser`, `ISteamUserStats` player methods (summaries, friends, bans, achievements, stats, schema) | API key |
-| `IPlayerService` (owned and recently played games, badges, level), `IStoreService` (app list), `IPublishedFileService` (workshop details and queries) | API key, or the access token when there is no key |
-| Steam Families, the signed-in user's friends list and last played times | access token |
+| Store (app and package details, items, search, queries, charts, top sellers, categories, tags, reviews), news, global stats, player counts, game achievements, wishlists, `ISteamRemoteStorage` workshop details and collections, version checks, QR sign-in (`steam.auth`), `steam.util`, community market and inventory | none |
+| `ISteamUser`, `ISteamUserStats` player methods (summaries, friends, bans, groups, achievements, stats, schema) | API key |
+| `IPlayerService` (owned and recently played games, badges, levels, profile items, achievement progress), `IStoreService` (app list), `IPublishedFileService` (workshop details, queries, user files), `IEconService` (trade offers and history, asset classes), `IGameServersService` | API key, or the access token when there is no key |
+| The signed-in user's family, friends list, nicknames, friends' gameplay, last played times, private apps, notifications, DLC, interest state, service inventory, wishlist changes and workshop subscriptions | access token |
 | Market price history | `steamLoginSecure` cookie |
 
 Credentials are passed to `Steam(...)` or read from the environment:

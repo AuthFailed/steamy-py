@@ -1,0 +1,170 @@
+{
+  "response": {
+    "start_date": 1771891200,
+    "ranks": [
+      {
+        "rank": 1,
+        "appid": 578080,
+        "item": {
+          "item_type": 0,
+          "id": 578080,
+          "success": 1,
+          "visible": true,
+          "name": "PUBG: BATTLEGROUNDS",
+          "store_url_path": "app/578080/PUBG_BATTLEGROUNDS",
+          "appid": 578080,
+          "type": 0,
+          "is_free": true,
+          "content_descriptorids": [
+            2,
+            5
+          ],
+          "categories": {
+            "supported_player_categoryids": [
+              1,
+              49,
+              36
+            ],
+            "feature_categoryids": [
+              15,
+              41,
+              42
+            ]
+          },
+          "basic_info": {
+            "short_description": "PUBG: BATTLEGROUNDS, the high-stakes winner-take-all shooter that started the Battle Royale craze, is free-to-play! Drop into diverse maps, loot unique weapons and supplies, and survive in an ever-shrinking zone where every turn could be your last.",
+            "publishers": [
+              {
+                "name": "KRAFTON, Inc.",
+                "creator_clan_account_id": 44295939
+              }
+            ],
+            "developers": [
+              {
+                "name": "PUBG Corporation",
+                "creator_clan_account_id": 33973721
+              }
+            ]
+          }
+        },
+        "last_week_rank": 1,
+        "consecutive_weeks": 467
+      },
+      {
+        "rank": 2,
+        "appid": 3764200,
+        "item": {
+          "item_type": 0,
+          "id": 3764200,
+          "success": 1,
+          "visible": true,
+          "name": "Resident Evil Requiem",
+          "store_url_path": "app/3764200/Resident_Evil_Requiem",
+          "appid": 3764200,
+          "type": 0,
+          "content_descriptorids": [
+            2,
+            5
+          ],
+          "categories": {
+            "supported_player_categoryids": [
+              2
+            ],
+            "feature_categoryids": [
+              22,
+              29,
+              13,
+              23,
+              61,
+              62
+            ],
+            "controller_categoryids": [
+              28
+            ]
+          },
+          "basic_info": {
+            "short_description": "Requiem for the dead. Nightmare for the living.\r\nPrepare to escape death in a heart-stopping experience that will chill you to your core.",
+            "publishers": [
+              {
+                "name": "CAPCOM Co., Ltd.",
+                "creator_clan_account_id": 33273264
+              }
+            ],
+            "developers": [
+              {
+                "name": "CAPCOM Co., Ltd.",
+                "creator_clan_account_id": 33273264
+              }
+            ],
+            "franchises": [
+              {
+                "name": "Resident Evil",
+                "creator_clan_account_id": 34827950
+              }
+            ]
+          },
+          "best_purchase_option": {
+            "packageid": 1324561,
+            "purchase_option_name": "Resident Evil Requiem",
+            "final_price_in_cents": "7980000",
+            "formatted_final_price": "₩ 79,800",
+            "user_can_purchase_as_gift": true,
+            "hide_discount_pct_for_compliance": false,
+            "included_game_count": 1,
+            "must_purchase_as_set": false
+          }
+        },
+        "last_week_rank": 12,
+        "consecutive_weeks": 8
+      },
+      {
+        "rank": 3,
+        "appid": 1973530,
+        "item": {
+          "item_type": 0,
+          "id": 1973530,
+          "success": 1,
+          "visible": true,
+          "name": "Limbus Company",
+          "store_url_path": "app/1973530/Limbus_Company",
+          "appid": 1973530,
+          "type": 0,
+          "is_free": true,
+          "content_descriptorids": [
+            2,
+            5
+          ],
+          "categories": {
+            "supported_player_categoryids": [
+              2
+            ],
+            "feature_categoryids": [
+              35
+            ]
+          },
+          "basic_info": {
+            "short_description": "As the Executive Manager of Limbus Company, lead your group of twelve Sinners, venture into the buried facilities of Lobotomy Corporation, and lay claim on the Golden Boughs.",
+            "publishers": [
+              {
+                "name": "ProjectMoon"
+              }
+            ],
+            "developers": [
+              {
+                "name": "ProjectMoon"
+              }
+            ],
+            "franchises": [
+              {
+                "name": "ProjectMoon"
+              }
+            ]
+          }
+        },
+        "last_week_rank": 3,
+        "consecutive_weeks": 158
+      }
+    ],
+    "next_page_start": 10
+  }
+}

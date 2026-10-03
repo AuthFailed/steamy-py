@@ -1,0 +1,17 @@
+{
+  "response": {
+    "my_escrow": {
+      "escrow_end_duration_seconds": 0
+    },
+    "their_escrow": {
+      "escrow_end_duration_seconds": 1296000,
+      "escrow_end_date": 1775563200,
+      "escrow_end_date_rfc3339": "2026-04-07T12:00:00Z"
+    },
+    "both_escrow": {
+      "escrow_end_duration_seconds": 1296000,
+      "escrow_end_date": 1775563200,
+      "escrow_end_date_rfc3339": "2026-04-07T12:00:00Z"
+    }
+  }
+}

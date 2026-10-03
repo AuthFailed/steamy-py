@@ -1,0 +1,45 @@
+{
+  "response": {
+    "categories": [
+      {
+        "categoryid": 28,
+        "type": 3,
+        "internal_name": "Full Controller Support",
+        "display_name": "Full controller support",
+        "image_url": "public/images/v6/ico/ico_controller.png",
+        "show_in_search": true
+      },
+      {
+        "categoryid": 2,
+        "type": 1,
+        "internal_name": "Single-player",
+        "display_name": "Single-player",
+        "image_url": "public/images/v6/ico/ico_singlePlayer.png",
+        "show_in_search": true
+      },
+      {
+        "categoryid": 20,
+        "type": 1,
+        "internal_name": "MMO",
+        "display_name": "MMO",
+        "image_url": "public/images/v6/ico/ico_multiPlayer.png"
+      },
+      {
+        "categoryid": 29,
+        "type": 2,
+        "internal_name": "Steam Trading Cards",
+        "display_name": "Steam Trading Cards",
+        "image_url": "public/images/v6/ico/ico_cards.png",
+        "show_in_search": true
+      },
+      {
+        "categoryid": 8,
+        "type": 2,
+        "internal_name": "VAC Enabled",
+        "display_name": "Valve Anti-Cheat enabled",
+        "image_url": "public/images/v6/ico/ico_vac.png",
+        "show_in_search": true
+      }
+    ]
+  }
+}

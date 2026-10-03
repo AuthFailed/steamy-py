@@ -1,0 +1,20 @@
+{
+  "response": {
+    "trades": [
+      {
+        "tradeid": "723541516341221347",
+        "steamid_other": "76561199497281579",
+        "time_init": 1785747967,
+        "status": 3,
+        "assets_given": [
+          {
+            "appid": 730,
+            "contextid": "2",
+            "assetid": "50520000968"
+          }
+        ],
+        "time_settlement": 1786356000
+      }
+    ]
+  }
+}

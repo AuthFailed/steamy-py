@@ -1,0 +1,39 @@
+{
+  "response": {
+    "notifications": [
+      {
+        "notification_id": "147813875091",
+        "notification_targets": 3,
+        "notification_type": 8,
+        "body_data": "{\"appid\":1139900,\"count\":1}",
+        "read": false,
+        "timestamp": 1727309268,
+        "hidden": false,
+        "expiry": 1728515200,
+        "viewed": 1727659038
+      },
+      {
+        "notification_id": "147789012345",
+        "notification_targets": 11,
+        "notification_type": 9,
+        "body_data": "{\"sender\":\"76561198012345678\",\"tradeofferid\":\"7456123987\"}",
+        "read": true,
+        "timestamp": 1727222400,
+        "expiry": 1728432000,
+        "viewed": 1727223000
+      },
+      {
+        "notification_id": "147700000001",
+        "notification_targets": 3,
+        "notification_type": 5,
+        "body_data": "{\"requestor_id\":74326593}",
+        "timestamp": 1727136000
+      }
+    ],
+    "confirmation_count": 1,
+    "pending_gift_count": 0,
+    "pending_friend_count": 1,
+    "unread_count": 2,
+    "pending_family_invite_count": 0
+  }
+}

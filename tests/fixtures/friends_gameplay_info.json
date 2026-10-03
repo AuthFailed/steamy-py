@@ -1,0 +1,62 @@
+{
+  "response": {
+    "your_info": {
+      "steamid": "76561197960435530",
+      "minutes_played": 177,
+      "minutes_played_forever": 5162,
+      "owned": true
+    },
+    "in_game": [
+      {
+        "steamid": "76561198012345678",
+        "minutes_played": 64,
+        "minutes_played_forever": 2210
+      }
+    ],
+    "played_recently": [
+      {
+        "steamid": "76561198012345678",
+        "minutes_played": 171,
+        "minutes_played_forever": 2210
+      },
+      {
+        "steamid": "76561198034592321",
+        "minutes_played": 12,
+        "minutes_played_forever": 840
+      }
+    ],
+    "played_ever": [
+      {
+        "steamid": "76561198012345678",
+        "minutes_played_forever": 2210
+      },
+      {
+        "steamid": "76561198034592321",
+        "minutes_played_forever": 840
+      },
+      {
+        "steamid": "76561198087725293",
+        "minutes_played_forever": 191
+      }
+    ],
+    "owns": [
+      {
+        "steamid": "76561198012345678"
+      },
+      {
+        "steamid": "76561198034592321"
+      },
+      {
+        "steamid": "76561198087725293"
+      },
+      {
+        "steamid": "76561198054566890"
+      }
+    ],
+    "in_wishlist": [
+      {
+        "steamid": "76561197978499600"
+      }
+    ]
+  }
+}

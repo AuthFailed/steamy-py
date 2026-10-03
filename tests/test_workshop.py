@@ -14,6 +14,22 @@ item taken from another real reply, workshop_query_files.json two items of
 one QueryFiles page with its real total and next_cursor, and
 workshop_published_file_details.json a GetPublishedFileDetails reply with a
 found and a not-found item.
+
+The Milestone 2 methods are tested at the end of the file:
+
+- ``get_user_files`` and ``iter_user_files``: IPublishedFileService/GetUserFiles
+  (API key, else access token)
+- ``subscribe`` and ``unsubscribe``: IPublishedFileService/Subscribe and
+  Unsubscribe, POST writes that send only the access token
+- ``get_collection_details``: ISteamRemoteStorage/GetCollectionDetails, a
+  keyless POST
+
+workshop_get_user_files.json is a real GetUserFiles reply published in
+Shr1mpTop/my-steam-notes (docs/api-test-results-full.md); the source cuts it
+off inside ``vote_data``, so the fixture ends the item there.
+workshop_get_collection_details.json is the reply captured in FakeApate/pzsm
+(internal/steam/testdata/collection_details.json), cut to the collection's
+first three of 248 children.
 """
 
 from __future__ import annotations
@@ -27,18 +43,25 @@ import pytest
 from steamy_py import (
     AuthenticationError,
     InvalidAppIDError,
+    InvalidSteamIDError,
     ResponseParsingError,
     Settings,
     Steam,
     SteamAPIError,
+    SteamID,
 )
 from steamy_py.models.workshop import (
+    CollectionDetails,
+    CollectionDetailsList,
     EPublishedFileQueryType,
+    EUCMListType,
     PublishedFileDetails,
     PublishedFileDetailsList,
     QueryFilesResult,
     RemoteStorageFileDetails,
     RemoteStorageFileDetailsList,
+    UserFilesApp,
+    UserFilesResult,
 )
 from tests.fakesteam import (
     ACCESS_TOKEN,
@@ -870,5 +893,857 @@ async def test_get_published_file_details_rejects_invalid_ids_before_any_request
 ) -> None:
     with pytest.raises(ValueError, match="published file id"):
         await steam.workshop.get_published_file_details(ids)
+
+    assert fake_steam.requests == []
+
+
+# == Milestone 2 ======================================================================
+
+USER_FILES = "/IPublishedFileService/GetUserFiles/v1/"
+SUBSCRIBE = "/IPublishedFileService/Subscribe/v1/"
+UNSUBSCRIBE = "/IPublishedFileService/Unsubscribe/v1/"
+COLLECTIONS = "/ISteamRemoteStorage/GetCollectionDetails/v1/"
+
+USER_FILES_REPLY: dict[str, Any] = load_fixture("workshop_get_user_files.json")
+COLLECTION_REPLY: dict[str, Any] = load_fixture("workshop_get_collection_details.json")
+
+USER_STEAMID = "76561198367786896"  # creator in workshop_get_user_files.json
+USER_ITEM_ID = "2863985395"  # its item
+WALLPAPER_ENGINE = 431960
+COLLECTION_ID = 3707778024  # workshop_get_collection_details.json
+COLLECTION_CHILDREN = ["3005903549", "3026723485", "2937786633"]
+
+DEFAULT_USER_FILES_INPUTS = {
+    "steamid": USER_STEAMID,
+    "language": "0",
+    # Steam's proto defaults: on for vote data, kv tags and short descriptions.
+    "return_vote_data": "1",
+    "return_tags": "0",
+    "return_kv_tags": "1",
+    "return_previews": "0",
+    "return_children": "0",
+    "return_short_description": "1",
+    "return_for_sale_data": "0",
+    "return_metadata": "0",
+    "return_reactions": "0",
+    "return_apps": "0",
+}
+
+M2_ENDPOINTS = [
+    Endpoint(
+        "get_user_files",
+        lambda steam: steam.workshop.get_user_files(
+            USER_STEAMID, appid=WALLPAPER_ENGINE
+        ),
+        "GET",
+        USER_FILES,
+        USER_FILES_REPLY,
+        {"response": {"total": "many"}},
+        "get user workshop files",
+    ),
+    Endpoint(
+        "subscribe",
+        lambda steam: steam.workshop.subscribe(ITEM_ID),
+        "POST",
+        SUBSCRIBE,
+        EMPTY,
+        {"response": []},
+        "subscribe to workshop item",
+    ),
+    Endpoint(
+        "unsubscribe",
+        lambda steam: steam.workshop.unsubscribe(ITEM_ID),
+        "POST",
+        UNSUBSCRIBE,
+        EMPTY,
+        {"response": "ok"},
+        "unsubscribe from workshop item",
+    ),
+    Endpoint(
+        "get_collection_details",
+        lambda steam: steam.workshop.get_collection_details(COLLECTION_ID),
+        "POST",
+        COLLECTIONS,
+        COLLECTION_REPLY,
+        {"response": {"collectiondetails": {"publishedfileid": "1"}}},
+        "get collection details",
+    ),
+]
+SUBSCRIPTION_ENDPOINTS = M2_ENDPOINTS[1:3]
+
+
+@pytest.fixture
+async def key_only_steam(settings: Settings) -> AsyncIterator[Steam]:
+    """A client that has a Web API key but no access token."""
+    async with Steam(api_key=API_KEY, settings=settings) as client:
+        yield client
+
+
+# -- every Milestone 2 method -----------------------------------------------------
+
+
+@endpoint_params(M2_ENDPOINTS)
+async def test_m2_call_is_one_request_with_documented_verb_and_path(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam)
+
+    await endpoint.call(steam)
+
+    assert [(r.method, r.path) for r in fake_steam.requests] == [
+        (endpoint.verb, endpoint.path)
+    ]
+
+
+@endpoint_params(M2_ENDPOINTS)
+async def test_m2_http_500_is_raised_as_steam_api_error(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam, json={"error": "Internal Server Error"}, status=500)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await endpoint.call(steam)
+
+    assert type(excinfo.value) is SteamAPIError
+    assert excinfo.value.status_code == 500
+    assert API_KEY not in str(excinfo.value)
+    assert ACCESS_TOKEN not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+@endpoint_params(M2_ENDPOINTS)
+async def test_m2_malformed_reply_raises_response_parsing_error(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam, json=endpoint.malformed)
+
+    with pytest.raises(ResponseParsingError, match=f"Failed to {endpoint.operation}"):
+        await endpoint.call(steam)
+
+
+@endpoint_params(M2_ENDPOINTS)
+async def test_m2_body_that_is_not_an_object_raises_response_parsing_error(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam, json=[])
+
+    with pytest.raises(ResponseParsingError, match=f"Failed to {endpoint.operation}"):
+        await endpoint.call(steam)
+
+
+@endpoint_params(M2_ENDPOINTS)
+async def test_m2_non_json_reply_raises_response_parsing_error(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam, text="<html>Error</html>", content_type="text/html")
+
+    with pytest.raises(ResponseParsingError, match="Invalid JSON response"):
+        await endpoint.call(steam)
+
+
+# -- get_user_files ------------------------------------------------------------------
+
+
+async def test_get_user_files_sends_api_key_when_client_has_both(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=USER_FILES_REPLY)
+
+    await steam.workshop.get_user_files(USER_STEAMID)
+
+    assert query_without_key(fake_steam.last) == DEFAULT_USER_FILES_INPUTS
+    assert fake_steam.last.form == {}
+
+
+async def test_get_user_files_sends_access_token_without_api_key(
+    token_only_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=USER_FILES_REPLY)
+
+    await token_only_steam.workshop.get_user_files(USER_STEAMID)
+
+    inputs = sent(fake_steam.last.query)
+    assert inputs.pop("access_token") == ACCESS_TOKEN
+    assert inputs == DEFAULT_USER_FILES_INPUTS
+
+
+async def test_get_user_files_without_credential_raises_before_any_request(
+    anonymous_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=USER_FILES_REPLY)
+
+    with pytest.raises(AuthenticationError, match="API key or access token"):
+        await anonymous_steam.workshop.get_user_files(USER_STEAMID)
+
+    assert fake_steam.requests == []
+
+
+async def test_get_user_files_sends_every_option(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=USER_FILES_REPLY)
+
+    await steam.workshop.get_user_files(
+        int(USER_STEAMID),
+        appid=WALLPAPER_ENGINE,
+        page=2,
+        numperpage=30,
+        type="mysubscriptions",
+        sortmethod="lastupdated",
+        privacy=8,
+        requiredtags=["Wallpaper", "Video"],
+        excludedtags="Mature",
+        filetype=0,
+        creator_appid=WALLPAPER_ENGINE,
+        match_cloud_filename="scene.pkg",
+        cache_max_age_seconds=60,
+        language=6,
+        totalonly=False,
+        ids_only=False,
+        return_vote_data=False,
+        return_tags=True,
+        return_kv_tags=False,
+        return_previews=True,
+        return_children=True,
+        return_short_description=False,
+        return_for_sale_data=True,
+        return_metadata=True,
+        return_playtime_stats=7,
+        return_reactions=True,
+        return_apps=True,
+        strip_description_bbcode=True,
+    )
+
+    assert query_without_key(fake_steam.last) == {
+        "steamid": USER_STEAMID,
+        "appid": str(WALLPAPER_ENGINE),
+        "page": "2",
+        "numperpage": "30",
+        "type": "mysubscriptions",
+        "sortmethod": "lastupdated",
+        "privacy": "8",
+        "requiredtags[0]": "Wallpaper",
+        "requiredtags[1]": "Video",
+        "excludedtags[0]": "Mature",
+        "filetype": "0",
+        "creator_appid": str(WALLPAPER_ENGINE),
+        "match_cloud_filename": "scene.pkg",
+        "cache_max_age_seconds": "60",
+        "language": "6",
+        "totalonly": "0",
+        "ids_only": "0",
+        "return_vote_data": "0",
+        "return_tags": "1",
+        "return_kv_tags": "0",
+        "return_previews": "1",
+        "return_children": "1",
+        "return_short_description": "0",
+        "return_for_sale_data": "1",
+        "return_metadata": "1",
+        "return_playtime_stats": "7",
+        "return_reactions": "1",
+        "return_apps": "1",
+        "strip_description_bbcode": "1",
+    }
+
+
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param(int(USER_STEAMID), id="int"),
+        pytest.param(USER_STEAMID, id="str"),
+        pytest.param(SteamID(USER_STEAMID), id="SteamID"),
+    ],
+)
+async def test_get_user_files_accepts_steamid_as_int_str_or_steamid(
+    steam: Steam, fake_steam: FakeSteam, steamid: Any
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=EMPTY)
+
+    await steam.workshop.get_user_files(steamid)
+
+    assert fake_steam.last.params["steamid"] == USER_STEAMID
+
+
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("gabelogannewell", id="vanity-name"),
+        pytest.param(22202, id="account-id"),
+        pytest.param("103582791429521408", id="group-id"),
+        pytest.param(True, id="bool"),
+        pytest.param(b"76561198367786896", id="bytes"),
+    ],
+)
+async def test_get_user_files_rejects_invalid_steamid_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, steamid: Any
+) -> None:
+    with pytest.raises(InvalidSteamIDError):
+        await steam.workshop.get_user_files(steamid)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize("field", ["appid", "creator_appid"])
+@pytest.mark.parametrize("appid", INVALID_APP_IDS)
+async def test_get_user_files_rejects_invalid_app_id_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, field: str, appid: Any
+) -> None:
+    with pytest.raises(InvalidAppIDError):
+        await steam.workshop.get_user_files(USER_STEAMID, **{field: appid})
+
+    assert fake_steam.requests == []
+
+
+async def test_get_user_files_parses_page(steam: Steam, fake_steam: FakeSteam) -> None:
+    fake_steam.api("GET", USER_FILES, json=USER_FILES_REPLY)
+
+    result = await steam.workshop.get_user_files(USER_STEAMID, return_tags=True)
+
+    assert isinstance(result, UserFilesResult)
+    assert (result.total, result.startindex) == (9, 1)
+    assert result.apps == []
+    (item,) = result.publishedfiledetails
+    assert isinstance(item, PublishedFileDetails)
+    assert item.result == 1
+    assert item.publishedfileid == USER_ITEM_ID
+    assert item.creator == USER_STEAMID
+    assert (item.creator_appid, item.consumer_appid) == (431960, 431960)
+    assert item.app_name == "Wallpaper Engine"
+    # The real title and description use mathematical Fraktur letters,
+    # which must come through unchanged.
+    assert item.title.startswith("天国拯救高燃混剪\uff1a\U0001d576")
+    assert len(item.title) == 20
+    assert item.short_description.endswith("!!")
+    assert item.file_description == ""
+    # uint64 sizes and counts arrive as strings.
+    assert (item.file_size, item.preview_file_size) == (523447204, 342785)
+    assert (item.lifetime_playtime, item.lifetime_playtime_sessions) == (0, 0)
+    assert item.hcontent_file == "7162398792635874947"
+    assert (item.time_created, item.time_updated) == (1663401266, 1663406565)
+    assert (item.subscriptions, item.lifetime_subscriptions) == (248, 923)
+    assert (item.favorited, item.views) == (26, 80)
+    assert item.can_be_deleted and item.can_subscribe and not item.banned
+    assert [tag.tag for tag in item.tags] == [
+        "Wallpaper",
+        "Video",
+        "Medieval",
+        "1920 x 1080",
+        "Everyone",
+    ]
+    assert [(kv.key, kv.value) for kv in item.kvtags][:3] == [
+        ("Width", "1920"),
+        ("Height", "1080"),
+        ("version", "20000100000032"),
+    ]
+    assert item.vote_data.score == pytest.approx(0.5614035129)
+
+
+async def test_get_user_files_parses_apps(steam: Steam, fake_steam: FakeSteam) -> None:
+    # Shaped as CPublishedFile_GetUserFiles_Response_App: fields at their
+    # default (shortcutid 0, private false) are left out.
+    body = {
+        "response": {
+            "total": 1,
+            "startindex": 1,
+            "publishedfiledetails": [{"result": 1, "publishedfileid": USER_ITEM_ID}],
+            "apps": [
+                {"appid": WALLPAPER_ENGINE, "name": "Wallpaper Engine"},
+                {"appid": 7, "name": "Hidden", "shortcutid": 3, "private": True},
+            ],
+        }
+    }
+    fake_steam.api("GET", USER_FILES, json=body)
+
+    result = await steam.workshop.get_user_files(USER_STEAMID, return_apps=True)
+
+    assert result.apps == [
+        UserFilesApp(appid=WALLPAPER_ENGINE, name="Wallpaper Engine"),
+        UserFilesApp(appid=7, name="Hidden", shortcutid=3, private=True),
+    ]
+
+
+async def test_get_user_files_parses_empty_response(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    # A user without items: protobuf leaves out every field.
+    fake_steam.api("GET", USER_FILES, json=EMPTY)
+
+    result = await steam.workshop.get_user_files(USER_STEAMID)
+
+    assert result == UserFilesResult()
+    assert (result.total, result.startindex) == (0, 0)
+    assert result.publishedfiledetails == result.apps == []
+
+
+# -- iter_user_files ---------------------------------------------------------------
+
+
+def user_page(ids: list[int], total: int, startindex: int) -> dict[str, Any]:
+    """A GetUserFiles reply with ``ids`` (as returned with ids_only)."""
+    page: dict[str, Any] = {"total": total}
+    if ids:
+        page["startindex"] = startindex
+        page["publishedfiledetails"] = [
+            {"result": 1, "publishedfileid": str(i)} for i in ids
+        ]
+    return {"response": page}
+
+
+def sent_pages(fake_steam: FakeSteam) -> list[str]:
+    return [request.params["page"] for request in fake_steam.requests]
+
+
+def fail_further_user_pages(fake_steam: FakeSteam) -> None:
+    """Answer any page after the queued ones with HTTP 500, so an iterator
+    that misses its stop condition fails instead of looping forever."""
+    fake_steam.api("GET", USER_FILES, json={"error": "too many pages"}, status=500)
+
+
+async def test_iter_user_files_pages_until_total(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=user_page([11, 12], 5, 1))
+    fake_steam.api("GET", USER_FILES, json=user_page([13, 14], 5, 3))
+    fake_steam.api("GET", USER_FILES, json=user_page([15], 5, 5))
+    fail_further_user_pages(fake_steam)
+
+    items = [
+        item.publishedfileid
+        async for item in steam.workshop.iter_user_files(
+            USER_STEAMID,
+            numperpage=2,
+            appid=WALLPAPER_ENGINE,
+            type="mysubscriptions",
+            ids_only=True,
+        )
+    ]
+
+    assert items == ["11", "12", "13", "14", "15"]
+    assert sent_pages(fake_steam) == ["1", "2", "3"]
+    for request in fake_steam.requests:
+        assert request.params["steamid"] == USER_STEAMID
+        assert request.params["numperpage"] == "2"
+        assert request.params["appid"] == str(WALLPAPER_ENGINE)
+        assert request.params["type"] == "mysubscriptions"
+        assert request.params["ids_only"] == "1"
+
+
+async def test_iter_user_files_stops_at_an_empty_page(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    # total says more items exist, but the next page is empty.
+    fake_steam.api("GET", USER_FILES, json=user_page([11, 12], 9, 1))
+    fake_steam.api("GET", USER_FILES, json=user_page([], 9, 0))
+    fail_further_user_pages(fake_steam)
+
+    items = [item async for item in steam.workshop.iter_user_files(USER_STEAMID)]
+
+    assert [item.publishedfileid for item in items] == ["11", "12"]
+    assert sent_pages(fake_steam) == ["1", "2"]
+    assert fake_steam.last.params["numperpage"] == "50"
+
+
+async def test_iter_user_files_of_user_without_items_makes_one_request(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", USER_FILES, json=EMPTY)
+    fail_further_user_pages(fake_steam)
+
+    items = [item async for item in steam.workshop.iter_user_files(USER_STEAMID)]
+
+    assert items == []
+    assert len(fake_steam.requests) == 1
+
+
+async def test_iter_user_files_raises_when_a_page_skips_items(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    # Steam honoured only 2 of the 3 items per page asked for: page 2 starts
+    # at item 4, so item 3 would be skipped.
+    fake_steam.api("GET", USER_FILES, json=user_page([11, 12], 9, 1))
+    fake_steam.api("GET", USER_FILES, json=user_page([14, 15], 9, 4))
+    fail_further_user_pages(fake_steam)
+
+    seen: list[str] = []
+    with pytest.raises(SteamAPIError, match="from item 4, expected item 3"):
+        async for item in steam.workshop.iter_user_files(USER_STEAMID, numperpage=3):
+            seen.append(item.publishedfileid)
+
+    assert seen == ["11", "12"]
+    assert len(fake_steam.requests) == 2
+
+
+async def test_iter_user_files_rejects_page(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    with pytest.raises(TypeError, match="omit page"):
+        async for _ in steam.workshop.iter_user_files(USER_STEAMID, page=2):
+            pass
+
+    assert fake_steam.requests == []
+
+
+async def test_iter_user_files_rejects_invalid_steamid_before_any_request(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    with pytest.raises(InvalidSteamIDError):
+        async for _ in steam.workshop.iter_user_files("gabelogannewell"):
+            pass
+
+    assert fake_steam.requests == []
+
+
+# -- subscribe / unsubscribe --------------------------------------------------------
+
+
+async def test_subscribe_posts_item_and_token_in_form_body(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", SUBSCRIBE, json=EMPTY)
+
+    result = await steam.workshop.subscribe(ITEM_ID)
+
+    request = fake_steam.last
+    assert sent(request.form) == {
+        "publishedfileid": str(ITEM_ID),
+        "list_type": "1",
+        "notify_client": "0",
+        "include_dependencies": "0",
+        "access_token": ACCESS_TOKEN,
+    }
+    assert sent(request.query) == {}
+    assert API_KEY.encode() not in request.body
+    assert "Cookie" not in request.headers
+    assert result is None
+
+
+async def test_subscribe_sends_every_option(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", SUBSCRIBE, json=EMPTY)
+
+    await steam.workshop.subscribe(
+        str(ITEM_ID),
+        list_type=EUCMListType.FAVORITES,
+        appid=281990,
+        notify_client=True,
+        include_dependencies=True,
+    )
+
+    assert sent(fake_steam.last.form) == {
+        "publishedfileid": str(ITEM_ID),
+        "list_type": "2",
+        "appid": "281990",
+        "notify_client": "1",
+        "include_dependencies": "1",
+        "access_token": ACCESS_TOKEN,
+    }
+
+
+async def test_unsubscribe_posts_item_and_token_in_form_body(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", UNSUBSCRIBE, json=EMPTY)
+
+    result = await steam.workshop.unsubscribe(ITEM_ID)
+
+    request = fake_steam.last
+    assert sent(request.form) == {
+        "publishedfileid": str(ITEM_ID),
+        "list_type": "1",
+        "notify_client": "0",
+        "access_token": ACCESS_TOKEN,
+    }
+    assert sent(request.query) == {}
+    assert API_KEY.encode() not in request.body
+    assert result is None
+
+
+async def test_unsubscribe_sends_every_option(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", UNSUBSCRIBE, json=EMPTY)
+
+    await steam.workshop.unsubscribe(
+        str(ITEM_ID),
+        list_type=EUCMListType.FOLLOWED,
+        appid=281990,
+        notify_client=True,
+    )
+
+    assert sent(fake_steam.last.form) == {
+        "publishedfileid": str(ITEM_ID),
+        "list_type": "6",
+        "appid": "281990",
+        "notify_client": "1",
+        "access_token": ACCESS_TOKEN,
+    }
+
+
+def test_eucm_list_type_values() -> None:
+    # OpenSteamworks enums.h and opensteamworks enums.steamd agree on these.
+    assert {member.name: member.value for member in EUCMListType} == {
+        "SUBSCRIBED": 1,
+        "FAVORITES": 2,
+        "PLAYED": 3,
+        "COMPLETED": 4,
+        "SHORTCUT_FAVORITES": 5,
+        "FOLLOWED": 6,
+    }
+
+
+@endpoint_params(SUBSCRIPTION_ENDPOINTS)
+async def test_subscription_works_with_only_an_access_token(
+    token_only_steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam)
+
+    await endpoint.call(token_only_steam)
+
+    assert sent(fake_steam.last.form)["access_token"] == ACCESS_TOKEN
+
+
+@endpoint_params(SUBSCRIPTION_ENDPOINTS)
+async def test_subscription_needs_the_access_token_not_the_key(
+    key_only_steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam)
+
+    with pytest.raises(AuthenticationError, match="Access token is required"):
+        await endpoint.call(key_only_steam)
+
+    assert fake_steam.requests == []
+
+
+@endpoint_params(SUBSCRIPTION_ENDPOINTS)
+async def test_subscription_without_credential_raises_before_any_request(
+    anonymous_steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam)
+
+    with pytest.raises(AuthenticationError):
+        await endpoint.call(anonymous_steam)
+
+    assert fake_steam.requests == []
+
+
+@endpoint_params(SUBSCRIPTION_ENDPOINTS)
+async def test_subscription_ignores_a_missing_response_object(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    endpoint.serve(fake_steam, json={})
+
+    assert await endpoint.call(steam) is None
+
+
+@pytest.mark.parametrize(
+    ("eresult", "error"),
+    [
+        pytest.param("9", SteamAPIError, id="file-not-found"),
+        pytest.param("15", AuthenticationError, id="access-denied"),
+    ],
+)
+@endpoint_params(SUBSCRIPTION_ENDPOINTS)
+async def test_subscription_refused_by_steam_raises_with_eresult(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    endpoint: Endpoint,
+    eresult: str,
+    error: type[SteamAPIError],
+) -> None:
+    endpoint.serve(fake_steam, json=EMPTY, headers={"x-eresult": eresult})
+
+    with pytest.raises(error) as excinfo:
+        await endpoint.call(steam)
+
+    assert type(excinfo.value) is error
+    assert excinfo.value.eresult == int(eresult)
+    assert ACCESS_TOKEN not in str(excinfo.value)
+    # A POST that Steam refused is not repeated.
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("method", "path"), [("subscribe", SUBSCRIBE), ("unsubscribe", UNSUBSCRIBE)]
+)
+@pytest.mark.parametrize("ids", INVALID_IDS)
+async def test_subscription_rejects_invalid_id_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, method: str, path: str, ids: Any
+) -> None:
+    fake_steam.api("POST", path, json=EMPTY)
+
+    with pytest.raises(ValueError, match="published file id"):
+        await getattr(steam.workshop, method)(ids)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    ("method", "path"), [("subscribe", SUBSCRIBE), ("unsubscribe", UNSUBSCRIBE)]
+)
+@pytest.mark.parametrize("appid", INVALID_APP_IDS)
+async def test_subscription_rejects_invalid_app_id_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, method: str, path: str, appid: Any
+) -> None:
+    fake_steam.api("POST", path, json=EMPTY)
+
+    with pytest.raises(InvalidAppIDError):
+        await getattr(steam.workshop, method)(ITEM_ID, appid=appid)
+
+    assert fake_steam.requests == []
+
+
+# -- get_collection_details ---------------------------------------------------------
+
+
+async def test_get_collection_details_posts_form_without_credential(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COLLECTIONS, json=COLLECTION_REPLY)
+
+    await steam.workshop.get_collection_details([COLLECTION_ID, str(ITEM_ID)])
+
+    request = fake_steam.last
+    assert sent(request.form) == {
+        "collectioncount": "2",
+        "publishedfileids[0]": str(COLLECTION_ID),
+        "publishedfileids[1]": str(ITEM_ID),
+    }
+    assert sent(request.query) == {}
+    assert API_KEY.encode() not in request.body
+    assert ACCESS_TOKEN.encode() not in request.body
+    assert "Cookie" not in request.headers
+
+
+async def test_get_collection_details_needs_no_credential(
+    anonymous_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COLLECTIONS, json=COLLECTION_REPLY)
+
+    result = await anonymous_steam.workshop.get_collection_details(str(COLLECTION_ID))
+
+    assert sent(fake_steam.last.form) == {
+        "collectioncount": "1",
+        "publishedfileids[0]": str(COLLECTION_ID),
+    }
+    assert result.resultcount == 1
+
+
+async def test_get_collection_details_parses_collection(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COLLECTIONS, json=COLLECTION_REPLY)
+
+    result = await steam.workshop.get_collection_details(COLLECTION_ID)
+
+    assert isinstance(result, CollectionDetailsList)
+    assert (result.result, result.resultcount) == (1, 1)
+    (collection,) = result.collectiondetails
+    assert isinstance(collection, CollectionDetails)
+    assert (collection.publishedfileid, collection.result) == (str(COLLECTION_ID), 1)
+    assert [c.publishedfileid for c in collection.children] == COLLECTION_CHILDREN
+    assert [c.sortorder for c in collection.children] == [0, 1, 2]
+    assert [c.filetype for c in collection.children] == [0, 0, 0]
+
+
+async def test_get_collection_details_parses_a_collection_not_found(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    # Shaped as the not-found entries of ISteamRemoteStorage's
+    # GetPublishedFileDetails: only the id and an EResult other than 1.
+    reply = {
+        "response": {
+            "result": 1,
+            "resultcount": 2,
+            "collectiondetails": [
+                COLLECTION_REPLY["response"]["collectiondetails"][0],
+                {"publishedfileid": str(MISSING_ID), "result": 9},
+            ],
+        }
+    }
+    fake_steam.api("POST", COLLECTIONS, json=reply)
+
+    result = await steam.workshop.get_collection_details([COLLECTION_ID, MISSING_ID])
+
+    found, missing = result.collectiondetails
+    assert len(found.children) == 3
+    assert (missing.publishedfileid, missing.result) == (str(MISSING_ID), 9)
+    assert missing.children == []
+
+
+async def test_get_collection_details_parses_empty_response(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", COLLECTIONS, json=EMPTY)
+
+    result = await steam.workshop.get_collection_details(COLLECTION_ID)
+
+    assert result == CollectionDetailsList()
+    assert result.collectiondetails == []
+
+
+@pytest.mark.parametrize("ids", INVALID_IDS)
+async def test_get_collection_details_rejects_invalid_ids_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, ids: Any
+) -> None:
+    with pytest.raises(ValueError, match="published file id"):
+        await steam.workshop.get_collection_details(ids)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "ids",
+    [
+        pytest.param(bytearray(b"12"), id="bytearray"),
+        pytest.param(memoryview(b"12"), id="memoryview"),
+    ],
+)
+async def test_get_collection_details_rejects_byte_buffers_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, ids: Any
+) -> None:
+    # Iterating a byte buffer gives ints (49, 50), which would pass as ids.
+    with pytest.raises(ValueError, match="published file id"):
+        await steam.workshop.get_collection_details(ids)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(
+            lambda steam, ids: steam.workshop.get_details(ids), id="get_details"
+        ),
+        pytest.param(
+            lambda steam, ids: steam.workshop.get_published_file_details(ids),
+            id="get_published_file_details",
+        ),
+        pytest.param(
+            lambda steam, ids: steam.workshop.get_collection_details(ids),
+            id="get_collection_details",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "ids", [bytearray(b"12"), memoryview(b"12")], ids=["bytearray", "memoryview"]
+)
+async def test_byte_buffers_are_never_read_as_published_file_ids(
+    steam: Steam, fake_steam: FakeSteam, call: Any, ids: Any
+) -> None:
+    with pytest.raises(ValueError, match="Invalid published file id"):
+        await call(steam, ids)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize("tags", [b"Maps", bytearray(b"Maps")])
+async def test_byte_tags_are_rejected(
+    steam: Steam, fake_steam: FakeSteam, tags: Any
+) -> None:
+    with pytest.raises(TypeError, match="Tags must be str"):
+        await steam.workshop.query_files(appid=440, requiredtags=tags)
 
     assert fake_steam.requests == []

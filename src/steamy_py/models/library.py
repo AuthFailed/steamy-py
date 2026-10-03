@@ -113,3 +113,21 @@ class LastPlayedTimesResponse(SteamModel):
     """Response wrapper for IPlayerService/ClientGetLastPlayedTimes."""
 
     response: LastPlayedTimes = Field(default_factory=LastPlayedTimes)
+
+
+class PrivateAppList(SteamModel):
+    """The apps the signed-in user marked private (``CAccountPrivateAppList``)."""
+
+    appids: list[int] = Field(default_factory=list, description="App IDs")
+
+
+class PrivateApps(SteamModel):
+    """Body of ``CAccountPrivateApps_GetPrivateAppList_Response``."""
+
+    private_apps: PrivateAppList = Field(default_factory=PrivateAppList)
+
+
+class PrivateAppsResponse(SteamModel):
+    """Response wrapper for IAccountPrivateAppsService/GetPrivateAppList."""
+
+    response: PrivateApps = Field(default_factory=PrivateApps)

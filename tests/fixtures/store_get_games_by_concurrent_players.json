@@ -1,0 +1,188 @@
+{
+  "response": {
+    "last_update": 1773083732,
+    "ranks": [
+      {
+        "rank": 1,
+        "appid": 730,
+        "item": {
+          "item_type": 0,
+          "id": 730,
+          "success": 1,
+          "visible": true,
+          "name": "Counter-Strike 2",
+          "store_url_path": "app/730/CounterStrike_2",
+          "appid": 730,
+          "type": 0,
+          "is_free": true,
+          "content_descriptorids": [
+            2,
+            5
+          ],
+          "categories": {
+            "supported_player_categoryids": [
+              1,
+              27
+            ],
+            "feature_categoryids": [
+              29,
+              30,
+              35,
+              64,
+              66,
+              67,
+              68,
+              69,
+              70,
+              74,
+              8,
+              15,
+              41,
+              42,
+              43,
+              63
+            ]
+          },
+          "basic_info": {
+            "short_description": "For over two decades, Counter-Strike has offered an elite competitive experience, one shaped by millions of players from across the globe. And now the next chapter in the CS story is about to begin. This is Counter-Strike 2.",
+            "publishers": [
+              {
+                "name": "Valve",
+                "creator_clan_account_id": 4
+              }
+            ],
+            "developers": [
+              {
+                "name": "Valve",
+                "creator_clan_account_id": 4
+              }
+            ]
+          }
+        },
+        "concurrent_in_game": 1384410,
+        "peak_in_game": 1509177
+      },
+      {
+        "rank": 2,
+        "appid": 570,
+        "item": {
+          "item_type": 0,
+          "id": 570,
+          "success": 1,
+          "visible": true,
+          "name": "Dota 2",
+          "store_url_path": "app/570/Dota_2",
+          "appid": 570,
+          "type": 0,
+          "is_free": true,
+          "content_descriptorids": [
+            5
+          ],
+          "categories": {
+            "supported_player_categoryids": [
+              1,
+              9
+            ],
+            "feature_categoryids": [
+              29,
+              30,
+              40,
+              35,
+              66,
+              67,
+              68,
+              8,
+              63
+            ]
+          },
+          "basic_info": {
+            "short_description": "Every day, millions of players worldwide enter battle as one of over a hundred Dota heroes. And no matter if it's their 10th hour of play or 1,000th, there's always something new to discover. With regular updates that ensure a constant evolution of gameplay, features, and heroes, Dota 2 has taken on a life of its own.",
+            "publishers": [
+              {
+                "name": "Valve",
+                "creator_clan_account_id": 4
+              }
+            ],
+            "developers": [
+              {
+                "name": "Valve",
+                "creator_clan_account_id": 4
+              }
+            ],
+            "franchises": [
+              {
+                "name": "Dota",
+                "creator_clan_account_id": 40102679
+              }
+            ]
+          }
+        },
+        "concurrent_in_game": 582538,
+        "peak_in_game": 736375
+      },
+      {
+        "rank": 3,
+        "appid": 2868840,
+        "item": {
+          "item_type": 0,
+          "id": 2868840,
+          "success": 1,
+          "visible": true,
+          "name": "Slay the Spire 2",
+          "store_url_path": "app/2868840/Slay_the_Spire_2",
+          "appid": 2868840,
+          "type": 0,
+          "is_early_access": true,
+          "categories": {
+            "supported_player_categoryids": [
+              2,
+              1,
+              9,
+              38
+            ],
+            "feature_categoryids": [
+              68,
+              74,
+              76,
+              79,
+              23,
+              15,
+              25,
+              62
+            ],
+            "controller_categoryids": [
+              28
+            ]
+          },
+          "basic_info": {
+            "short_description": "The iconic roguelike deckbuilder returns. Craft a unique deck, encounter bizarre creatures, and discover relics of immense power in Slay the Spire 2!",
+            "publishers": [
+              {
+                "name": "Mega Crit",
+                "creator_clan_account_id": 33974508
+              }
+            ],
+            "developers": [
+              {
+                "name": "Mega Crit",
+                "creator_clan_account_id": 33974508
+              }
+            ]
+          },
+          "best_purchase_option": {
+            "packageid": 1023134,
+            "purchase_option_name": "Slay the Spire 2",
+            "final_price_in_cents": "2499",
+            "formatted_final_price": "$24.99",
+            "user_can_purchase_as_gift": true,
+            "hide_discount_pct_for_compliance": false,
+            "included_game_count": 1,
+            "must_purchase_as_set": false
+          }
+        },
+        "concurrent_in_game": 249640,
+        "peak_in_game": 568884
+      }
+    ]
+  }
+}
