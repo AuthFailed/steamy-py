@@ -53,7 +53,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to cancel family group invite: {e}")
+            logger.error("Failed to cancel family group invite: %s", e)
             raise SteamAPIError(f"Failed to cancel family group invite: {e}") from e
 
     async def clear_cooldown_skip(
@@ -89,7 +89,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to clear cooldown skip: {e}")
+            logger.error("Failed to clear cooldown skip: %s", e)
             raise SteamAPIError(f"Failed to clear cooldown skip: {e}") from e
 
     async def confirm_invite_to_family_group(
@@ -129,7 +129,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to confirm invite to family group: {e}")
+            logger.error("Failed to confirm invite to family group: %s", e)
             raise SteamAPIError(f"Failed to confirm invite to family group: {e}") from e
 
     async def confirm_join_family_group(
@@ -169,7 +169,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to confirm join family group: {e}")
+            logger.error("Failed to confirm join family group: %s", e)
             raise SteamAPIError(f"Failed to confirm join family group: {e}") from e
 
     async def create_family_group(self, name: str, steamid: int | None = None):
@@ -202,7 +202,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to create family group: {e}")
+            logger.error("Failed to create family group: %s", e)
             raise SteamAPIError(f"Failed to create family group: {e}") from e
 
     async def delete_family_group(
@@ -234,7 +234,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to delete family group: {e}")
+            logger.error("Failed to delete family group: %s", e)
             raise SteamAPIError(f"Failed to delete family group: {e}") from e
 
     async def force_accept_invite(
@@ -272,7 +272,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to force accept invite: {e}")
+            logger.error("Failed to force accept invite: %s", e)
             raise SteamAPIError(f"Failed to force accept invite: {e}") from e
 
     async def get_change_log(self, family_groupid: int | None = None):
@@ -302,7 +302,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get change log: {e}")
+            logger.error("Failed to get change log: %s", e)
             raise SteamAPIError(f"Failed to get change log: {e}") from e
 
     async def get_family_group(
@@ -343,7 +343,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get family group: {e}")
+            logger.error("Failed to get family group: %s", e)
             raise SteamAPIError(f"Failed to get family group: {e}") from e
 
     async def get_family_group_for_user(
@@ -391,7 +391,7 @@ class FamilyAPI(BaseAPI):
                 f"Unexpected response to get family group for user: {e}"
             ) from e
         except Exception as e:
-            logger.error(f"Failed to get family group for user: {e}")
+            logger.error("Failed to get family group for user: %s", e)
             raise SteamAPIError(f"Failed to get family group for user: {e}") from e
 
     async def get_invite_check_results(
@@ -424,7 +424,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get invite check results: {e}")
+            logger.error("Failed to get invite check results: %s", e)
             raise SteamAPIError(f"Failed to get invite check results: {e}") from e
 
     async def get_playtime_summary(
@@ -464,7 +464,7 @@ class FamilyAPI(BaseAPI):
                 f"Unexpected response to get playtime summary: {e}"
             ) from e
         except Exception as e:
-            logger.error(f"Failed to get playtime summary: {e}")
+            logger.error("Failed to get playtime summary: %s", e)
             raise SteamAPIError(f"Failed to get playtime summary: {e}") from e
 
     async def get_preferred_lenders(self, family_groupid: int | None = None):
@@ -492,7 +492,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get preferred lenders: {e}")
+            logger.error("Failed to get preferred lenders: %s", e)
             raise SteamAPIError(f"Failed to get preferred lenders: {e}") from e
 
     async def get_purchase_requests(
@@ -537,7 +537,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get purchase requests: {e}")
+            logger.error("Failed to get purchase requests: %s", e)
             raise SteamAPIError(f"Failed to get purchase requests: {e}") from e
 
     async def get_shared_library_apps(
@@ -602,7 +602,7 @@ class FamilyAPI(BaseAPI):
                 f"Unexpected response to get shared library apps: {e}"
             ) from e
         except Exception as e:
-            logger.error(f"Failed to get shared library apps: {e}")
+            logger.error("Failed to get shared library apps: %s", e)
             raise SteamAPIError(f"Failed to get shared library apps: {e}") from e
 
     async def get_users_sharing_device(
@@ -641,7 +641,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to get users sharing device: {e}")
+            logger.error("Failed to get users sharing device: %s", e)
             raise SteamAPIError(f"Failed to get users sharing device: {e}") from e
 
     async def invite_to_family_group(
@@ -681,7 +681,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to invite to family group: {e}")
+            logger.error("Failed to invite to family group: %s", e)
             raise SteamAPIError(f"Failed to invite to family group: {e}") from e
 
     async def join_family_group(
@@ -715,7 +715,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to join family group: {e}")
+            logger.error("Failed to join family group: %s", e)
             raise SteamAPIError(f"Failed to join family group: {e}") from e
 
     async def modify_family_group_details(
@@ -749,7 +749,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to modify family group details: {e}")
+            logger.error("Failed to modify family group details: %s", e)
             raise SteamAPIError(f"Failed to modify family group details: {e}") from e
 
     async def remove_from_family_group(
@@ -783,7 +783,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to remove from family group: {e}")
+            logger.error("Failed to remove from family group: %s", e)
             raise SteamAPIError(f"Failed to remove from family group: {e}") from e
 
     async def request_purchase(
@@ -827,7 +827,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to request purchase: {e}")
+            logger.error("Failed to request purchase: %s", e)
             raise SteamAPIError(f"Failed to request purchase: {e}") from e
 
     async def resend_invitation_to_family_group(
@@ -864,7 +864,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to resend invitation to family group: {e}")
+            logger.error("Failed to resend invitation to family group: %s", e)
             raise SteamAPIError(
                 f"Failed to resend invitation to family group: {e}"
             ) from e
@@ -911,7 +911,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to respond to requested purchase: {e}")
+            logger.error("Failed to respond to requested purchase: %s", e)
             raise SteamAPIError(f"Failed to respond to requested purchase: {e}") from e
 
     async def rollback_family_group(
@@ -948,7 +948,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to rollback family group: {e}")
+            logger.error("Failed to rollback family group: %s", e)
             raise SteamAPIError(f"Failed to rollback family group: {e}") from e
 
     async def set_family_cooldown_overrides(
@@ -985,7 +985,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to set family cooldown overrides: {e}")
+            logger.error("Failed to set family cooldown overrides: %s", e)
             raise SteamAPIError(f"Failed to set family cooldown overrides: {e}") from e
 
     async def set_preferred_lender(
@@ -1025,7 +1025,7 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to set preferred lender: {e}")
+            logger.error("Failed to set preferred lender: %s", e)
             raise SteamAPIError(f"Failed to set preferred lender: {e}") from e
 
     async def undelete_family_group(self, family_groupid: int | None = None):
@@ -1056,5 +1056,5 @@ class FamilyAPI(BaseAPI):
         except SteamAPIError:
             raise
         except Exception as e:
-            logger.error(f"Failed to undelete family group: {e}")
+            logger.error("Failed to undelete family group: %s", e)
             raise SteamAPIError(f"Failed to undelete family group: {e}") from e

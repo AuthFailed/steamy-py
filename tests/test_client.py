@@ -999,10 +999,6 @@ async def test_rate_limiter_spaces_out_concurrent_requests(
 # -- logging configuration --------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason="#12: Client() calls logging.basicConfig on the root logger",
-    raises=AssertionError,
-)
 def test_creating_client_leaves_root_logger_alone() -> None:
     root = logging.getLogger()
     saved_handlers, saved_level = root.handlers[:], root.level

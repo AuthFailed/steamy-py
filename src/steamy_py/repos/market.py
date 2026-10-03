@@ -97,7 +97,7 @@ class MarketAPI(BaseAPI):
             return response_obj.to_price_info()
 
         except Exception as e:
-            logger.error(f"Error getting price for '{market_hash_name}': {e}")
+            logger.error("Error getting price for '%s': %s", market_hash_name, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get item price: {e}") from e
@@ -142,7 +142,7 @@ class MarketAPI(BaseAPI):
             return MarketListingsResponse(**response_data)
 
         except Exception as e:
-            logger.error(f"Error getting listings for '{market_hash_name}': {e}")
+            logger.error("Error getting listings for '%s': %s", market_hash_name, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get market listings: {e}") from e
@@ -176,7 +176,9 @@ class MarketAPI(BaseAPI):
             return response_obj.to_history_entries()
 
         except Exception as e:
-            logger.error(f"Error getting price history for '{market_hash_name}': {e}")
+            logger.error(
+                "Error getting price history for '%s': %s", market_hash_name, e
+            )
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get price history: {e}") from e
@@ -241,7 +243,7 @@ class MarketAPI(BaseAPI):
         except (PrivateProfileError, PlayerNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error getting inventory for {steamid}: {e}")
+            logger.error("Error getting inventory for %s: %s", steamid, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get inventory: {e}") from e
@@ -291,7 +293,7 @@ class MarketAPI(BaseAPI):
             return MarketSearchResponse(**response_data)
 
         except Exception as e:
-            logger.error(f"Error searching market: {e}")
+            logger.error("Error searching market: %s", e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to search market: {e}") from e

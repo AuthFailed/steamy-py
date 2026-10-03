@@ -4,7 +4,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Steam API configuration settings."""
+    """Steam API configuration settings.
+
+    Pass values as keyword arguments (``Settings(MAX_RETRIES=5)``, or the
+    lowercase ``max_retries=5``). Fields can also come from environment
+    variables with the ``STEAMY_`` prefix (``STEAMY_MAX_RETRIES=5``); no
+    ``.env`` file is read. Unknown names raise a ``ValidationError``.
+    """
 
     # Steam API Configuration
     STEAM_API_BASE_URL: str = "https://api.steampowered.com"
@@ -26,10 +32,6 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     REQUESTS_PER_SECOND: float = 10.0
 
-    # Logging
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
+        env_prefix="STEAMY_", case_sensitive=False, extra="forbid"
     )

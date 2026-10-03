@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Any
@@ -32,7 +33,6 @@ from tests.fakesteam import (
 OWNED_GAMES_PATH = "/IPlayerService/GetOwnedGames/v1/"
 ACHIEVEMENTS_PATH = "/ISteamUserStats/GetPlayerAchievements/v1/"
 SCHEMA_PATH = "/ISteamUserStats/GetSchemaForGame/v2/"
-APP_LIST_PATH = "/ISteamApps/GetAppList/v2/"
 STORE_APP_LIST_PATH = "/IStoreService/GetAppList/v1/"
 APP_DETAILS_PATH = STORE_PREFIX + "/appdetails"
 
@@ -45,18 +45,7 @@ TF2_SCHEMA_STUB: dict[str, Any] = {
 }
 UNKNOWN_APP_DETAILS: dict[str, Any] = {"9999999": {"success": False}}
 
-# Real shape of ISteamApps/GetAppList/v2, trimmed from ~250k entries.
-APP_LIST: dict[str, Any] = {
-    "applist": {
-        "apps": [
-            {"appid": 10, "name": "Counter-Strike"},
-            {"appid": 400, "name": "Portal"},
-            {"appid": 620, "name": "Portal 2"},
-            {"appid": 730, "name": "Counter-Strike 2"},
-        ]
-    }
-}
-# The same apps as IStoreService/GetAppList/v1 returns them.
+# Real shape of IStoreService/GetAppList/v1, trimmed from ~200k entries.
 STORE_APP_LIST: dict[str, Any] = {
     "response": {
         "apps": [
@@ -148,8 +137,8 @@ ENDPOINTS = [
     ),
     pytest.param(
         lambda steam: steam.games.get_app_list(),
-        APP_LIST_PATH,
-        APP_LIST,
+        STORE_APP_LIST_PATH,
+        STORE_APP_LIST,
         id="get_app_list",
     ),
 ]
@@ -845,45 +834,19 @@ async def test_get_app_details_invalid_data_raises_steam_api_error(
         await steam.games.get_app_details(620)
 
 
-# -- ISteamApps/GetAppList -----------------------------------------------------
+# -- IStoreService/GetAppList (#13) ---------------------------------------------
 
 
-async def test_get_app_list_calls_steam_apps_v2(
-    steam: Steam, fake_steam: FakeSteam
-) -> None:
-    # Current behaviour; see the #13 xfail below for where it should go.
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
-
-    await steam.games.get_app_list()
-
-    assert len(fake_steam.requests) == 1
-    assert fake_steam.last.method == "GET"
-    assert fake_steam.last.path == APP_LIST_PATH
-    assert "access_token" not in fake_steam.last.query
+def app_list_page(
+    apps: list[dict[str, Any]], last_appid: int | None = None
+) -> dict[str, Any]:
+    """A GetAppList page; ``last_appid`` set means another page follows."""
+    page: dict[str, Any] = {"apps": apps}
+    if last_appid is not None:
+        page.update(have_more_results=True, last_appid=last_appid)
+    return {"response": page}
 
 
-async def test_get_app_list_parses_apps(steam: Steam, fake_steam: FakeSteam) -> None:
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
-
-    apps = await steam.games.get_app_list()
-
-    assert all(isinstance(app, SteamApp) for app in apps)
-    assert [(app.appid, app.name) for app in apps] == EXPECTED_APPS
-
-
-async def test_get_app_list_without_applist_raises_steam_api_error(
-    steam: Steam, fake_steam: FakeSteam
-) -> None:
-    fake_steam.api("GET", APP_LIST_PATH, json={})
-
-    with pytest.raises(SteamAPIError, match="Invalid response structure"):
-        await steam.games.get_app_list()
-
-
-@pytest.mark.xfail(
-    reason="#13: get_app_list calls the deprecated ISteamApps/GetAppList/v2",
-    raises=SteamAPIError,
-)
 async def test_get_app_list_uses_store_service(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -894,6 +857,111 @@ async def test_get_app_list_uses_store_service(
     assert [r.path for r in fake_steam.requests] == [STORE_APP_LIST_PATH]
     assert_sent_with_api_key(fake_steam.last, STORE_APP_LIST_PATH)
     assert [(app.appid, app.name) for app in apps] == EXPECTED_APPS
+
+
+async def test_get_app_list_parses_apps(steam: Steam, fake_steam: FakeSteam) -> None:
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
+
+    apps = await steam.games.get_app_list()
+
+    assert all(isinstance(app, SteamApp) for app in apps)
+    assert apps[-1] == SteamApp(
+        appid=730,
+        name="Counter-Strike 2",
+        last_modified=1759184524,
+        price_change_number=31125813,
+    )
+
+
+async def test_get_app_list_asks_for_every_app_type_by_default(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
+
+    await steam.games.get_app_list()
+
+    assert json.loads(fake_steam.last.params["input_json"]) == {
+        "last_appid": 0,
+        "max_results": 10000,
+        "include_games": True,
+        "include_dlc": True,
+        "include_software": True,
+        "include_videos": True,
+        "include_hardware": True,
+    }
+
+
+async def test_get_app_list_follows_pages(steam: Steam, fake_steam: FakeSteam) -> None:
+    apps = STORE_APP_LIST["response"]["apps"]
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[:2], 400))
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[2:]))
+
+    result = await steam.games.get_app_list(max_results=2)
+
+    assert [(app.appid, app.name) for app in result] == EXPECTED_APPS
+    sent = [json.loads(r.params["input_json"]) for r in fake_steam.requests]
+    assert [(s["last_appid"], s["max_results"]) for s in sent] == [(0, 2), (400, 2)]
+
+
+async def test_get_app_list_stops_on_a_page_that_does_not_advance(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    apps = STORE_APP_LIST["response"]["apps"][:2]
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps, 400))
+
+    with pytest.raises(SteamAPIError, match="same app list page"):
+        await steam.games.get_app_list()
+
+    assert len(fake_steam.requests) == 2
+
+
+async def test_get_app_list_page_passes_filters(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page([], None))
+
+    page = await steam.games.get_app_list_page(
+        last_appid=730,
+        max_results=50_000,
+        include_dlc=False,
+        if_modified_since=1759000000,
+        have_description_language="english",
+    )
+
+    assert page.apps == []
+    assert page.have_more_results is False
+    sent = json.loads(fake_steam.last.params["input_json"])
+    assert sent["last_appid"] == 730
+    assert sent["max_results"] == 50_000
+    assert sent["include_dlc"] is False
+    assert sent["include_games"] is True
+    assert sent["if_modified_since"] == 1759000000
+    assert sent["have_description_language"] == "english"
+
+
+async def test_iter_app_list_yields_apps_page_by_page(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    apps = STORE_APP_LIST["response"]["apps"]
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[:2], 400))
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[2:]))
+
+    seen = []
+    async for app in steam.games.iter_app_list(max_results=2):
+        seen.append(app.appid)
+        if app.appid == 400:
+            assert len(fake_steam.requests) == 1
+
+    assert seen == [10, 400, 620, 730]
+
+
+async def test_get_app_list_without_response_raises_steam_api_error(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json={})
+
+    with pytest.raises(SteamAPIError, match="Invalid response structure"):
+        await steam.games.get_app_list()
 
 
 # -- search_games --------------------------------------------------------------
@@ -921,8 +989,6 @@ async def test_search_games_within_owned_games_makes_no_request(
 async def test_search_games_without_owned_games_searches_the_app_list(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    # Serve both the current and the replacement app list (#13).
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
     results = await steam.games.search_games("counter-strike")
@@ -936,7 +1002,6 @@ async def test_search_games_without_owned_games_searches_the_app_list(
 async def test_search_games_with_empty_owned_games_makes_no_request(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
     results = await steam.games.search_games("portal", owned_games=[])

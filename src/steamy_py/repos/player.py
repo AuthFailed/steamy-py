@@ -68,7 +68,7 @@ class PlayerAPI(BaseAPI):
             return response_obj.players
 
         except Exception as e:
-            logger.error(f"Error getting player summaries: {e}")
+            logger.error("Error getting player summaries: %s", e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get player summaries: {e}") from e
@@ -119,7 +119,7 @@ class PlayerAPI(BaseAPI):
                 raise PrivateProfileError(steamid) from e
             raise
         except Exception as e:
-            logger.error(f"Error getting friends list for {steamid}: {e}")
+            logger.error("Error getting friends list for %s: %s", steamid, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get friends list: {e}") from e
@@ -164,7 +164,7 @@ class PlayerAPI(BaseAPI):
             return response_obj.players
 
         except Exception as e:
-            logger.error(f"Error getting player bans: {e}")
+            logger.error("Error getting player bans: %s", e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to get player bans: {e}") from e
@@ -214,7 +214,7 @@ class PlayerAPI(BaseAPI):
                 return None
 
         except Exception as e:
-            logger.error(f"Error resolving vanity URL '{vanity_url}': {e}")
+            logger.error("Error resolving vanity URL '%s': %s", vanity_url, e)
             if isinstance(e, SteamAPIError):
                 raise
             raise SteamAPIError(f"Failed to resolve vanity URL: {e}") from e

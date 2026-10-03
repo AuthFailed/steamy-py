@@ -88,6 +88,12 @@ class SteamApp(SteamModel):
 
     appid: int = Field(description="Unique identifier for the application")
     name: str = Field(description="Application name")
+    last_modified: int | None = Field(
+        default=None, description="Unix timestamp of the app's last change"
+    )
+    price_change_number: int | None = Field(
+        default=None, description="Change number of the app's last price change"
+    )
 
 
 class Achievement(SteamModel):
@@ -168,9 +174,17 @@ class OwnedGamesResponse(SteamModel):
 
 
 class AppListResponse(SteamModel):
-    """Response wrapper for GetAppList."""
+    """One page of IStoreService/GetAppList."""
 
-    apps: list[SteamApp] = Field(description="List of Steam applications")
+    apps: list[SteamApp] = Field(
+        default_factory=list, description="Steam applications on this page"
+    )
+    have_more_results: bool = Field(
+        default=False, description="Whether another page follows"
+    )
+    last_appid: int | None = Field(
+        default=None, description="Pass as last_appid to fetch the next page"
+    )
 
 
 class PlayerAchievementsResponse(SteamModel):
@@ -209,9 +223,9 @@ class GetOwnedGamesResponse(SteamResponse):
 
 
 class GetAppListResponse(SteamResponse):
-    """Top-level response for GetAppList."""
+    """Top-level response for IStoreService/GetAppList."""
 
-    applist: AppListResponse = Field(description="App list data")
+    response: AppListResponse = Field(description="App list page")
 
 
 class GetPlayerAchievementsResponse(SteamResponse):

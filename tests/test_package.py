@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import importlib.resources
+import logging
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -20,19 +21,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_MODULES = [steamy_py, steamy_py.models, steamy_py.repos]
 
-# Variables ``Settings`` reads from the environment or a ``.env`` file.
-SETTINGS_ENV_VARS = (
-    "STEAM_API_BASE_URL",
-    "STEAM_STORE_BASE_URL",
-    "STEAM_COMMUNITY_BASE_URL",
-    "REQUEST_TIMEOUT",
-    "MAX_RETRIES",
-    "RETRY_DELAY",
-    "RATE_LIMIT_ENABLED",
-    "REQUESTS_PER_SECOND",
-    "LOG_LEVEL",
-    "LOG_FORMAT",
-)
+# Variables ``Settings`` reads from the environment.
+SETTINGS_ENV_VARS = tuple(f"STEAMY_{name}" for name in Settings.model_fields)
 
 
 @pytest.fixture
@@ -138,10 +128,6 @@ def test_settings_defaults(clean_config: Path, field: str, expected: object) -> 
     assert getattr(Settings(), field) == expected
 
 
-@pytest.mark.xfail(
-    reason="#12: Settings loads .env from the current working directory",
-    raises=AssertionError,
-)
 def test_settings_ignore_the_applications_dotenv_file(clean_config: Path) -> None:
     baseline = Settings()
     (clean_config / ".env").write_text("MAX_RETRIES=0\nREQUEST_TIMEOUT=1\n")
@@ -154,10 +140,6 @@ def test_settings_ignore_the_applications_dotenv_file(clean_config: Path) -> Non
     )
 
 
-@pytest.mark.xfail(
-    reason="#12: unprefixed setting names collide with the app's own env vars",
-    raises=AssertionError,
-)
 @pytest.mark.parametrize(
     ("name", "value"), [("MAX_RETRIES", "0"), ("REQUEST_TIMEOUT", "1")]
 )
@@ -168,3 +150,22 @@ def test_settings_ignore_generic_environment_variables(
     monkeypatch.setenv(name, value)
 
     assert getattr(Settings(), name) == baseline
+
+
+def test_settings_read_prefixed_environment_variables(
+    clean_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("STEAMY_MAX_RETRIES", "0")
+
+    assert Settings().MAX_RETRIES == 0
+
+
+def test_settings_no_longer_carry_logging_options(clean_config: Path) -> None:
+    assert "LOG_LEVEL" not in Settings.model_fields
+    assert "LOG_FORMAT" not in Settings.model_fields
+
+
+def test_the_package_logger_has_only_a_null_handler() -> None:
+    handlers = logging.getLogger("steamy_py").handlers
+
+    assert [type(h) for h in handlers] == [logging.NullHandler]
