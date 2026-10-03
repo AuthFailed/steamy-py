@@ -1,0 +1,53 @@
+{
+  "response": {
+    "profile_background": {
+      "communityitemid": "28470941837",
+      "image_large": "items/1449850/2f7b3cbe2b0a5ac6f73f0a2a0f8b1d6a2c4c0c34.jpg",
+      "name": "Midnight Raid",
+      "item_title": "Midnight Raid",
+      "item_description": "",
+      "appid": 1449850,
+      "item_type": 25,
+      "item_class": 3,
+      "movie_webm": "items/1449850/9b0f6a6d1b0e3a1c7c8f4b8e1e2d3c4b5a6f7e8d.webm",
+      "movie_mp4": "items/1449850/0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d.mp4",
+      "movie_webm_small": "items/1449850/1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e.webm",
+      "movie_mp4_small": "items/1449850/2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f.mp4"
+    },
+    "mini_profile_background": {},
+    "avatar_frame": {
+      "communityitemid": "32455405307",
+      "image_small": "items/1276800/4c9a1f2e3d5b6a7c8e9f0a1b2c3d4e5f6a7b8c9d.png",
+      "image_large": "items/1276800/4c9a1f2e3d5b6a7c8e9f0a1b2c3d4e5f6a7b8c9d.png",
+      "name": "Timewinder Rewind",
+      "item_title": "Timewinder Rewind",
+      "item_description": "Rewind the past, Control the future!",
+      "appid": 1276800,
+      "item_type": 19,
+      "item_class": 14
+    },
+    "animated_avatar": {},
+    "profile_modifier": {
+      "communityitemid": "27764729863",
+      "image_small": "items/2459330/5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e.jpg",
+      "image_large": "items/2459330/6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f.jpg",
+      "name": "Summer in the City (Day)",
+      "item_title": "Summer in the City (Day)",
+      "item_description": "",
+      "appid": 2459330,
+      "item_type": 21,
+      "item_class": 8,
+      "profile_colors": [
+        {
+          "style_name": "backgroundgradient_left",
+          "color": "rgba(175, 111, 37, 1)"
+        },
+        {
+          "style_name": "backgroundgradient_right",
+          "color": "rgba(38, 72, 120, 1)"
+        }
+      ]
+    },
+    "steam_deck_keyboard_skin": {}
+  }
+}

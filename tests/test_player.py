@@ -1,13 +1,26 @@
-"""Tests for ``steam.users``: ISteamUser summaries, friends, bans and vanity URLs."""
+"""Tests for ``steam.users``: ISteamUser summaries, friends, bans, vanity URLs and
+groups, and the IPlayerService profile methods (badges, levels, badge progress,
+link details, equipped profile items).
+
+Fixtures: users_steam_level_distribution.json is a value Steam returned for
+level 10 (recorded in woctezuma/steam-player-level-percentiles), and
+users_user_group_list.json real group ids (from almic/steam-js-api's docs) in
+the reply shape published clients parse. users_community_badge_progress.json,
+users_player_link_details.json and users_profile_items_equipped.json are built
+from Steam's protobufs and the replies other clients publish; no recorded
+replies for them were found.
+"""
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
 
 from steamy_py import (
+    AuthenticationError,
     Friend,
     InvalidSteamIDError,
     PlayerBan,
@@ -19,7 +32,15 @@ from steamy_py import (
     SteamAPIError,
     SteamID,
 )
-from steamy_py.models.player import CommunityVisibilityState, PersonaState
+from steamy_py.models.player import (
+    CommunityBadgeQuest,
+    CommunityVisibilityState,
+    PersonaState,
+    PlayerLinkDetails,
+    ProfileItem,
+    ProfileItemColor,
+    ProfileItemsEquipped,
+)
 from tests.fakesteam import (
     ACCESS_TOKEN,
     API_KEY,
@@ -33,6 +54,7 @@ SUMMARIES_PATH = "/ISteamUser/GetPlayerSummaries/v2/"
 FRIENDS_PATH = "/ISteamUser/GetFriendList/v1/"
 BANS_PATH = "/ISteamUser/GetPlayerBans/v1/"
 VANITY_PATH = "/ISteamUser/ResolveVanityURL/v1/"
+GROUP_LIST_PATH = "/ISteamUser/GetUserGroupList/v1/"
 
 # SteamID64 of an individual account = this base + the 32-bit account id.
 INDIVIDUAL_BASE = 76561197960265728
@@ -45,6 +67,7 @@ NO_FRIENDS: dict[str, Any] = {"friendslist": {"friends": []}}
 NO_BANS: dict[str, Any] = {"players": []}
 NO_MATCH: dict[str, Any] = {"response": {"success": 42, "message": "No match"}}
 ROBIN_RESOLVED: dict[str, Any] = {"response": {"steamid": STEAMID, "success": 1}}
+GROUP_LIST: dict[str, Any] = load_fixture("users_user_group_list.json")
 
 # What GetFriendList answers for a user whose friends list is not public.
 UNAUTHORIZED_HTML = (
@@ -123,6 +146,12 @@ ENDPOINTS = [
         NO_MATCH,
         id="resolve_vanity_url",
     ),
+    pytest.param(
+        lambda steam: steam.users.get_user_group_list(STEAMID),
+        GROUP_LIST_PATH,
+        GROUP_LIST,
+        id="get_user_group_list",
+    ),
 ]
 
 # Every method that takes Steam IDs, called with ``steamid`` in the batch.
@@ -162,6 +191,12 @@ STEAMID_CALLS = [
         BANS_PATH,
         NO_BANS,
         id="get_player_bans-list",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_user_group_list(steamid),
+        GROUP_LIST_PATH,
+        GROUP_LIST,
+        id="get_user_group_list",
     ),
 ]
 
@@ -267,6 +302,27 @@ INVALID_STRUCTURE = "Invalid response structure from Steam API"
             {"response": {"steamid": STEAMID}},
             "Failed to resolve vanity URL",
             id="vanity-no-success",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_user_group_list(STEAMID),
+            GROUP_LIST_PATH,
+            {"success": True, "groups": []},
+            "Failed to get user group list",
+            id="group-list-no-response",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_user_group_list(STEAMID),
+            GROUP_LIST_PATH,
+            {"response": {"success": True, "groups": [{"id": "4"}]}},
+            "Failed to get user group list",
+            id="group-list-group-without-gid",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_user_group_list(STEAMID),
+            GROUP_LIST_PATH,
+            {"response": {"success": True, "groups": {"gid": "4"}}},
+            "Failed to get user group list",
+            id="group-list-groups-not-a-list",
         ),
     ],
 )
@@ -1152,3 +1208,767 @@ async def test_get_steam_level_is_0_when_steam_leaves_it_out(
     fake_steam.api("GET", LEVEL_PATH, json=EMPTY_RESPONSE)
 
     assert await steam.users.get_steam_level(STEAMID) == 0
+
+
+# -- ISteamUser/GetUserGroupList -------------------------------------------------
+
+# A private profile gets HTTP 403 (as published clients report) with a JSON
+# body; an invalid key gets HTTP 403 with this HTML page.
+FORBIDDEN_HTML = (
+    "<html><head><title>Forbidden</title></head><body><h1>Forbidden</h1>"
+    "Access is denied. Retrying will not help. Please verify your "
+    "<pre>key=</pre> parameter.</body></html>"
+)
+
+
+async def test_get_user_group_list_sends_steamid_and_api_key(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", GROUP_LIST_PATH, json=GROUP_LIST)
+
+    await steam.users.get_user_group_list(STEAMID)
+
+    assert fake_steam.last.params == {"steamid": STEAMID, "key": API_KEY}
+
+
+async def test_get_user_group_list_returns_group_ids_in_order(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", GROUP_LIST_PATH, json=GROUP_LIST)
+
+    gids = await steam.users.get_user_group_list(STEAMID)
+
+    assert gids == [group["gid"] for group in GROUP_LIST["response"]["groups"]]
+    assert gids[:2] == ["3284297", "5165781"]
+    assert all(isinstance(gid, str) for gid in gids)
+
+
+async def test_get_user_group_list_group_steamid_is_base_plus_gid(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    """The docstring's conversion: the Valve group (gid 4) is VALVE_GROUP."""
+    fake_steam.api(
+        "GET",
+        GROUP_LIST_PATH,
+        json={"response": {"success": True, "groups": [{"gid": "4"}]}},
+    )
+
+    [gid] = await steam.users.get_user_group_list(STEAMID)
+
+    assert str(103582791429521408 + int(gid)) == VALVE_GROUP
+
+
+async def test_get_user_group_list_without_groups_is_empty(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET", GROUP_LIST_PATH, json={"response": {"success": True, "groups": []}}
+    )
+
+    assert await steam.users.get_user_group_list(STEAMID) == []
+
+
+async def test_get_user_group_list_403_with_json_raises_private_profile_error(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET",
+        GROUP_LIST_PATH,
+        status=403,
+        json={"response": {"success": False, "error": "Private profile"}},
+    )
+
+    with pytest.raises(PrivateProfileError) as excinfo:
+        await steam.users.get_user_group_list(STEAMID)
+
+    assert excinfo.value.steamid == STEAMID
+    assert API_KEY not in str(excinfo.value)
+    assert API_KEY not in str(excinfo.value.__cause__)
+
+
+async def test_get_user_group_list_403_html_invalid_key_stays_authentication_error(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET",
+        GROUP_LIST_PATH,
+        status=403,
+        text=FORBIDDEN_HTML,
+        content_type="text/html",
+    )
+
+    with pytest.raises(AuthenticationError) as excinfo:
+        await steam.users.get_user_group_list(STEAMID)
+
+    assert not isinstance(excinfo.value, PrivateProfileError)
+    assert excinfo.value.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        pytest.param(
+            {"response": {"success": False, "error": "Failed to get groups"}},
+            "Failed to get user group list: Failed to get groups",
+            id="error",
+        ),
+        pytest.param(
+            {"response": {"success": False, "message": "No such user"}},
+            "Failed to get user group list: No such user",
+            id="message",
+        ),
+        pytest.param(
+            {"response": {}},
+            "Failed to get user group list: Steam answered success: false",
+            id="empty-response",
+        ),
+    ],
+)
+async def test_get_user_group_list_success_false_raises_steam_api_error(
+    steam: Steam, fake_steam: FakeSteam, body: dict[str, Any], message: str
+) -> None:
+    fake_steam.api("GET", GROUP_LIST_PATH, json=body)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await steam.users.get_user_group_list(STEAMID)
+
+    assert type(excinfo.value) is SteamAPIError
+    assert str(excinfo.value) == message
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        pytest.param({"success": False, "error": "Private profile"}, id="error"),
+        pytest.param(
+            {"success": False, "message": "Profile is not public"}, id="message"
+        ),
+    ],
+)
+async def test_get_user_group_list_success_false_private_raises_private_profile_error(
+    steam: Steam, fake_steam: FakeSteam, response: dict[str, Any]
+) -> None:
+    """A 200 reply that says the profile is private maps like a 403 does."""
+    fake_steam.api("GET", GROUP_LIST_PATH, json={"response": response})
+
+    with pytest.raises(PrivateProfileError) as excinfo:
+        await steam.users.get_user_group_list(STEAMID)
+
+    assert excinfo.value.steamid == STEAMID
+    assert API_KEY not in str(excinfo.value)
+
+
+# -- IPlayerService: badge progress, link details, profile items, level ----------
+
+BADGE_PROGRESS_PATH = "/IPlayerService/GetCommunityBadgeProgress/v1/"
+LINK_DETAILS_PATH = "/IPlayerService/GetPlayerLinkDetails/v1/"
+PROFILE_ITEMS_PATH = "/IPlayerService/GetProfileItemsEquipped/v1/"
+LEVEL_DISTRIBUTION_PATH = "/IPlayerService/GetSteamLevelDistribution/v1/"
+
+BADGE_PROGRESS: dict[str, Any] = load_fixture("users_community_badge_progress.json")
+LINK_DETAILS: dict[str, Any] = load_fixture("users_player_link_details.json")
+PROFILE_ITEMS: dict[str, Any] = load_fixture("users_profile_items_equipped.json")
+LEVEL_DISTRIBUTION: dict[str, Any] = load_fixture("users_steam_level_distribution.json")
+
+# Each method with the inputs it must send, and what an empty ``response``
+# gives. All send the API key, or the access token without one.
+PROFILE_SERVICE_CALLS = [
+    pytest.param(
+        lambda steam: steam.users.get_community_badge_progress(STEAMID, 2),
+        BADGE_PROGRESS_PATH,
+        BADGE_PROGRESS,
+        {"steamid": STEAMID, "badgeid": "2"},
+        [],
+        id="get_community_badge_progress",
+    ),
+    pytest.param(
+        lambda steam: steam.users.get_player_link_details([STEAMID, account(1)]),
+        LINK_DETAILS_PATH,
+        LINK_DETAILS,
+        {"steamids[0]": STEAMID, "steamids[1]": account(1)},
+        [],
+        id="get_player_link_details",
+    ),
+    pytest.param(
+        lambda steam: steam.users.get_profile_items_equipped(STEAMID),
+        PROFILE_ITEMS_PATH,
+        PROFILE_ITEMS,
+        {"steamid": STEAMID},
+        ProfileItemsEquipped(),
+        id="get_profile_items_equipped",
+    ),
+    pytest.param(
+        lambda steam: steam.users.get_steam_level_distribution(10),
+        LEVEL_DISTRIBUTION_PATH,
+        LEVEL_DISTRIBUTION,
+        {"player_level": "10"},
+        0.0,
+        id="get_steam_level_distribution",
+    ),
+]
+
+# The methods that take a Steam ID, called with ``steamid``.
+PROFILE_STEAMID_CALLS = [
+    pytest.param(
+        lambda steam, steamid: steam.users.get_community_badge_progress(steamid),
+        BADGE_PROGRESS_PATH,
+        BADGE_PROGRESS,
+        id="get_community_badge_progress",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_player_link_details(steamid),
+        LINK_DETAILS_PATH,
+        LINK_DETAILS,
+        id="get_player_link_details",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_player_link_details([STEAMID, steamid]),
+        LINK_DETAILS_PATH,
+        LINK_DETAILS,
+        id="get_player_link_details-list",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_profile_items_equipped(steamid),
+        PROFILE_ITEMS_PATH,
+        PROFILE_ITEMS,
+        id="get_profile_items_equipped",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "inputs", "empty"), PROFILE_SERVICE_CALLS
+)
+async def test_profile_service_call_sends_inputs_and_api_key_over_get_v1(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+    inputs: dict[str, str],
+    empty: object,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam)
+
+    assert len(fake_steam.requests) == 1
+    assert_sent_with_api_key(fake_steam.last, path)
+    assert fake_steam.last.params == {**inputs, "key": API_KEY}
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "inputs", "empty"), PROFILE_SERVICE_CALLS
+)
+async def test_profile_service_call_sends_access_token_without_api_key(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+    inputs: dict[str, str],
+    empty: object,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as steam:
+        await call(steam)
+
+    assert (fake_steam.last.method, fake_steam.last.path) == ("GET", path)
+    assert fake_steam.last.params == {**inputs, "access_token": ACCESS_TOKEN}
+    assert "Authorization" not in fake_steam.last.headers
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "inputs", "empty"), PROFILE_SERVICE_CALLS
+)
+async def test_profile_service_call_without_credentials_raises_before_any_request(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+    inputs: dict[str, str],
+    empty: object,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(settings=settings) as steam:
+        with pytest.raises(
+            AuthenticationError, match="An API key or access token is required"
+        ):
+            await call(steam)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "inputs", "empty"), PROFILE_SERVICE_CALLS
+)
+async def test_profile_service_http_error_is_raised_as_steam_api_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+    inputs: dict[str, str],
+    empty: object,
+) -> None:
+    fake_steam.api("GET", path, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await call(steam)
+
+    assert excinfo.value.status_code == 500
+    assert API_KEY not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "reply", "inputs", "empty"), PROFILE_SERVICE_CALLS
+)
+async def test_profile_service_empty_response_gives_defaults(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+    inputs: dict[str, str],
+    empty: object,
+) -> None:
+    fake_steam.api("GET", path, json=EMPTY_RESPONSE)
+
+    assert await call(steam) == empty
+
+
+@pytest.mark.parametrize("bad_id", INVALID_STEAMIDS)
+@pytest.mark.parametrize(("call", "path", "reply"), PROFILE_STEAMID_CALLS)
+async def test_profile_service_call_rejects_invalid_steamid_before_any_request(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+    bad_id: str,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    with pytest.raises(InvalidSteamIDError) as excinfo:
+        await call(steam, bad_id)
+
+    assert excinfo.value.steamid == bad_id
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param(int(STEAMID), id="int"),
+        pytest.param(SteamID(STEAMID), id="SteamID"),
+    ],
+)
+@pytest.mark.parametrize(("call", "path", "reply"), PROFILE_STEAMID_CALLS)
+async def test_profile_service_call_accepts_int_and_steamid(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Callable[[Steam, Any], Awaitable[object]],
+    path: str,
+    reply: dict[str, Any],
+    steamid: int | SteamID,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam, steamid)
+
+    sent = fake_steam.last.query
+    assert STEAMID in (sent.getall("steamid", []) + sent.getall("steamids[0]", []))
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "body", "message"),
+    [
+        pytest.param(
+            lambda steam: steam.users.get_community_badge_progress(STEAMID),
+            BADGE_PROGRESS_PATH,
+            {"response": {"quests": [{"questid": "first"}]}},
+            "Failed to get community badge progress",
+            id="badge-progress-non-numeric-questid",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_community_badge_progress(STEAMID),
+            BADGE_PROGRESS_PATH,
+            {"response": {"quests": {"questid": 101}}},
+            "Failed to get community badge progress",
+            id="badge-progress-quests-not-a-list",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_player_link_details(STEAMID),
+            LINK_DETAILS_PATH,
+            {"response": {"accounts": [{"public_data": []}]}},
+            "Failed to get player link details",
+            id="link-details-public-data-not-an-object",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_player_link_details(STEAMID),
+            LINK_DETAILS_PATH,
+            {"response": {"accounts": [{"private_data": {"time_created": "old"}}]}},
+            "Failed to get player link details",
+            id="link-details-non-numeric-time",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_profile_items_equipped(STEAMID),
+            PROFILE_ITEMS_PATH,
+            {"response": {"avatar_frame": {"appid": "frame"}}},
+            "Failed to get equipped profile items",
+            id="profile-items-non-numeric-appid",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_profile_items_equipped(STEAMID),
+            PROFILE_ITEMS_PATH,
+            {"response": {"profile_background": "none"}},
+            "Failed to get equipped profile items",
+            id="profile-items-slot-not-an-object",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level_distribution(10),
+            LEVEL_DISTRIBUTION_PATH,
+            {"response": {"player_level_percentile": "top"}},
+            "Failed to get Steam level distribution",
+            id="level-distribution-not-a-number",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level_distribution(10),
+            LEVEL_DISTRIBUTION_PATH,
+            {"response": [91.5]},
+            "Failed to get Steam level distribution",
+            id="level-distribution-response-not-an-object",
+        ),
+    ],
+)
+async def test_profile_service_malformed_body_raises_response_parsing_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    body: dict[str, Any],
+    message: str,
+) -> None:
+    fake_steam.api("GET", path, json=body)
+
+    with pytest.raises(ResponseParsingError, match=message):
+        await call(steam)
+
+
+# -- IPlayerService/GetCommunityBadgeProgress -------------------------------------
+
+
+async def test_get_community_badge_progress_leaves_out_badgeid_when_none(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGE_PROGRESS_PATH, json=BADGE_PROGRESS)
+
+    await steam.users.get_community_badge_progress(STEAMID)
+
+    assert fake_steam.last.params == {"steamid": STEAMID, "key": API_KEY}
+
+
+@pytest.mark.parametrize("badgeid", [0, -1, True, 2**31, "2", 2.0], ids=repr)
+async def test_get_community_badge_progress_rejects_invalid_badgeid(
+    steam: Steam, fake_steam: FakeSteam, badgeid: Any
+) -> None:
+    fake_steam.api("GET", BADGE_PROGRESS_PATH, json=BADGE_PROGRESS)
+
+    with pytest.raises(ValueError, match="Invalid badge id"):
+        await steam.users.get_community_badge_progress(STEAMID, badgeid)
+
+    assert fake_steam.requests == []
+
+
+async def test_get_community_badge_progress_parses_quests(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGE_PROGRESS_PATH, json=BADGE_PROGRESS)
+
+    quests = await steam.users.get_community_badge_progress(STEAMID, 2)
+
+    assert all(isinstance(quest, CommunityBadgeQuest) for quest in quests)
+    # Steam leaves ``completed`` out for quests not done yet.
+    assert [(q.questid, q.completed) for q in quests] == [
+        (101, True),
+        (102, True),
+        (103, False),
+        (115, True),
+        (121, False),
+    ]
+
+
+async def test_get_community_badge_progress_reads_explicit_false(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET",
+        BADGE_PROGRESS_PATH,
+        json={"response": {"quests": [{"questid": 7, "completed": False}, {}]}},
+    )
+
+    quests = await steam.users.get_community_badge_progress(STEAMID, 2)
+
+    assert quests == [
+        CommunityBadgeQuest(questid=7, completed=False),
+        CommunityBadgeQuest(),
+    ]
+
+
+# -- IPlayerService/GetPlayerLinkDetails ------------------------------------------
+
+
+async def test_get_player_link_details_sends_one_id_as_steamids_0(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LINK_DETAILS_PATH, json=LINK_DETAILS)
+
+    await steam.users.get_player_link_details(STEAMID)
+
+    assert fake_steam.last.params == {"steamids[0]": STEAMID, "key": API_KEY}
+
+
+async def test_get_player_link_details_keeps_id_order(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    ids = [account(3), STEAMID, account(1)]
+    fake_steam.api("GET", LINK_DETAILS_PATH, json=LINK_DETAILS)
+
+    await steam.users.get_player_link_details(iter(ids))
+
+    assert fake_steam.last.params == {
+        **{f"steamids[{n}]": steamid for n, steamid in enumerate(ids)},
+        "key": API_KEY,
+    }
+
+
+async def test_get_player_link_details_without_ids_raises_before_request(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    with pytest.raises(ValueError, match="At least one Steam ID"):
+        await steam.users.get_player_link_details([])
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "bad_ids", [STEAMID.encode(), [STEAMID.encode()], [STEAMID, None]], ids=repr
+)
+async def test_get_player_link_details_rejects_non_steamid_values(
+    steam: Steam, fake_steam: FakeSteam, bad_ids: Any
+) -> None:
+    with pytest.raises(InvalidSteamIDError):
+        await steam.users.get_player_link_details(bad_ids)
+
+    assert fake_steam.requests == []
+
+
+async def test_get_player_link_details_parses_accounts(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LINK_DETAILS_PATH, json=LINK_DETAILS)
+
+    robin, quiet = await steam.users.get_player_link_details([STEAMID, account(1)])
+
+    assert isinstance(robin, PlayerLinkDetails)
+    public = robin.public_data
+    assert (public.steamid, public.persona_name, public.profile_url) == (
+        STEAMID,
+        "Robin",
+        "robinwalker",
+    )
+    assert (public.visibility_state, public.profile_state) == (3, 1)
+    assert public.content_country_restricted is False
+    # Not sent, so 0.
+    assert (public.privacy_state, public.ban_expires_time, public.account_flags) == (
+        0,
+        0,
+        0,
+    )
+    assert public.sha_digest_avatar == "fTsMX71bLD5rPUoebyydCot+b1E="
+    assert public.avatar_hash == "7d3b0c5fbd5b2c3e6b3d4a1e6f2c9d0a8b7e6f51"
+    assert public.avatar_url == (
+        "https://avatars.steamstatic.com/"
+        "7d3b0c5fbd5b2c3e6b3d4a1e6f2c9d0a8b7e6f51_full.jpg"
+    )
+    private = robin.private_data
+    assert (
+        private.time_created,
+        private.last_logoff_time,
+        private.last_seen_online,
+    ) == (1063407589, 1727737385, 1727740982)
+    assert (private.persona_state, private.game_id, private.game_extra_info) == (
+        0,
+        "",
+        "",
+    )
+
+    # A private profile: no custom URL, the default avatar, no presence data.
+    assert quiet.public_data.visibility_state == 1
+    assert quiet.public_data.profile_url == ""
+    assert quiet.public_data.avatar_url == f"{DEFAULT_AVATAR}_full.jpg"
+    assert quiet.private_data == PlayerLinkDetails().private_data
+
+
+async def test_get_player_link_details_keeps_64_bit_ids_as_strings(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    non_steam_game = "17579876560805036032"
+    fake_steam.api(
+        "GET",
+        LINK_DETAILS_PATH,
+        json={
+            "response": {
+                "accounts": [
+                    {
+                        "public_data": {"steamid": STEAMID},
+                        "private_data": {
+                            "persona_state": 1,
+                            "game_id": non_steam_game,
+                            "game_extra_info": "Some Game",
+                            "lobby_steam_id": "109775241058543776",
+                        },
+                    }
+                ]
+            }
+        },
+    )
+
+    [details] = await steam.users.get_player_link_details(STEAMID)
+
+    assert details.private_data.game_id == non_steam_game
+    assert details.private_data.lobby_steam_id == "109775241058543776"
+    assert details.private_data.persona_state == PersonaState.ONLINE
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [
+        "",
+        "not base64!",
+        "é",
+        # Valid base64, but not a 20-byte SHA-1: 1 byte, and the hex hash
+        # itself (30 bytes once base64-decoded).
+        "AQ==",
+        "fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb",
+    ],
+    ids=repr,
+)
+async def test_avatar_hash_is_empty_without_a_valid_digest(digest: str) -> None:
+    public = PlayerLinkDetails.model_validate(
+        {"public_data": {"sha_digest_avatar": digest}}
+    ).public_data
+
+    assert public.avatar_hash == ""
+    assert public.avatar_url is None
+
+
+def test_all_zero_avatar_digest_gives_the_default_avatar() -> None:
+    """An all-zero SHA-1 means "no avatar set"; Steam shows its default one."""
+    zero_digest = base64.b64encode(bytes(20)).decode()
+    public = PlayerLinkDetails.model_validate(
+        {"public_data": {"sha_digest_avatar": zero_digest}}
+    ).public_data
+
+    assert public.avatar_hash == "0" * 40
+    assert public.avatar_url == f"{DEFAULT_AVATAR}_full.jpg"
+
+
+# -- IPlayerService/GetProfileItemsEquipped ---------------------------------------
+
+
+async def test_get_profile_items_equipped_sends_language(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PROFILE_ITEMS_PATH, json=PROFILE_ITEMS)
+
+    await steam.users.get_profile_items_equipped(STEAMID, language="german")
+
+    assert fake_steam.last.params == {
+        "steamid": STEAMID,
+        "language": "german",
+        "key": API_KEY,
+    }
+
+
+async def test_get_profile_items_equipped_parses_items(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", PROFILE_ITEMS_PATH, json=PROFILE_ITEMS)
+
+    items = await steam.users.get_profile_items_equipped(STEAMID)
+
+    assert isinstance(items, ProfileItemsEquipped)
+    background = items.profile_background
+    assert isinstance(background, ProfileItem)
+    assert (
+        background.communityitemid,
+        background.appid,
+        background.item_class,
+        background.name,
+    ) == ("28470941837", 1449850, 3, "Midnight Raid")
+    assert background.movie_mp4.endswith(".mp4")
+    assert background.movie_webm_small.endswith(".webm")
+    assert background.image_small == ""
+
+    frame = items.avatar_frame
+    assert (frame.communityitemid, frame.item_class, frame.item_type) == (
+        "32455405307",
+        14,
+        19,
+    )
+    assert frame.item_description == "Rewind the past, Control the future!"
+    assert frame.image_small.startswith("items/1276800/")
+
+    assert items.profile_modifier.profile_colors == [
+        ProfileItemColor(
+            style_name="backgroundgradient_left", color="rgba(175, 111, 37, 1)"
+        ),
+        ProfileItemColor(
+            style_name="backgroundgradient_right", color="rgba(38, 72, 120, 1)"
+        ),
+    ]
+    # Slots with nothing equipped are sent as {} and parse as empty items.
+    assert items.mini_profile_background == ProfileItem()
+    assert items.animated_avatar == ProfileItem()
+    assert items.steam_deck_keyboard_skin == ProfileItem()
+
+
+# -- IPlayerService/GetSteamLevelDistribution -------------------------------------
+
+
+async def test_get_steam_level_distribution_returns_percentile(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_DISTRIBUTION_PATH, json=LEVEL_DISTRIBUTION)
+
+    percentile = await steam.users.get_steam_level_distribution(10)
+
+    assert percentile == 91.59396362304688
+    assert isinstance(percentile, float)
+
+
+async def test_get_steam_level_distribution_accepts_level_0(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_DISTRIBUTION_PATH, json=LEVEL_DISTRIBUTION)
+
+    await steam.users.get_steam_level_distribution(0)
+
+    assert fake_steam.last.params == {"player_level": "0", "key": API_KEY}
+
+
+@pytest.mark.parametrize("level", [-1, True, 2**32, "10", 10.0, None], ids=repr)
+async def test_get_steam_level_distribution_rejects_invalid_level(
+    steam: Steam, fake_steam: FakeSteam, level: Any
+) -> None:
+    fake_steam.api("GET", LEVEL_DISTRIBUTION_PATH, json=LEVEL_DISTRIBUTION)
+
+    with pytest.raises(ValueError, match="Invalid player level"):
+        await steam.users.get_steam_level_distribution(level)
+
+    assert fake_steam.requests == []

@@ -1,0 +1,33 @@
+{
+  "response": {
+    "accounts": [
+      {
+        "public_data": {
+          "steamid": "76561197960435530",
+          "visibility_state": 3,
+          "profile_state": 1,
+          "sha_digest_avatar": "fTsMX71bLD5rPUoebyydCot+b1E=",
+          "persona_name": "Robin",
+          "profile_url": "robinwalker",
+          "content_country_restricted": false
+        },
+        "private_data": {
+          "time_created": 1063407589,
+          "last_logoff_time": 1727737385,
+          "last_seen_online": 1727740982
+        }
+      },
+      {
+        "public_data": {
+          "steamid": "76561198087725293",
+          "visibility_state": 1,
+          "profile_state": 1,
+          "sha_digest_avatar": "/vSef6fhmXMQ1wWyphWP+Nwc3+s=",
+          "persona_name": "quiet one",
+          "content_country_restricted": false
+        },
+        "private_data": {}
+      }
+    ]
+  }
+}
