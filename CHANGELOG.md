@@ -31,7 +31,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   details, the app list, game search and news), `Steam.stats` (now also
   achievements and schemas), `Steam.economy` (inventories), `Steam.market`,
   `Steam.family`, and the new `Steam.friends`, `Steam.wishlist`,
-  `Steam.workshop` and `Steam.util` ([#15], [#25]).
+  `Steam.workshop`, `Steam.notifications`, `Steam.servers`, `Steam.auth`
+  and `Steam.util` ([#15], [#25]).
 - **Deprecated:** `Steam.player` (use `Steam.users`; `PlayerAPI` is now an
   alias of `UsersAPI`), `Steam.games` / `GameAPI` (use `Steam.library`,
   `Steam.store` and `Steam.stats`), `StatsAPI.get_news_for_app()` (use
@@ -167,6 +168,42 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Added
 
+- Milestone 2 endpoints from [#25]:
+  - `Steam.economy`: `get_asset_class_info()`,
+    `get_inventory_items_with_descriptions()` (access token),
+    `get_trade_offers()`, `get_trade_offer()`, `get_trade_offers_summary()`,
+    `get_trade_history()`, `get_trade_status()` and
+    `get_trade_hold_durations()` (`IEconService`)
+  - `Steam.store`: `get_games_by_concurrent_players()`,
+    `get_most_played_games()`, `get_dlc_for_apps()` (access token),
+    `get_dlc_for_apps_solr()`, `get_store_categories()`,
+    `get_items_to_feature()`, `query()`, `get_weekly_top_sellers()`,
+    `get_community_apps()`, `get_games_followed()`, `get_tag_list()`,
+    `get_user_game_interest_state()` (access token), `get_package_details()`
+    (`/api/packagedetails`), and `get_app_reviews()` / `iter_app_reviews()`
+    (`/appreviews`)
+  - `Steam.users`: `get_community_badge_progress()`,
+    `get_player_link_details()`, `get_profile_items_equipped()`,
+    `get_steam_level_distribution()` and `get_user_group_list()`
+  - `Steam.friends`: `get_friends_gameplay_info()` and `get_nickname_list()`
+    (access token)
+  - `Steam.library.get_private_app_list()` (access token)
+  - `Steam.notifications.get_steam_notifications()` (access token)
+  - `Steam.stats`: `get_achievements_progress()`, `get_game_achievements()`
+    and `get_top_achievements_for_games()`
+  - `Steam.servers`: `get_server_list()` (`IGameServersService`) and
+    `up_to_date_check()` (`ISteamApps`)
+  - `Steam.auth`: `begin_auth_session_via_qr()`,
+    `poll_auth_session_status()`, `wait_for_qr_approval()` and
+    `generate_access_token_for_app()` (`IAuthenticationService`). Tokens
+    are kept out of `repr()`, logs and exception messages, and these POSTs
+    never follow redirects
+  - `Steam.wishlist`: `add_to_wishlist()` and `remove_from_wishlist()`
+    (access token; they change the account), `get_wishlist_items_on_sale()`
+    (access token) and `get_wishlist_sorted_filtered()`
+  - `Steam.workshop`: `get_user_files()` / `iter_user_files()`,
+    `subscribe()` and `unsubscribe()` (access token; they change the
+    account), and `get_collection_details()` (`ISteamRemoteStorage`)
 - Milestone 1 endpoints from [#25]:
   - `Steam.users.get_badges()` and `get_steam_level()` (`IPlayerService`)
   - `Steam.library.get_recently_played_games()` and
