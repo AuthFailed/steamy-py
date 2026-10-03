@@ -17,14 +17,15 @@ from multidict import MultiDict
 from steamy_py import (
     AuthenticationError,
     RateLimitError,
+    ResponseParsingError,
     Settings,
     Steam,
     SteamAPIError,
 )
 from steamy_py.models.family import (
     FamilyGroupStatusResponse,
+    PlaytimeSummaryResponse,
     SharedLibraryAppsResponse,
-    SteamResponse,
 )
 from tests.fakesteam import (
     ACCESS_TOKEN,
@@ -341,7 +342,7 @@ ENDPOINTS = [
         "request_purchase",
         lambda steam: steam.family.request_purchase(
             family_groupid=FAMILY_GROUPID,
-            gid_shopping_card=SHOPPING_CART,
+            gid_shopping_cart=SHOPPING_CART,
             store_country_code="US",
         ),
         "RequestPurchase",
@@ -426,7 +427,6 @@ ENDPOINTS_BY_NAME = {endpoint.name: endpoint for endpoint in ENDPOINTS}
 def endpoint_params(
     marks: dict[str, pytest.MarkDecorator] | None = None,
     *,
-    exclude: frozenset[str] = frozenset(),
     only_untyped: bool = False,
 ) -> list[Any]:
     """``ENDPOINTS`` as pytest params, with per-test ``marks`` by method name."""
@@ -434,7 +434,7 @@ def endpoint_params(
     return [
         pytest.param(endpoint, id=endpoint.name, marks=marks.get(endpoint.name, ()))
         for endpoint in ENDPOINTS
-        if endpoint.name not in exclude and not (only_untyped and endpoint.typed)
+        if not (only_untyped and endpoint.typed)
     ]
 
 
@@ -487,23 +487,7 @@ async def token_only_steam(settings: Settings) -> AsyncIterator[Steam]:
 
 @pytest.mark.parametrize(
     "endpoint",
-    endpoint_params(
-        {
-            "get_change_log": pytest.mark.xfail(
-                raises=SteamAPIError,
-                reason="#19: GetChangeLog is sent as GET; Steam documents POST",
-            ),
-            "resend_invitation_to_family_group": pytest.mark.xfail(
-                raises=SteamAPIError,
-                reason="#19: resend_invitation_to_family_group calls "
-                "RespondToRequestedPurchase",
-            ),
-            "rollback_family_group": pytest.mark.xfail(
-                raises=SteamAPIError,
-                reason="#19: rollback_family_group calls SetFamilyCooldownOverrides",
-            ),
-        }
-    ),
+    endpoint_params(),
 )
 async def test_call_uses_documented_verb_and_rpc(
     steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
@@ -519,11 +503,7 @@ async def test_call_uses_documented_verb_and_rpc(
     )
 
 
-# request_purchase and get_purchase_requests have their own xfail tests below.
-@pytest.mark.parametrize(
-    "endpoint",
-    endpoint_params(exclude=frozenset({"request_purchase", "get_purchase_requests"})),
-)
+@pytest.mark.parametrize("endpoint", endpoint_params())
 async def test_call_sends_inputs_under_documented_names(
     steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
 ) -> None:
@@ -691,12 +671,12 @@ async def test_http_error_keeps_status_code_and_exception_type(
         ),
     ],
 )
-async def test_malformed_response_raises_steam_api_error(
+async def test_malformed_response_raises_response_parsing_error(
     steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint, body: dict[str, Any]
 ) -> None:
     fake_steam.api(endpoint.verb, rpc_path(endpoint.rpc), json=body)
 
-    with pytest.raises(SteamAPIError):
+    with pytest.raises(ResponseParsingError):
         await endpoint.call(steam)
 
 
@@ -775,6 +755,19 @@ async def test_get_family_group_for_user_sends_given_steamid(
     assert fake_steam.last.params == {"steamid": STEAMID, "access_token": ACCESS_TOKEN}
 
 
+async def test_get_family_group_for_user_can_include_family_group(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", rpc_path("GetFamilyGroupForUser"), json=GROUP_FOR_USER)
+
+    await steam.family.get_family_group_for_user(include_family_group_response=True)
+
+    assert fake_steam.last.params == {
+        "include_family_group_response": "1",
+        "access_token": ACCESS_TOKEN,
+    }
+
+
 async def test_get_family_group_for_user_parses_member_response(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -801,10 +794,6 @@ async def test_get_family_group_for_user_parses_member_response(
     ]
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#14: FamilyGroupStatus requires fields Steam omits for non-members",
-)
 async def test_get_family_group_for_user_parses_non_member_response(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -818,10 +807,6 @@ async def test_get_family_group_for_user_parses_non_member_response(
     assert status.membership_history == []
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#14: FamilyGroupStatus requires fields Steam omits at default values",
-)
 async def test_get_family_group_for_user_parses_response_with_defaults_omitted(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -846,10 +831,6 @@ async def test_get_family_group_for_user_parses_response_with_defaults_omitted(
     assert status.membership_history == []
 
 
-@pytest.mark.xfail(
-    raises=AttributeError,
-    reason="#14: FamilyGroupStatus drops pending_group_invites and family_group",
-)
 async def test_get_family_group_for_user_keeps_pending_invites_and_family_group(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -958,10 +939,6 @@ async def test_get_shared_library_apps_parses_apps(
     assert tf2.exclude_reason == 3
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#14: SharedLibraryAppsData requires 'apps', omitted when empty",
-)
 async def test_get_shared_library_apps_parses_empty_library(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -972,11 +949,6 @@ async def test_get_shared_library_apps_parses_empty_library(
     assert result.response.apps == []
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#14: SharedLibraryApp requires name/capsule/icon/playtime fields "
-    "Steam omits",
-)
 async def test_get_shared_library_apps_parses_app_with_defaults_omitted(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1005,10 +977,6 @@ async def test_get_shared_library_apps_parses_app_with_defaults_omitted(
     assert app.content_descriptors == []
 
 
-@pytest.mark.xfail(
-    raises=AttributeError,
-    reason="#14: shared library models drop owner_steamid and sort_as",
-)
 async def test_get_shared_library_apps_keeps_owner_steamid_and_sort_as(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1030,7 +998,7 @@ async def test_get_playtime_summary_parses_entries(
 
     result = await steam.family.get_playtime_summary(FAMILY_GROUPID)
 
-    assert isinstance(result, SteamResponse)
+    assert isinstance(result, PlaytimeSummaryResponse)
     assert [
         (
             entry.steamid,
@@ -1046,10 +1014,6 @@ async def test_get_playtime_summary_parses_entries(
     ]
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#14: playtime summary requires 'entries', omitted when empty",
-)
 async def test_get_playtime_summary_parses_empty_summary(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1060,10 +1024,6 @@ async def test_get_playtime_summary_parses_empty_summary(
     assert result.response.entries == []
 
 
-@pytest.mark.xfail(
-    raises=AttributeError,
-    reason="#14: playtime summary model drops entries_by_owner",
-)
 async def test_get_playtime_summary_keeps_entries_by_owner(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1094,27 +1054,11 @@ async def test_get_purchase_requests_sends_family_and_completion_filters(
     assert params["rt_include_completed_since"] == str(JOINED)
 
 
-async def test_get_purchase_requests_sends_indexed_request_ids(
+async def test_get_purchase_requests_sends_no_request_ids_by_default(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    endpoint = ENDPOINTS_BY_NAME["get_purchase_requests"]
-    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+    fake_steam.api("GET", rpc_path("GetPurchaseRequests"), json=EMPTY)
 
-    await endpoint.call(steam)
+    await steam.family.get_purchase_requests(family_groupid=FAMILY_GROUPID)
 
-    assert inputs_without_credential(fake_steam.last) == sorted(endpoint.inputs.items())
-
-
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="#19: request_purchase sends 'gid_shopping_card', not 'gidshoppingcart'",
-)
-async def test_request_purchase_sends_gidshoppingcart(
-    steam: Steam, fake_steam: FakeSteam
-) -> None:
-    endpoint = ENDPOINTS_BY_NAME["request_purchase"]
-    fake_steam.api("POST", rpc_path(endpoint.rpc), json=endpoint.reply)
-
-    await endpoint.call(steam)
-
-    assert inputs_without_credential(fake_steam.last) == sorted(endpoint.inputs.items())
+    assert not any(name.startswith("request_ids") for name in fake_steam.last.params)
