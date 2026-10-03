@@ -168,3 +168,61 @@ class ResolveVanityURLResponse(SteamResponse):
     """Response wrapper for ResolveVanityURL."""
 
     response: VanityURLResolution = Field(description="Vanity URL resolution result")
+
+
+# IPlayerService/GetBadges and GetSteamLevel. Like every IPlayerService
+# method, these leave out what Steam does not share, so every field has a
+# default.
+class Badge(SteamModel):
+    """A badge the user owns (IPlayerService/GetBadges)."""
+
+    badgeid: int = Field(
+        default=0, description="Badge id; a game or event badge is told by appid"
+    )
+    level: int = Field(default=0, description="Badge level")
+    completion_time: int = Field(
+        default=0, description="Time the badge was earned (Unix timestamp)"
+    )
+    xp: int = Field(default=0, description="XP the badge is worth")
+    scarcity: int = Field(default=0, description="Number of users with this badge")
+    appid: int = Field(
+        default=0, description="App of a game or event badge (0 for other badges)"
+    )
+    communityitemid: str = Field(
+        default="", description="Community item id of a game or event badge"
+    )
+    border_color: int = Field(
+        default=0, description="1 for a foil trading card badge, else 0"
+    )
+
+
+class PlayerBadges(SteamModel):
+    """A user's badges and Steam level progress (IPlayerService/GetBadges)."""
+
+    badges: list[Badge] = Field(default_factory=list, description="Owned badges")
+    player_xp: int = Field(default=0, description="Total XP")
+    player_level: int = Field(default=0, description="Steam level")
+    player_xp_needed_to_level_up: int = Field(
+        default=0, description="XP still needed for the next level"
+    )
+    player_xp_needed_current_level: int = Field(
+        default=0, description="Total XP needed to reach the current level"
+    )
+
+
+class BadgesResponse(SteamModel):
+    """Response wrapper for IPlayerService/GetBadges."""
+
+    response: PlayerBadges = Field(default_factory=PlayerBadges)
+
+
+class SteamLevel(SteamModel):
+    """A user's Steam level (IPlayerService/GetSteamLevel)."""
+
+    player_level: int = Field(default=0, description="Steam level")
+
+
+class SteamLevelResponse(SteamModel):
+    """Response wrapper for IPlayerService/GetSteamLevel."""
+
+    response: SteamLevel = Field(default_factory=SteamLevel)

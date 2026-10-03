@@ -887,3 +887,268 @@ async def test_resolve_vanity_url_returns_id_from_profiles_url_without_request(
 ) -> None:
     assert await steam.users.resolve_vanity_url(url) == STEAMID
     assert fake_steam.requests == []
+
+
+# -- IPlayerService/GetBadges and GetSteamLevel ----------------------------------
+
+BADGES_PATH = "/IPlayerService/GetBadges/v1/"
+LEVEL_PATH = "/IPlayerService/GetSteamLevel/v1/"
+ROBIN_BADGES: dict[str, Any] = load_fixture("users_badges.json")
+ROBIN_LEVEL: dict[str, Any] = {"response": {"player_level": 32}}
+EMPTY_RESPONSE: dict[str, Any] = {"response": {}}
+
+# Both take a Steam ID and send the API key, or the access token without one.
+PLAYER_SERVICE_CALLS = [
+    pytest.param(
+        lambda steam, steamid: steam.users.get_badges(steamid),
+        BADGES_PATH,
+        ROBIN_BADGES,
+        id="get_badges",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_steam_level(steamid),
+        LEVEL_PATH,
+        ROBIN_LEVEL,
+        id="get_steam_level",
+    ),
+]
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_sends_steamid_and_api_key_over_get_v1(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam, STEAMID)
+
+    assert len(fake_steam.requests) == 1
+    assert_sent_with_api_key(fake_steam.last, path)
+    assert fake_steam.last.params == {"steamid": STEAMID, "key": API_KEY}
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_sends_access_token_without_api_key(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as steam:
+        await call(steam, STEAMID)
+
+    assert (fake_steam.last.method, fake_steam.last.path) == ("GET", path)
+    assert fake_steam.last.params == {"steamid": STEAMID, "access_token": ACCESS_TOKEN}
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_without_credentials_raises_before_any_request(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(settings=settings) as steam:
+        with pytest.raises(
+            SteamAPIError, match="An API key or access token is required"
+        ) as excinfo:
+            await call(steam, STEAMID)
+
+    assert type(excinfo.value).__name__ == "AuthenticationError"
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize("bad_id", INVALID_STEAMIDS)
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_rejects_invalid_steamid_before_any_request(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+    bad_id: str,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    with pytest.raises(InvalidSteamIDError) as excinfo:
+        await call(steam, bad_id)
+
+    assert excinfo.value.steamid == bad_id
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param(int(STEAMID), id="int"),
+        pytest.param(SteamID(STEAMID), id="SteamID"),
+    ],
+)
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_accepts_int_and_steamid(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Callable[[Steam, Any], Awaitable[object]],
+    path: str,
+    reply: dict[str, Any],
+    steamid: int | SteamID,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam, steamid)
+
+    assert fake_steam.last.params["steamid"] == STEAMID
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_http_error_is_raised_as_steam_api_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await call(steam, STEAMID)
+
+    assert excinfo.value.status_code == 500
+    assert API_KEY not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "body", "message"),
+    [
+        pytest.param(
+            lambda steam: steam.users.get_badges(STEAMID),
+            BADGES_PATH,
+            {"response": {"badges": [{"badgeid": 13, "level": "max"}]}},
+            "Failed to get badges",
+            id="badges-non-numeric-level",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_badges(STEAMID),
+            BADGES_PATH,
+            {"response": {"badges": {"badgeid": 13}}},
+            "Failed to get badges",
+            id="badges-not-a-list",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level(STEAMID),
+            LEVEL_PATH,
+            {"response": {"player_level": "high"}},
+            "Failed to get Steam level",
+            id="level-non-numeric",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level(STEAMID),
+            LEVEL_PATH,
+            {"response": [32]},
+            "Failed to get Steam level",
+            id="level-response-not-an-object",
+        ),
+    ],
+)
+async def test_player_service_malformed_body_raises_response_parsing_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    body: dict[str, Any],
+    message: str,
+) -> None:
+    fake_steam.api("GET", path, json=body)
+
+    with pytest.raises(ResponseParsingError, match=message):
+        await call(steam)
+
+
+async def test_get_badges_parses_badges_and_level_progress(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json=ROBIN_BADGES)
+
+    badges = await steam.users.get_badges(STEAMID)
+
+    assert (
+        badges.player_xp,
+        badges.player_level,
+        badges.player_xp_needed_to_level_up,
+        badges.player_xp_needed_current_level,
+    ) == (6950, 32, 250, 6800)
+    assert [(b.badgeid, b.appid, b.level, b.xp) for b in badges.badges] == [
+        (13, 0, 527, 777),
+        (1, 0, 21, 1050),
+        (1, 620, 5, 500),
+        (1, 440, 1, 100),
+    ]
+    games_owned, _, portal2, tf2_foil = badges.badges
+    assert games_owned.completion_time == 1727740800
+    assert games_owned.scarcity == 1157430
+    # Community badges have no community item or border.
+    assert (games_owned.communityitemid, games_owned.border_color) == ("", 0)
+    assert (portal2.communityitemid, portal2.border_color) == ("3917402871", 0)
+    assert (tf2_foil.communityitemid, tf2_foil.border_color) == ("28376251827", 1)
+
+
+async def test_get_badges_empty_response_gives_defaults(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json=EMPTY_RESPONSE)
+
+    badges = await steam.users.get_badges(STEAMID)
+
+    assert badges.badges == []
+    assert (
+        badges.player_xp,
+        badges.player_level,
+        badges.player_xp_needed_to_level_up,
+        badges.player_xp_needed_current_level,
+    ) == (0, 0, 0, 0)
+
+
+async def test_get_badges_badge_with_only_an_id_gives_defaults(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json={"response": {"badges": [{"badgeid": 2}]}})
+
+    [badge] = (await steam.users.get_badges(STEAMID)).badges
+
+    assert badge.model_dump() == {
+        "badgeid": 2,
+        "level": 0,
+        "completion_time": 0,
+        "xp": 0,
+        "scarcity": 0,
+        "appid": 0,
+        "communityitemid": "",
+        "border_color": 0,
+    }
+
+
+async def test_get_steam_level_returns_player_level(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_PATH, json=ROBIN_LEVEL)
+
+    assert await steam.users.get_steam_level(STEAMID) == 32
+
+
+async def test_get_steam_level_is_0_when_steam_leaves_it_out(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_PATH, json=EMPTY_RESPONSE)
+
+    assert await steam.users.get_steam_level(STEAMID) == 0

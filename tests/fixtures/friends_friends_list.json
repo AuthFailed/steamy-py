@@ -1,0 +1,18 @@
+{
+  "response": {
+    "friendslist": {
+      "bincremental": false,
+      "friends": [
+        {"ulfriendid": "76561197960265731", "efriendrelationship": 3},
+        {"ulfriendid": "76561197960265738", "efriendrelationship": 3},
+        {"ulfriendid": "76561197960265740", "efriendrelationship": 3},
+        {"ulfriendid": "76561198012345678", "efriendrelationship": 3},
+        {"ulfriendid": "76561198087654321", "efriendrelationship": 2},
+        {"ulfriendid": "76561198034567890", "efriendrelationship": 4},
+        {"ulfriendid": "76561198055501234", "efriendrelationship": 1}
+      ],
+      "max_friend_count": 410,
+      "active_friend_count": 4
+    }
+  }
+}

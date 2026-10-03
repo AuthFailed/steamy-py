@@ -1,0 +1,29 @@
+{
+  "response": {
+    "total_count": 3,
+    "games": [
+      {
+        "appid": 730,
+        "name": "Counter-Strike 2",
+        "playtime_2weeks": 1003,
+        "playtime_forever": 125643,
+        "img_icon_url": "8dbc71957312bbd3baea65848b545be9eae2a355",
+        "playtime_windows_forever": 118011,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 7632,
+        "playtime_deck_forever": 0
+      },
+      {
+        "appid": 440,
+        "name": "Team Fortress 2",
+        "playtime_2weeks": 95,
+        "playtime_forever": 48213,
+        "img_icon_url": "e3f595a92552da3d664ad00277fad2107345f743",
+        "playtime_windows_forever": 47025,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 1093,
+        "playtime_deck_forever": 95
+      }
+    ]
+  }
+}

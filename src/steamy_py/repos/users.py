@@ -9,13 +9,16 @@ from ..exceptions import (
     ResponseParsingError,
 )
 from ..models.player import (
+    BadgesResponse,
     Friend,
     FriendsListResponse,
+    PlayerBadges,
     PlayerBan,
     PlayerBansResponse,
     PlayerSummariesResponse,
     PlayerSummary,
     ResolveVanityURLResponse,
+    SteamLevelResponse,
 )
 from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
@@ -214,3 +217,60 @@ class UsersAPI(BaseAPI):
         if len(steamids) > 100:
             raise ValueError("Maximum 100 Steam IDs allowed per request")
         return steamids
+
+    async def get_badges(self, steamid: SteamIDLike) -> PlayerBadges:
+        """Get a user's badges and Steam level progress (IPlayerService/GetBadges).
+
+        Sends the API key, or the access token when no key is set. Steam
+        leaves out what it does not share (e.g. for a private profile), and
+        those fields keep their defaults.
+
+        Args:
+            steamid: Steam ID of the user
+
+        Returns:
+            The badges, with the user's XP and level
+
+        Raises:
+            InvalidSteamIDError: If the Steam ID is invalid
+            AuthenticationError: If neither an API key nor an access token is set
+            ResponseParsingError: If the response does not fit the model
+            SteamAPIError: On other API errors
+        """
+        response = await self._call_service(
+            "IPlayerService",
+            "GetBadges",
+            "get badges",
+            {"steamid": validate_steam_id(steamid)},
+            model=BadgesResponse,
+            auth_type="any",
+        )
+        return response.response
+
+    async def get_steam_level(self, steamid: SteamIDLike) -> int:
+        """Get a user's Steam level (IPlayerService/GetSteamLevel).
+
+        Sends the API key, or the access token when no key is set.
+
+        Args:
+            steamid: Steam ID of the user
+
+        Returns:
+            The Steam level; 0 when Steam leaves it out (e.g. for a private
+            profile)
+
+        Raises:
+            InvalidSteamIDError: If the Steam ID is invalid
+            AuthenticationError: If neither an API key nor an access token is set
+            ResponseParsingError: If the response does not fit the model
+            SteamAPIError: On other API errors
+        """
+        response = await self._call_service(
+            "IPlayerService",
+            "GetSteamLevel",
+            "get Steam level",
+            {"steamid": validate_steam_id(steamid)},
+            model=SteamLevelResponse,
+            auth_type="any",
+        )
+        return response.response.player_level

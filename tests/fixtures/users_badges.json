@@ -1,0 +1,44 @@
+{
+  "response": {
+    "badges": [
+      {
+        "badgeid": 13,
+        "level": 527,
+        "completion_time": 1727740800,
+        "xp": 777,
+        "scarcity": 1157430
+      },
+      {
+        "badgeid": 1,
+        "level": 21,
+        "completion_time": 1719878400,
+        "xp": 1050,
+        "scarcity": 2148731
+      },
+      {
+        "badgeid": 1,
+        "appid": 620,
+        "level": 5,
+        "completion_time": 1500000000,
+        "xp": 500,
+        "communityitemid": "3917402871",
+        "border_color": 0,
+        "scarcity": 401226
+      },
+      {
+        "badgeid": 1,
+        "appid": 440,
+        "level": 1,
+        "completion_time": 1696118400,
+        "xp": 100,
+        "communityitemid": "28376251827",
+        "border_color": 1,
+        "scarcity": 61942
+      }
+    ],
+    "player_xp": 6950,
+    "player_level": 32,
+    "player_xp_needed_to_level_up": 250,
+    "player_xp_needed_current_level": 6800
+  }
+}
