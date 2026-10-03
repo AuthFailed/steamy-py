@@ -202,6 +202,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   optional fields ([#21]).
 - `py.typed` marker, so type checkers use the package's annotations ([#6]).
 - Test suite, CI workflow and Dependabot configuration ([#8], [#9]).
+- README: working examples, the credential each endpoint needs, Steam's
+  rate limits and terms, and thanks to xPaw ([#2], [#24]).
 
 ### Removed
 
@@ -273,6 +275,7 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 [Unreleased]: https://github.com/AuthFailed/steamy-py/compare/ba78383...main
 [#1]: https://github.com/AuthFailed/steamy-py/issues/1
+[#2]: https://github.com/AuthFailed/steamy-py/issues/2
 [#6]: https://github.com/AuthFailed/steamy-py/issues/6
 [#8]: https://github.com/AuthFailed/steamy-py/issues/8
 [#10]: https://github.com/AuthFailed/steamy-py/issues/10
