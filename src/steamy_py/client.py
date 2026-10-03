@@ -196,6 +196,11 @@ class Client:
             return 0
         return self._api_key_requests
 
+    def _api_key_budget_used_up(self) -> bool:
+        """Whether ``API_KEY_DAILY_LIMIT`` requests were sent today (UTC)."""
+        limit = self.settings.API_KEY_DAILY_LIMIT
+        return limit is not None and self.api_key_requests_today >= limit
+
     def _spend_api_key_request(self) -> None:
         """Count a request carrying the API key against the daily limit.
 
@@ -207,11 +212,10 @@ class Client:
         day = int(now // _SECONDS_PER_DAY)
         if day != self._api_key_day:
             self._api_key_day, self._api_key_requests = day, 0
-        limit = self.settings.API_KEY_DAILY_LIMIT
-        if limit is not None and self._api_key_requests >= limit:
+        if self._api_key_budget_used_up():
             raise RateLimitError(
-                f"Daily limit of {limit} API key requests reached "
-                "(Settings.API_KEY_DAILY_LIMIT)",
+                f"Daily limit of {self.settings.API_KEY_DAILY_LIMIT} API key "
+                "requests reached (Settings.API_KEY_DAILY_LIMIT)",
                 retry_after=(day + 1) * _SECONDS_PER_DAY - now,
                 status_code=None,
             )
@@ -360,11 +364,9 @@ class Client:
 
         if not 200 <= status < 300:
             body = await self._read_body_safely(response)
-            # A ``{"success": false}`` body is Steam's answer (e.g. an unknown
-            # market item), not an outage, so it is not retried.
             raise _AttemptFailedError(
                 self._http_error(response, url, credential_sent, body),
-                retryable=status >= 500 and idempotent and not _is_unsuccessful(body),
+                retryable=status >= 500 and idempotent,
             )
 
         eresult = _parse_eresult(response.headers.get("x-eresult"))
@@ -523,6 +525,8 @@ class Client:
                 not outcome.retryable
                 or attempt == attempts - 1
                 or delay > self.settings.MAX_RETRY_WAIT
+                # Out of daily budget: report this failure, not the budget.
+                or (credential == "api_key" and self._api_key_budget_used_up())
             ):
                 break
 
@@ -587,11 +591,6 @@ class _AttemptFailedError(Exception):
         self.error = error
         self.retryable = retryable
         self.retry_after = retry_after
-
-
-def _is_unsuccessful(body: Any) -> bool:
-    """Whether ``body`` is Steam's ``{"success": false}`` reply."""
-    return isinstance(body, dict) and body.get("success") in (False, 0)
 
 
 def _form_value(value: Any) -> str:

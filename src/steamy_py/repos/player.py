@@ -55,7 +55,9 @@ class PlayerAPI(BaseAPI):
             if "response" not in response_data:
                 raise ResponseParsingError("Invalid response structure from Steam API")
 
-            response_obj = PlayerSummariesResponse(**response_data["response"])
+            response_obj = PlayerSummariesResponse.model_validate(
+                response_data["response"]
+            )
             return response_obj.players
 
     async def get_friends_list(

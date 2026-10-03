@@ -25,6 +25,7 @@ from steamy_py import (
     SteamID,
 )
 from steamy_py.models.family import (
+    EFamilyGroupRole,
     EPurchaseRequestAction,
     FamilyGroupStatusResponse,
     PlaytimeSummaryResponse,
@@ -1204,7 +1205,7 @@ async def test_get_invite_check_results_parses_results(
 
     assert results.wallet_country_matches
     assert results.ip_match
-    assert not results.join_restricted
+    assert results.join_restriction == 0
 
 
 async def test_get_users_sharing_device_parses_users(
@@ -1233,3 +1234,64 @@ async def test_typed_call_parses_empty_response(
     result = await endpoint.call(steam)
 
     assert result.response == type(result.response)()
+
+
+async def test_get_invite_check_results_keeps_join_restriction(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET",
+        rpc_path("GetInviteCheckResults"),
+        json={"response": {"join_restriction": 3}},
+    )
+
+    results = await steam.family.get_invite_check_results(
+        family_groupid=FAMILY_GROUPID, steamid=INVITEE
+    )
+
+    assert results.response.join_restriction == 3
+
+
+async def test_enum_inputs_are_sent_as_numbers(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", rpc_path("InviteToFamilyGroup"), json=EMPTY)
+    fake_steam.api("POST", rpc_path("RespondToRequestedPurchase"), json=EMPTY)
+
+    await steam.family.invite_to_family_group(
+        family_groupid=FAMILY_GROUPID,
+        receiver_steamid=INVITEE,
+        receiver_role=EFamilyGroupRole.CHILD,
+    )
+    assert sent_inputs(fake_steam.last)["receiver_role"] == "2"
+
+    await steam.family.respond_to_requested_purchase(
+        family_groupid=FAMILY_GROUPID,
+        purchase_requester_steamid=CHILD,
+        action=EPurchaseRequestAction.DECLINE,
+        request_id=REQUEST_ID,
+    )
+    assert sent_inputs(fake_steam.last)["action"] == "1"
+
+
+@pytest.mark.parametrize(
+    "request_ids",
+    [
+        pytest.param((REQUEST_ID, REQUEST_ID + 1), id="tuple"),
+        pytest.param(range(REQUEST_ID, REQUEST_ID + 2), id="range"),
+        pytest.param((i for i in (REQUEST_ID, REQUEST_ID + 1)), id="generator"),
+        pytest.param([str(REQUEST_ID), str(REQUEST_ID + 1)], id="strings"),
+    ],
+)
+async def test_get_purchase_requests_accepts_any_iterable_of_ids(
+    steam: Steam, fake_steam: FakeSteam, request_ids: Any
+) -> None:
+    fake_steam.api("GET", rpc_path("GetPurchaseRequests"), json=EMPTY)
+
+    await steam.family.get_purchase_requests(request_ids)
+
+    params = fake_steam.last.params
+    assert (params["request_ids[0]"], params["request_ids[1]"]) == (
+        str(REQUEST_ID),
+        str(REQUEST_ID + 1),
+    )

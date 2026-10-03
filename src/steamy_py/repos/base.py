@@ -19,7 +19,21 @@ from ..steamid import SteamID
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+
 logger = logging.getLogger(__name__)
+
+
+def _scalar(value: Any) -> str:
+    """Encode one input value as Steam expects it.
+
+    Booleans become "1"/"0" and ints their decimal form; ``str()`` alone
+    would give "EFamilyGroupRole.ADULT" for an enum member on Python 3.10.
+    """
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, int):
+        return str(int(value))
+    return str(value)
 
 
 class BaseAPI:
@@ -59,21 +73,22 @@ class BaseAPI:
     def _service_inputs(cls, inputs: Mapping[str, Any]) -> dict[str, Any]:
         """Encode service-method inputs; ``None`` means "leave it out".
 
-        Booleans become "1"/"0", lists become ``name[0]``, ``name[1]``, ...,
-        and everything else (ints, 64-bit ids, ``SteamID``) its string form.
+        Booleans become "1"/"0", other iterables ``name[0]``, ``name[1]``,
+        ..., ints (including enum members) their decimal form, and a
+        ``SteamID`` its SteamID64.
         """
         encoded: dict[str, Any] = {}
         for name, value in inputs.items():
             if value is None:
                 continue
-            if isinstance(value, bool):
-                encoded[name] = "1" if value else "0"
-            elif isinstance(value, list | tuple):
-                encoded.update(cls._indexed(name, value))
-            elif isinstance(value, int | SteamID):
+            if isinstance(value, SteamID):
                 encoded[name] = str(value)
-            else:
+            elif isinstance(value, str | bytes):
                 encoded[name] = value
+            elif isinstance(value, Iterable) and not isinstance(value, Mapping):
+                encoded.update(cls._indexed(name, value))
+            else:
+                encoded[name] = _scalar(value)
         return encoded
 
     @overload
@@ -156,7 +171,9 @@ class BaseAPI:
             _indexed("appids_filter", [440, 620])
             -> {"appids_filter[0]": "440", "appids_filter[1]": "620"}
         """
-        return {f"{name}[{index}]": str(value) for index, value in enumerate(values)}
+        return {
+            f"{name}[{index}]": _scalar(value) for index, value in enumerate(values)
+        }
 
     @staticmethod
     def _playerstats_body(error: SteamAPIError) -> dict[str, Any]:

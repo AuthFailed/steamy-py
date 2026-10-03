@@ -10,8 +10,8 @@ from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import quote
 
-from ..client import _is_unsuccessful
 from ..exceptions import (
+    AuthenticationError,
     PlayerNotFoundError,
     PrivateProfileError,
     SteamAPIError,
@@ -32,6 +32,11 @@ logger = logging.getLogger(__name__)
 
 # Largest page Steam serves from /inventory/.
 INVENTORY_PAGE_SIZE = 2000
+
+
+def _is_unsuccessful(body: Any) -> bool:
+    """Whether ``body`` is Steam's ``{"success": false}`` reply."""
+    return isinstance(body, dict) and body.get("success") in (False, 0)
 
 
 class MarketAPI(BaseAPI):
@@ -104,7 +109,7 @@ class MarketAPI(BaseAPI):
             if not response_data.get("success"):
                 return None
 
-            response_obj = ItemPriceResponse(**response_data)
+            response_obj = ItemPriceResponse.model_validate(response_data)
             return response_obj.to_price_info()
 
     async def get_market_listings(
@@ -144,7 +149,7 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            return MarketListingsResponse(**response_data)
+            return MarketListingsResponse.model_validate(response_data)
 
     async def get_price_history(
         self, market_hash_name: str, app_id: int = 730
@@ -171,14 +176,30 @@ class MarketAPI(BaseAPI):
 
             params = {"appid": str(app_id), "market_hash_name": market_hash_name}
 
-            response_data = await self._request_community(
-                url, params, auth_type="cookie"
-            )
+            try:
+                response_data = await self._request_community(
+                    url, params, auth_type="cookie"
+                )
+            except SteamAPIError as e:
+                # Steam answers an expired or invalid cookie with HTTP 400 []
+                # or a redirect to the login page (never followed with a
+                # credential).
+                status = e.status_code
+                if type(e) is SteamAPIError and (
+                    (status == 400 and e.response_data == [])
+                    or (status is not None and 300 <= status < 400)
+                ):
+                    raise AuthenticationError(
+                        "Steam rejected the steamLoginSecure cookie",
+                        status,
+                        e.response_data,
+                    ) from None
+                raise
 
             if not isinstance(response_data, dict) or not response_data.get("success"):
                 return []
 
-            response_obj = MarketHistoryResponse(**response_data)
+            response_obj = MarketHistoryResponse.model_validate(response_data)
             return response_obj.to_history_entries()
 
     async def get_inventory(
@@ -239,7 +260,7 @@ class MarketAPI(BaseAPI):
                 else:
                     raise SteamAPIError(f"Inventory error: {error_msg}")
 
-            return InventoryResponse(**response_data)
+            return InventoryResponse.model_validate(response_data)
 
     async def iter_inventory_pages(
         self,
@@ -365,7 +386,7 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            return MarketSearchResponse(**response_data)
+            return MarketSearchResponse.model_validate(response_data)
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100

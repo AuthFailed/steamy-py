@@ -1145,6 +1145,36 @@ async def test_daily_limit_counts_every_attempt(
     assert client.api_key_requests_today == 3
 
 
+async def test_daily_limit_reached_on_a_retry_raises_the_real_failure(
+    make_client: ClientFactory,
+    fake_steam: FakeSteam,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, status=503, text="Service Unavailable")
+    client = make_client(MAX_RETRIES=2, API_KEY_DAILY_LIMIT=1)
+
+    with pytest.raises(ServiceUnavailableError):
+        await get_summaries(client, fake_steam)
+
+    assert len(fake_steam.requests_to(SUMMARIES_PATH)) == 1
+    assert "Request failed after 1 attempt(s)" in caplog.text
+
+
+async def test_unsuccessful_body_on_a_server_error_is_still_retried(
+    make_client: ClientFactory, fake_steam: FakeSteam
+) -> None:
+    """A ``{"success": false}`` body does not make a 5xx final."""
+    path = COMMUNITY_PREFIX + "/inventory/76561197960435530/730/2"
+    fake_steam.add("GET", path, status=503, json={"success": False})
+    fake_steam.add("GET", path, json={"success": 1})
+    client = make_client(MAX_RETRIES=1)
+
+    data = await client.request("GET", url_for(fake_steam, path), auth_type="none")
+
+    assert data == {"success": 1}
+    assert len(fake_steam.requests_to(path)) == 2
+
+
 # -- auth modes ---------------------------------------------------------------
 
 
@@ -2013,3 +2043,34 @@ def test_indexed_encodes_repeated_fields() -> None:
         "appids_filter[0]": "440",
         "appids_filter[1]": "620",
     }
+
+
+async def test_login_cookie_is_sent_only_with_cookie_auth(
+    fake_steam: FakeSteam,
+) -> None:
+    """A configured cookie never rides along on other requests."""
+    community = COMMUNITY_PREFIX + "/market/priceoverview/"
+    fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    fake_steam.store("GET", "/appdetails", json={})
+    fake_steam.add("GET", community, json={"success": True})
+    async with Client(
+        api_key=API_KEY,
+        access_token=ACCESS_TOKEN,
+        steam_login_secure=LOGIN_COOKIE,
+        settings=make_settings(fake_steam),
+    ) as client:
+        await client.request("GET", url_for(fake_steam, SUMMARIES_PATH))
+        await client.request(
+            "GET", url_for(fake_steam, NEWS_PATH), auth_type="access_token"
+        )
+        await client.request(
+            "GET", url_for(fake_steam, STORE_PREFIX + "/appdetails"), auth_type="none"
+        )
+        await client.request("GET", url_for(fake_steam, community), auth_type="none")
+
+    assert len(fake_steam.requests) == 4
+    for request in fake_steam.requests:
+        assert "cookie" not in {name.lower() for name in request.headers}
+        assert LOGIN_COOKIE not in str(request.query)
+        assert LOGIN_COOKIE.encode() not in request.body

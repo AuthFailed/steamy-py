@@ -33,6 +33,10 @@ def test_validate_steam_id_returns_decimal_string(value: Any) -> None:
     assert validate_steam_id(value) == str(int(str(value)))
 
 
+def test_validate_steam_id_accepts_leading_zeros() -> None:
+    assert validate_steam_id("000" + STEAMID) == STEAMID
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -46,6 +50,8 @@ def test_validate_steam_id_returns_decimal_string(value: Any) -> None:
         "+" + STEAMID,
         STEAMID[:-1] + "\N{FULLWIDTH DIGIT ZERO}",
         "STEAM_1:0:84901",
+        "9" * 21,
+        "9" * 5000,
     ],
 )
 def test_validate_steam_id_rejects(value: Any) -> None:
@@ -84,6 +90,9 @@ def test_parse_understands_every_form(text: str) -> None:
         "[U:1:169802",
         "https://steamcommunity.com/id/robinwalker/",
         "robinwalker",
+        "STEAM_1:0:" + "9" * 5000,
+        "[U:1:" + "9" * 5000 + "]",
+        "https://steamcommunity.com/profiles/" + "9" * 5000,
     ],
 )
 def test_parse_rejects(text: str) -> None:

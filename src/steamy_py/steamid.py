@@ -24,11 +24,13 @@ STEAMID64_MAX = INDIVIDUAL_BASE + ACCOUNT_ID_MAX
 
 APP_ID_MAX = 2**32 - 1
 
-_DIGITS_RE = re.compile(r"[0-9]+", re.ASCII)
-_STEAM2_RE = re.compile(r"STEAM_[01]:([01]):([0-9]+)", re.ASCII)
-_STEAM3_RE = re.compile(r"\[U:1:([0-9]+)\]|U:1:([0-9]+)", re.ASCII)
+# Bounded so int() never sees more digits than a SteamID64 (or 32-bit account
+# id) can have, plus a few leading zeros.
+_DIGITS_RE = re.compile(r"[0-9]{1,20}", re.ASCII)
+_STEAM2_RE = re.compile(r"STEAM_[01]:([01]):([0-9]{1,10})", re.ASCII)
+_STEAM3_RE = re.compile(r"\[U:1:([0-9]{1,10})\]|U:1:([0-9]{1,10})", re.ASCII)
 _PROFILE_URL_RE = re.compile(
-    r"(?:https?://)?(?:www\.)?steamcommunity\.com/profiles/([0-9]+)/?",
+    r"(?:https?://)?(?:www\.)?steamcommunity\.com/profiles/([0-9]{1,20})/?",
     re.ASCII | re.IGNORECASE,
 )
 
@@ -147,7 +149,7 @@ def _parse_steamid64(value: object) -> int:
             raise InvalidSteamIDError(value, "Steam ID cannot be empty")
         if not _DIGITS_RE.fullmatch(value):
             raise InvalidSteamIDError(
-                value, f"Steam ID must be a SteamID64 of ASCII digits: {value!r}"
+                value, f"Steam ID must be a SteamID64 (ASCII digits): {value!r}"
             )
         number = int(value)
     else:

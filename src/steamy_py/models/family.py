@@ -30,6 +30,7 @@ class EProtoAppType(IntEnum):
     APPLICATION = 2
     TOOL = 4
     DEMO = 8
+    DEPRECATED = 16
     DLC = 32
     GUIDE = 64
     DRIVER = 128
@@ -42,6 +43,8 @@ class EProtoAppType(IntEnum):
     SERIES = 16384
     COMIC = 32768
     BETA = 65536
+    SHORTCUT = 1073741824
+    DEPOT_ONLY = -2147483648
 
 
 class EPurchaseRequestAction(IntEnum):
@@ -272,8 +275,8 @@ class InviteCheckResults(SteamModel):
         False, description="Whether the wallet countries match"
     )
     ip_match: bool = Field(False, description="Whether the IP addresses match")
-    join_restricted: bool = Field(
-        False, description="Whether the invitee is restricted from joining"
+    join_restriction: int = Field(
+        0, description="Why the invitee may not join (0 if they may)"
     )
 
 

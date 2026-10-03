@@ -84,7 +84,7 @@ class StatsAPI(BaseAPI):
                     str(app_id), "Game not found or has no statistics"
                 )
 
-            response_obj = GetGlobalStatsResponse(**response_data)
+            response_obj = GetGlobalStatsResponse.model_validate(response_data)
 
             if not response_obj.response.is_success:
                 raise GameNotFoundError(str(app_id), "Game statistics not available")
@@ -135,7 +135,7 @@ class StatsAPI(BaseAPI):
                     str(playerstats["error"]), steamid, app_id
                 )
 
-            response_obj = GetUserStatsGameResponse(**response_data)
+            response_obj = GetUserStatsGameResponse.model_validate(response_data)
             return response_obj.playerstats
 
     async def get_global_achievement_percentages(
@@ -170,7 +170,7 @@ class StatsAPI(BaseAPI):
                     str(app_id), "Game not found or has no achievements"
                 )
 
-            response_obj = GetGlobalAchievementResponse(**response_data)
+            response_obj = GetGlobalAchievementResponse.model_validate(response_data)
             return response_obj.achievementpercentages.to_achievement_stats()
 
     async def get_current_players(self, app_id: int) -> PlayerCount:
@@ -201,7 +201,7 @@ class StatsAPI(BaseAPI):
             if "response" not in response_data:
                 raise GameNotFoundError(str(app_id), "Game not found")
 
-            response_obj = GetPlayerCountResponse(**response_data)
+            response_obj = GetPlayerCountResponse.model_validate(response_data)
 
             if not response_obj.response.is_success:
                 raise GameNotFoundError(
@@ -264,7 +264,7 @@ class StatsAPI(BaseAPI):
             if "appnews" not in response_data:
                 return []
 
-            response_obj = GetNewsResponse(**response_data)
+            response_obj = GetNewsResponse.model_validate(response_data)
             return response_obj.to_news_items()
 
     async def get_user_achievements_only(

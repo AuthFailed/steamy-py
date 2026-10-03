@@ -59,7 +59,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   app list use the access token when there is no API key ([#24]).
 - **Breaking:** `MarketAPI.get_price_history()` needs the `steamLoginSecure`
   cookie (`Steam(steam_login_secure=...)`) and raises `AuthenticationError`
-  without it; Steam refuses anonymous calls ([#22], [#24]).
+  without it, or when Steam rejects it (HTTP 400 `[]` or a redirect to the
+  login page); Steam refuses anonymous calls ([#22], [#24]).
 - `repr(Steam(...))` lists only the credentials that are set, masked
   ([#24]).
 - POST inputs are sent as a form body; repeated fields are sent as
@@ -122,9 +123,10 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 - Family methods accept 64-bit ids (family group, invite, nonce, cart,
   request) as `int` or `str`, send `0` instead of silently dropping it, and
   are annotated with their return types ([#15]).
-- A response that does not match its model raises `ResponseParsingError`
+- A response that fails model validation raises `ResponseParsingError`
   (a `SteamAPIError` subclass) from every method, not only Family methods;
-  so does a response missing its top-level object ([#15]).
+  so does a response missing its top-level object in the methods that check
+  for it (e.g. `get_player_summaries()`, `get_owned_games()`) ([#15]).
 - Repository methods no longer log every failure at ERROR level; the client
   still logs failed requests ([#15]).
 - `aiohttp[speedups]` is now optional: install `steamy-py[speedups]` to get
@@ -242,8 +244,7 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 - `MarketAPI.get_inventory()` asks for 2000 items by default (was 5000,
   above Steam's page size) ([#22]).
 - `MarketAPI.get_item_price()` returns None for an unknown item (HTTP 500
-  `{"success": false}`), and the client no longer retries a 5xx reply with
-  a `{"success": false}` body ([#22]).
+  `{"success": false}`) ([#22]).
 - `PlayerAPI.get_player_bans()` failed on every response: `PlayerBan` now
   reads Steam's PascalCase keys ([#20]).
 - `get_global_achievement_percentages()` and `get_global_stats_for_game()`

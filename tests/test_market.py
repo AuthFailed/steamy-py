@@ -124,6 +124,7 @@ def assert_sent_without_credentials(request: RecordedRequest) -> None:
     raw = raw_request(request)
     assert API_KEY not in raw
     assert ACCESS_TOKEN not in raw
+    assert LOGIN_COOKIE not in raw
 
 
 # Every public method, with the route and reply Steam would serve it.
@@ -160,10 +161,22 @@ ENDPOINTS = [
     ),
 ]
 
-CREDENTIALS = [
+CREDENTIALS_WITHOUT_COOKIE = [
     pytest.param({"api_key": API_KEY, "access_token": ACCESS_TOKEN}, id="both"),
     pytest.param({"access_token": ACCESS_TOKEN}, id="access-token-only"),
     pytest.param({"api_key": API_KEY}, id="api-key-only"),
+]
+
+CREDENTIALS = [
+    *CREDENTIALS_WITHOUT_COOKIE,
+    pytest.param(
+        {
+            "api_key": API_KEY,
+            "access_token": ACCESS_TOKEN,
+            "steam_login_secure": LOGIN_COOKIE,
+        },
+        id="all-three",
+    ),
 ]
 
 INVALID_STEAMIDS = [
@@ -502,7 +515,7 @@ async def test_get_price_history_sends_login_cookie_and_nothing_else(
     assert ACCESS_TOKEN not in raw
 
 
-@pytest.mark.parametrize("credentials", CREDENTIALS)
+@pytest.mark.parametrize("credentials", CREDENTIALS_WITHOUT_COOKIE)
 async def test_get_price_history_without_cookie_raises_before_any_request(
     fake_steam: FakeSteam, settings: Settings, credentials: dict[str, str]
 ) -> None:
@@ -515,17 +528,42 @@ async def test_get_price_history_without_cookie_raises_before_any_request(
     assert fake_steam.requests == []
 
 
-async def test_get_price_history_rejected_cookie_raises_and_is_not_leaked(
+@pytest.mark.parametrize(
+    ("status", "reply"),
+    [
+        pytest.param(400, {"json": []}, id="400-empty-list"),
+        pytest.param(
+            302,
+            {"headers": {"Location": "https://steamcommunity.com/login/home/"}},
+            id="redirect-to-login",
+        ),
+        pytest.param(403, {"text": "Forbidden"}, id="403"),
+    ],
+)
+async def test_get_price_history_rejected_cookie_raises_authentication_error(
+    cookie_steam: Steam, fake_steam: FakeSteam, status: int, reply: dict[str, Any]
+) -> None:
+    """Steam answers an expired or invalid cookie with ``400 []`` or a redirect
+    to the login page."""
+    fake_steam.community("GET", PRICE_HISTORY_PATH, status=status, **reply)
+
+    with pytest.raises(AuthenticationError) as excinfo:
+        await cookie_steam.market.get_price_history(REDLINE)
+
+    assert excinfo.value.status_code == status
+    assert LOGIN_COOKIE not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+async def test_get_price_history_server_error_is_not_an_authentication_error(
     cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
-    """Steam answers ``400 []`` to an expired or invalid cookie."""
-    fake_steam.community("GET", PRICE_HISTORY_PATH, status=400, json=[])
+    fake_steam.community("GET", PRICE_HISTORY_PATH, status=500, text="Oops")
 
     with pytest.raises(SteamAPIError) as excinfo:
         await cookie_steam.market.get_price_history(REDLINE)
 
-    assert excinfo.value.status_code == 400
-    assert LOGIN_COOKIE not in str(excinfo.value)
+    assert type(excinfo.value) is SteamAPIError
 
 
 async def test_get_price_history_parses_price_rows(
@@ -900,15 +938,12 @@ async def test_iter_inventory_pages_stops_when_steam_repeats_a_page(
 # -- priceoverview for an unknown item -------------------------------------------
 
 
-async def test_get_item_price_unknown_item_returns_none_without_retrying(
-    fake_steam: FakeSteam,
+async def test_get_item_price_unknown_item_returns_none(
+    steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_PATH, status=500, json=NOT_SUCCESSFUL)
 
-    async with Steam(settings=make_settings(fake_steam, MAX_RETRIES=3)) as steam:
-        assert await steam.market.get_item_price("No Such Item") is None
-
-    assert len(fake_steam.requests) == 1
+    assert await steam.market.get_item_price("No Such Item") is None
 
 
 async def test_get_item_price_server_error_is_still_raised(

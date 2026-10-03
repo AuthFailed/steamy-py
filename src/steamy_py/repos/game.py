@@ -103,7 +103,7 @@ class GameAPI(BaseAPI):
                 # Empty response usually means private profile
                 raise PrivateProfileError(steamid)
 
-            response_obj = GetOwnedGamesResponse(**response_data)
+            response_obj = GetOwnedGamesResponse.model_validate(response_data)
             return response_obj.response.games
 
     async def get_app_list_page(
@@ -165,7 +165,7 @@ class GameAPI(BaseAPI):
             if "response" not in response_data:
                 raise ResponseParsingError("Invalid response structure from Steam API")
 
-            return GetAppListResponse(**response_data).response
+            return GetAppListResponse.model_validate(response_data).response
 
     async def iter_app_list(
         self, max_results: int = 10_000, **filters: Any
@@ -258,7 +258,7 @@ class GameAPI(BaseAPI):
                     str(playerstats.get("error", "Unknown error")), steamid, app_id
                 )
 
-            response_obj = GetPlayerAchievementsResponse(**response_data)
+            response_obj = GetPlayerAchievementsResponse.model_validate(response_data)
             return response_obj.playerstats.achievements
 
     async def get_schema_for_game(
@@ -294,7 +294,7 @@ class GameAPI(BaseAPI):
                     str(app_id), "Game not found or has no statistics"
                 )
 
-            response_obj = GetSchemaResponse(**response_data)
+            response_obj = GetSchemaResponse.model_validate(response_data)
             return response_obj.game
 
     async def get_app_details(
@@ -333,7 +333,7 @@ class GameAPI(BaseAPI):
             ):
                 return None
 
-            return AppDetails(**app_data["data"])
+            return AppDetails.model_validate(app_data.get("data"))
 
     async def search_games(
         self, search_term: str, owned_games: list[OwnedGame] | None = None
