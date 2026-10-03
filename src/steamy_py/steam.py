@@ -1,6 +1,7 @@
 """Main Steam Web API wrapper class."""
 
 import logging
+import os
 
 from aiohttp import ClientSession
 from pydantic import ValidationError
@@ -55,50 +56,42 @@ class Steam:
         access_token: str | None = None,
         settings: Settings | None = None,
         session: ClientSession | None = None,
+        steam_login_secure: str | None = None,
         **kwargs,
     ):
         """Initialize the Steam API client.
 
+        No credential is required: endpoints that need one raise
+        ``AuthenticationError`` when it is missing.
+
         Args:
-            api_key: Steam API key for public endpoints. Falls back to the
-                STEAM_API_KEY environment variable.
+            api_key: Steam Web API key. Falls back to the STEAM_API_KEY
+                environment variable.
             access_token: Steam access token for user-specific endpoints. Falls
                 back to the STEAM_ACCESS_TOKEN environment variable.
             settings: Optional settings configuration
             session: Optional aiohttp session to reuse; it is never closed by
                 this client
+            steam_login_secure: ``steamLoginSecure`` cookie of a signed-in
+                steamcommunity.com session, only for community endpoints that
+                need a login (market price history). Falls back to the
+                STEAM_LOGIN_SECURE environment variable.
             **kwargs: Settings fields (e.g. ``MAX_RETRIES=5``); applied on top
                 of ``settings`` when both are given
 
         Raises:
-            ConfigurationError: If no authentication credentials are provided,
-                or a settings keyword is unknown or invalid
+            ConfigurationError: If a settings keyword is unknown or invalid
 
         Note:
-            Some endpoints require api_key, others require access_token. You can
-            provide one or both.
-            - Player, Games, Stats APIs typically use api_key
-            - Family, Friends, and other personal APIs typically use access_token
+            Each endpoint sends only the credential it needs:
+            - Store, news, global stats and player counts need none
+            - ISteamUser and ISteamUserStats player methods need the API key
+            - IPlayerService and IStoreService methods take either
+            - Family methods need the access token
         """
-        # Get credentials from parameters or environment
-        if not api_key:
-            import os
-
-            api_key = os.getenv("STEAM_API_KEY")
-
-        if not access_token:
-            import os
-
-            access_token = os.getenv("STEAM_ACCESS_TOKEN")
-
-        if not api_key and not access_token:
-            raise ConfigurationError(
-                "Either Steam API key or access token is required. "
-                "API key: Get from https://steamcommunity.com/dev/apikey "
-                "(set STEAM_API_KEY env var). "
-                "Access token: Get from Steam OAuth flow "
-                "(set STEAM_ACCESS_TOKEN env var)"
-            )
+        api_key = api_key or os.getenv("STEAM_API_KEY")
+        access_token = access_token or os.getenv("STEAM_ACCESS_TOKEN")
+        steam_login_secure = steam_login_secure or os.getenv("STEAM_LOGIN_SECURE")
 
         # Initialize settings
         try:
@@ -118,6 +111,7 @@ class Steam:
             access_token=access_token,
             settings=settings,
             session=session,
+            steam_login_secure=steam_login_secure,
         )
 
         # Initialize API repositories
@@ -181,7 +175,7 @@ class Steam:
             "GET",
             f"{base_url}/IStoreService/GetAppList/v1/",
             params={"input_json": '{"max_results":1}'},
-            auth_type=auth_type,
+            auth_type="any",
         )
         if not isinstance(app_list, dict) or "response" not in app_list:
             raise ResponseParsingError("Unexpected GetAppList response from Steam")
@@ -226,6 +220,14 @@ class Steam:
         }
 
     def __repr__(self) -> str:
-        """String representation of Steam client."""
-        status = "connected" if self.is_connected else "disconnected"
-        return f"Steam(api_key='***', status='{status}')"
+        """String representation; shows which credentials are set, masked."""
+        credentials = {
+            "api_key": self.client.api_key,
+            "access_token": self.client.access_token,
+            "steam_login_secure": self.client.steam_login_secure,
+        }
+        fields = [f"{name}='***'" for name, value in credentials.items() if value]
+        fields.append(
+            f"status='{'connected' if self.is_connected else 'disconnected'}'"
+        )
+        return f"Steam({', '.join(fields)})"

@@ -75,6 +75,7 @@ class StatsAPI(BaseAPI):
                 interface="ISteamUserStats",
                 method="GetGlobalStatsForGame",
                 version="v1",
+                auth_type="none",
                 params=params,
             )
 
@@ -160,6 +161,7 @@ class StatsAPI(BaseAPI):
                 interface="ISteamUserStats",
                 method="GetGlobalAchievementPercentagesForApp",
                 version="v2",
+                auth_type="none",
                 params={"gameid": str(app_id)},
             )
 
@@ -192,6 +194,7 @@ class StatsAPI(BaseAPI):
                 interface="ISteamUserStats",
                 method="GetNumberOfCurrentPlayers",
                 version="v1",
+                auth_type="none",
                 params={"appid": str(app_id)},
             )
 
@@ -254,6 +257,7 @@ class StatsAPI(BaseAPI):
                 interface="ISteamNews",
                 method="GetNewsForApp",
                 version="v2",
+                auth_type="none",
                 params=params,
             )
 

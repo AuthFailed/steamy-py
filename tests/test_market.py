@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import contextlib
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import pytest
 
 from steamy_py import (
+    AuthenticationError,
     Client,
     InvalidSteamIDError,
     MarketAPI,
@@ -34,6 +34,7 @@ from tests.fakesteam import (
 
 PRICE_PATH = "/market/priceoverview/"
 PRICE_HISTORY_PATH = "/market/pricehistory/"
+LOGIN_COOKIE = "76561197960435530%7C%7CeyJhbGciOiJFZERTQSJ9.cookie-value"
 SEARCH_PATH = "/market/search/render/"
 
 REDLINE = "AK-47 | Redline (Field-Tested)"
@@ -140,12 +141,6 @@ ENDPOINTS = [
         id="get_market_listings",
     ),
     pytest.param(
-        lambda steam: steam.market.get_price_history(REDLINE),
-        PRICE_HISTORY_PATH,
-        {"status": 400, "json": []},
-        id="get_price_history",
-    ),
-    pytest.param(
         lambda steam: steam.market.get_inventory(STEAMID, 730),
         inventory_path(),
         {"json": EMPTY_INVENTORY},
@@ -199,10 +194,7 @@ async def test_request_goes_to_community_host_without_credentials(
     fake_steam.community("GET", path, **reply)
 
     async with Steam(settings=settings, **credentials) as client:
-        # Only the outgoing request matters here: pricehistory refuses
-        # anonymous calls.
-        with contextlib.suppress(SteamAPIError):
-            await call(client)
+        await call(client)
 
     (request,) = fake_steam.requests
     assert_sent_without_credentials(request)
@@ -482,37 +474,66 @@ async def test_get_market_listings_uses_render_endpoint(
 # -- get_price_history ------------------------------------------------------------
 
 
-async def test_get_price_history_sends_item_without_login_cookie(
-    steam: Steam, fake_steam: FakeSteam
+@pytest.fixture
+async def cookie_steam(settings: Settings) -> AsyncIterator[Steam]:
+    """A client with every credential, including the steamLoginSecure cookie."""
+    async with Steam(
+        api_key=API_KEY,
+        access_token=ACCESS_TOKEN,
+        steam_login_secure=LOGIN_COOKIE,
+        settings=settings,
+    ) as client:
+        yield client
+
+
+async def test_get_price_history_sends_login_cookie_and_nothing_else(
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
 
-    await steam.market.get_price_history(REDLINE)
+    await cookie_steam.market.get_price_history(REDLINE)
 
-    assert fake_steam.last.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
-    assert fake_steam.last.params == {"appid": "730", "market_hash_name": REDLINE}
-    assert_sent_without_credentials(fake_steam.last)
+    sent = fake_steam.last
+    assert sent.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
+    assert sent.params == {"appid": "730", "market_hash_name": REDLINE}
+    assert sent.headers["Cookie"] == f"steamLoginSecure={LOGIN_COOKIE}"
+    raw = raw_request(sent)
+    assert API_KEY not in raw
+    assert ACCESS_TOKEN not in raw
 
 
-async def test_get_price_history_is_refused_without_login(
-    steam: Steam, fake_steam: FakeSteam
+@pytest.mark.parametrize("credentials", CREDENTIALS)
+async def test_get_price_history_without_cookie_raises_before_any_request(
+    fake_steam: FakeSteam, settings: Settings, credentials: dict[str, str]
 ) -> None:
-    """Steam answers ``400 []`` without a steamLoginSecure cookie, which the
-    library has no way to send."""
+    fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
+
+    async with Steam(settings=settings, **credentials) as client:
+        with pytest.raises(AuthenticationError, match="steamLoginSecure"):
+            await client.market.get_price_history(REDLINE)
+
+    assert fake_steam.requests == []
+
+
+async def test_get_price_history_rejected_cookie_raises_and_is_not_leaked(
+    cookie_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    """Steam answers ``400 []`` to an expired or invalid cookie."""
     fake_steam.community("GET", PRICE_HISTORY_PATH, status=400, json=[])
 
     with pytest.raises(SteamAPIError) as excinfo:
-        await steam.market.get_price_history(REDLINE)
+        await cookie_steam.market.get_price_history(REDLINE)
 
     assert excinfo.value.status_code == 400
+    assert LOGIN_COOKIE not in str(excinfo.value)
 
 
 async def test_get_price_history_parses_price_rows(
-    steam: Steam, fake_steam: FakeSteam
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
 
-    history = await steam.market.get_price_history(REDLINE, app_id=730)
+    history = await cookie_steam.market.get_price_history(REDLINE, app_id=730)
 
     assert history == [
         MarketHistoryEntry(date="Dec 06 2013 01: +0", price=4.712, volume=47),
@@ -522,11 +543,11 @@ async def test_get_price_history_parses_price_rows(
 
 
 async def test_get_price_history_unsuccessful_reply_returns_empty_list(
-    steam: Steam, fake_steam: FakeSteam
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=NOT_SUCCESSFUL)
 
-    assert await steam.market.get_price_history(REDLINE) == []
+    assert await cookie_steam.market.get_price_history(REDLINE) == []
     assert fake_steam.last.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
 
 

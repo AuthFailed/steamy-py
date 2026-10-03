@@ -182,6 +182,60 @@ INVALID_APP_IDS = [
 ]
 
 
+# -- credentials ---------------------------------------------------------------
+
+KEYLESS_ENDPOINTS = [
+    pytest.param(
+        lambda steam: steam.stats.get_current_players(730),
+        CURRENT_PLAYERS_PATH,
+        CS2_PLAYERS,
+        id="get_current_players",
+    ),
+    pytest.param(
+        lambda steam: steam.stats.get_news_for_app(440),
+        NEWS_PATH,
+        {"appnews": {"appid": 440, "newsitems": [], "count": 0}},
+        id="get_news_for_app",
+    ),
+    pytest.param(
+        lambda steam: steam.stats.get_global_achievement_percentages(440),
+        GLOBAL_ACHIEVEMENTS_PATH,
+        {"achievementpercentages": {"achievements": []}},
+        id="get_global_achievement_percentages",
+    ),
+    pytest.param(
+        lambda steam: steam.stats.get_global_stats_for_game(440, TF2_STAT_NAMES),
+        GLOBAL_STATS_PATH,
+        {"response": {"result": 1, "globalstats": {}}},
+        id="get_global_stats_for_game",
+    ),
+]
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), KEYLESS_ENDPOINTS)
+async def test_keyless_endpoint_sends_no_credential(
+    steam: Steam, fake_steam: FakeSteam, call: Call, path: str, reply: Any
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam)
+
+    assert "key" not in fake_steam.last.query
+    assert "access_token" not in fake_steam.last.query
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), KEYLESS_ENDPOINTS)
+async def test_keyless_endpoint_works_without_credentials(
+    fake_steam: FakeSteam, settings: Settings, call: Call, path: str, reply: Any
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(settings=settings) as steam:
+        await call(steam)
+
+    assert len(fake_steam.requests) == 1
+
+
 # -- errors and validation shared by every endpoint ----------------------------
 
 
@@ -308,10 +362,6 @@ async def test_get_current_players_unknown_app_raises_game_not_found(
     assert excinfo.value.app_id == "999999"
 
 
-@pytest.mark.xfail(
-    reason="#24: keyless GetNumberOfCurrentPlayers demands an API key",
-    raises=SteamAPIError,
-)
 async def test_get_current_players_works_with_only_an_access_token(
     fake_steam: FakeSteam, settings: Settings
 ) -> None:

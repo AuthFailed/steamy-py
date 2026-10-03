@@ -1,5 +1,6 @@
 """Configuration settings for Steam API wrapper."""
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,8 +30,20 @@ class Settings(BaseSettings):
     CONNECTION_LIMIT: int = 100
 
     # Rate Limiting
+    # Client-side limits per Steam host: requests per second, and how many
+    # requests may go out back to back after an idle period (burst). Steam
+    # allows 100,000 Web API calls a day per key (~1.16/s), about 200 store
+    # requests per 5 minutes per IP, and far fewer on steamcommunity.com.
     RATE_LIMIT_ENABLED: bool = True
-    REQUESTS_PER_SECOND: float = 10.0
+    API_REQUESTS_PER_SECOND: float = Field(1.0, gt=0)
+    API_BURST: int = Field(10, ge=1)
+    STORE_REQUESTS_PER_SECOND: float = Field(0.5, gt=0)
+    STORE_BURST: int = Field(10, ge=1)
+    COMMUNITY_REQUESTS_PER_SECOND: float = Field(0.25, gt=0)
+    COMMUNITY_BURST: int = Field(5, ge=1)
+    # Requests that carry the Web API key per UTC day; None for no limit.
+    # Once used up, requests with the key raise RateLimitError unsent.
+    API_KEY_DAILY_LIMIT: int | None = Field(None, ge=0)
 
     model_config = SettingsConfigDict(
         env_prefix="STEAMY_", case_sensitive=False, extra="forbid"

@@ -92,6 +92,7 @@ class GameAPI(BaseAPI):
                 interface="IPlayerService",
                 method="GetOwnedGames",
                 version="v1",
+                auth_type="any",
                 params=params,
             )
 
@@ -157,6 +158,7 @@ class GameAPI(BaseAPI):
                 interface="IStoreService",
                 method="GetAppList",
                 version="v1",
+                auth_type="any",
                 input_json=params,
             )
 

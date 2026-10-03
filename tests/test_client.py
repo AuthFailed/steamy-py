@@ -39,6 +39,7 @@ from tests.conftest import make_settings
 from tests.fakesteam import (
     ACCESS_TOKEN,
     API_KEY,
+    COMMUNITY_PREFIX,
     STEAMID,
     STORE_PREFIX,
     FakeSteam,
@@ -48,6 +49,7 @@ from tests.fakesteam import (
 # -- canned Steam replies -------------------------------------------------
 
 SUMMARIES_PATH = "/ISteamUser/GetPlayerSummaries/v2/"
+LOGIN_COOKIE = "76561197960435530%7C%7CeyJhbGciOiJFZERTQSJ9.cookie-value"
 SUMMARIES = load_fixture("client_player_summaries.json")
 
 FAMILY_PATH = "/IFamilyGroupsService/GetFamilyGroupForUser/v1/"
@@ -958,7 +960,9 @@ async def test_rate_limiter_waits_out_the_rest_of_the_interval(
     make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
 ) -> None:
     fake_steam.api("GET", NEWS_PATH, json=NEWS)
-    client = make_client(RATE_LIMIT_ENABLED=True, REQUESTS_PER_SECOND=4.0)
+    client = make_client(
+        RATE_LIMIT_ENABLED=True, API_REQUESTS_PER_SECOND=4.0, API_BURST=1
+    )
     url = url_for(fake_steam, NEWS_PATH)
 
     await client.request("GET", url, params=NEWS_PARAMS, auth_type="none")
@@ -974,7 +978,9 @@ async def test_rate_limiter_spaces_out_concurrent_requests(
     monkeypatch: pytest.MonkeyPatch, virtual_time: VirtualTime
 ) -> None:
     client = Client(
-        settings=offline_settings(RATE_LIMIT_ENABLED=True, REQUESTS_PER_SECOND=4.0)
+        settings=offline_settings(
+            RATE_LIMIT_ENABLED=True, API_REQUESTS_PER_SECOND=4.0, API_BURST=1
+        )
     )
     sent_at: list[float] = []
 
@@ -994,6 +1000,237 @@ async def test_rate_limiter_spaces_out_concurrent_requests(
     gaps = [later - earlier for earlier, later in itertools.pairwise(sorted(sent_at))]
     assert len(sent_at) == 3
     assert min(gaps) >= 0.25 - 1e-9, sent_at
+
+
+async def test_rate_limiter_allows_a_burst_then_spaces_requests(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    client = make_client(
+        RATE_LIMIT_ENABLED=True, API_REQUESTS_PER_SECOND=2.0, API_BURST=3
+    )
+    url = url_for(fake_steam, NEWS_PATH)
+
+    for _ in range(5):
+        await client.request("GET", url, params=NEWS_PARAMS, auth_type="none")
+
+    assert virtual_time.sleeps == [pytest.approx(0.5), pytest.approx(0.5)]
+
+
+async def test_rate_limiter_refills_the_burst_while_idle(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    client = make_client(
+        RATE_LIMIT_ENABLED=True, API_REQUESTS_PER_SECOND=1.0, API_BURST=2
+    )
+    url = url_for(fake_steam, NEWS_PATH)
+
+    for _ in range(2):
+        await client.request("GET", url, params=NEWS_PARAMS, auth_type="none")
+    virtual_time.now += 10
+    for _ in range(2):
+        await client.request("GET", url, params=NEWS_PARAMS, auth_type="none")
+
+    assert virtual_time.sleeps == []
+
+
+async def test_each_steam_host_has_its_own_rate_limiter(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    fake_steam.store("GET", "/appdetails", json={})
+    fake_steam.community("GET", "/market/priceoverview/", json={})
+    client = make_client(
+        RATE_LIMIT_ENABLED=True,
+        API_REQUESTS_PER_SECOND=1.0,
+        API_BURST=1,
+        STORE_REQUESTS_PER_SECOND=1.0,
+        STORE_BURST=1,
+        COMMUNITY_REQUESTS_PER_SECOND=0.25,
+        COMMUNITY_BURST=1,
+    )
+    store_url = url_for(fake_steam, STORE_PREFIX + "/appdetails")
+    community_url = url_for(fake_steam, COMMUNITY_PREFIX + "/market/priceoverview/")
+
+    await client.request("GET", url_for(fake_steam, NEWS_PATH), auth_type="none")
+    await client.request("GET", store_url, auth_type="none")
+    await client.request("GET", community_url, auth_type="none")
+    assert virtual_time.sleeps == []
+
+    await client.request("GET", community_url, auth_type="none")
+    assert virtual_time.sleeps == [pytest.approx(4.0)]
+
+
+@pytest.mark.parametrize(
+    ("url", "host"),
+    [
+        ("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/", "api"),
+        ("https://store.steampowered.com/api/appdetails", "store"),
+        ("https://store.steampowered.com/appreviews/440", "store"),
+        ("https://steamcommunity.com/market/priceoverview/", "community"),
+        ("https://steamcommunity.com/inventory/1/730/2", "community"),
+        ("https://partner.steam-api.com/ISteamUser/x/v1/", "api"),
+    ],
+)
+def test_requests_are_assigned_to_their_steam_host(url: str, host: str) -> None:
+    client = Client(settings=offline_settings())
+
+    assert client._host_of(url) == host
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("API_REQUESTS_PER_SECOND", 0),
+        ("STORE_REQUESTS_PER_SECOND", -1),
+        ("COMMUNITY_BURST", 0),
+        ("API_KEY_DAILY_LIMIT", -1),
+    ],
+)
+def test_invalid_rate_limit_settings_are_rejected(field: str, value: float) -> None:
+    with pytest.raises(ValueError, match=field):
+        offline_settings(**{field: value})
+
+
+# -- daily API key limit ------------------------------------------------------
+
+
+async def test_daily_limit_stops_api_key_requests_before_sending(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
+    fake_steam.api("GET", NEWS_PATH, json=NEWS)
+    virtual_time.now = 1_700_000_000.0  # 2023-11-14 22:13:20 UTC
+    client = make_client(API_KEY_DAILY_LIMIT=2)
+
+    await get_summaries(client, fake_steam)
+    await get_summaries(client, fake_steam)
+    # Requests without the key do not count.
+    await client.request("GET", url_for(fake_steam, NEWS_PATH), auth_type="none")
+    assert client.api_key_requests_today == 2
+
+    with pytest.raises(RateLimitError, match="API_KEY_DAILY_LIMIT") as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert len(fake_steam.requests_to(SUMMARIES_PATH)) == 2
+    assert excinfo.value.status_code is None
+    assert excinfo.value.retry_after == pytest.approx(6400)
+
+
+async def test_daily_limit_resets_at_utc_midnight(
+    make_client: ClientFactory, fake_steam: FakeSteam, virtual_time: VirtualTime
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
+    virtual_time.now = 1_700_006_399.0  # one second before UTC midnight
+    client = make_client(API_KEY_DAILY_LIMIT=1)
+    await get_summaries(client, fake_steam)
+
+    virtual_time.now += 1
+    assert client.api_key_requests_today == 0
+    await get_summaries(client, fake_steam)
+
+    assert len(fake_steam.requests_to(SUMMARIES_PATH)) == 2
+
+
+async def test_daily_limit_counts_every_attempt(
+    make_client: ClientFactory, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, status=503, text="Service Unavailable")
+    client = make_client(MAX_RETRIES=2, API_KEY_DAILY_LIMIT=10)
+
+    with pytest.raises(ServiceUnavailableError):
+        await get_summaries(client, fake_steam)
+
+    assert client.api_key_requests_today == 3
+
+
+# -- auth modes ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("credentials", "sent"),
+    [
+        pytest.param({}, ("key", API_KEY), id="both-sends-key"),
+        pytest.param({"api_key": None}, ("access_token", ACCESS_TOKEN), id="token"),
+        pytest.param({"access_token": None}, ("key", API_KEY), id="key"),
+    ],
+)
+async def test_auth_type_any_prefers_the_api_key(
+    make_client: ClientFactory,
+    fake_steam: FakeSteam,
+    credentials: dict[str, Any],
+    sent: tuple[str, str],
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, json=SUMMARIES)
+    client = make_client(**credentials)
+
+    await client.request("GET", url_for(fake_steam, SUMMARIES_PATH), auth_type="any")
+
+    query = fake_steam.last.query
+    assert [
+        (name, query[name]) for name in ("key", "access_token") if name in query
+    ] == [sent]
+
+
+async def test_auth_type_any_without_credentials_raises_before_sending(
+    make_client: ClientFactory, fake_steam: FakeSteam
+) -> None:
+    client = make_client(api_key=None, access_token=None)
+
+    with pytest.raises(AuthenticationError, match="API key or access token"):
+        await client.request(
+            "GET", url_for(fake_steam, SUMMARIES_PATH), auth_type="any"
+        )
+
+    assert fake_steam.requests == []
+
+
+async def test_cookie_auth_sends_only_the_login_cookie(
+    fake_steam: FakeSteam,
+) -> None:
+    path = COMMUNITY_PREFIX + "/market/pricehistory/"
+    fake_steam.add("GET", path, json={"success": True, "prices": []})
+    async with Client(
+        api_key=API_KEY,
+        access_token=ACCESS_TOKEN,
+        steam_login_secure=LOGIN_COOKIE,
+        settings=make_settings(fake_steam),
+    ) as client:
+        await client.request("GET", url_for(fake_steam, path), auth_type="cookie")
+
+    sent = fake_steam.last
+    assert sent.headers["Cookie"] == f"steamLoginSecure={LOGIN_COOKIE}"
+    assert "key" not in sent.query
+    assert "access_token" not in sent.query
+
+
+async def test_cookie_is_redacted_from_errors(fake_steam: FakeSteam) -> None:
+    path = COMMUNITY_PREFIX + "/market/pricehistory/"
+    fake_steam.add("GET", path, status=403, text=f"bad cookie {LOGIN_COOKIE}")
+    async with Client(
+        steam_login_secure=LOGIN_COOKIE, settings=make_settings(fake_steam)
+    ) as client:
+        with pytest.raises(AuthenticationError) as excinfo:
+            await client.request(
+                "GET",
+                url_for(fake_steam, path) + f"?c={LOGIN_COOKIE}",
+                auth_type="cookie",
+            )
+
+    assert LOGIN_COOKIE not in format_exception(excinfo.value)
+    assert LOGIN_COOKIE not in str(excinfo.value.response_data)
+
+
+async def test_cookie_auth_without_cookie_raises_before_sending(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    with pytest.raises(AuthenticationError, match="steamLoginSecure"):
+        await client.request(
+            "GET", url_for(fake_steam, "/market/pricehistory/"), auth_type="cookie"
+        )
+
+    assert fake_steam.requests == []
 
 
 # -- logging configuration --------------------------------------------------

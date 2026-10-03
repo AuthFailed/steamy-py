@@ -55,10 +55,10 @@ class MarketAPI(BaseAPI):
         return f"{self.market_base_url}/{endpoint}"
 
     async def _request_community(
-        self, url: str, params: dict[str, Any]
+        self, url: str, params: dict[str, Any], auth_type: str = "none"
     ) -> dict[str, Any]:
-        """GET a steamcommunity.com URL without sending any credentials."""
-        return await self.client.request("GET", url, params=params, auth_type="none")
+        """GET a steamcommunity.com URL; never sends the API key or token."""
+        return await self.client.request("GET", url, params=params, auth_type=auth_type)
 
     async def get_item_price(
         self,
@@ -140,14 +140,19 @@ class MarketAPI(BaseAPI):
     ) -> list[MarketHistoryEntry]:
         """Get price history for an item.
 
+        Steam only answers signed-in users: pass the ``steamLoginSecure``
+        cookie of a steamcommunity.com session to ``Steam(steam_login_secure=...)``.
+
         Args:
             market_hash_name: Item's market hash name
             app_id: Steam App ID
 
         Returns:
-            List of price history entries
+            List of price history entries (empty if Steam reports no success)
 
         Raises:
+            AuthenticationError: If no ``steamLoginSecure`` cookie is configured,
+                or Steam rejects it
             SteamAPIError: On API errors
         """
         with self._errors("get price history"):
@@ -155,7 +160,9 @@ class MarketAPI(BaseAPI):
 
             params = {"appid": str(app_id), "market_hash_name": market_hash_name}
 
-            response_data = await self._request_community(url, params)
+            response_data = await self._request_community(
+                url, params, auth_type="cookie"
+            )
 
             if not isinstance(response_data, dict) or not response_data.get("success"):
                 return []

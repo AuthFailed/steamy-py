@@ -121,7 +121,11 @@ def test_exported_exceptions_derive_from_steam_api_error() -> None:
         ("MAX_RETRIES", 3),
         ("RETRY_DELAY", 1.0),
         ("RATE_LIMIT_ENABLED", True),
-        ("REQUESTS_PER_SECOND", 10.0),
+        ("API_REQUESTS_PER_SECOND", 1.0),
+        ("API_BURST", 10),
+        ("STORE_REQUESTS_PER_SECOND", 0.5),
+        ("COMMUNITY_REQUESTS_PER_SECOND", 0.25),
+        ("API_KEY_DAILY_LIMIT", None),
     ],
 )
 def test_settings_defaults(clean_config: Path, field: str, expected: object) -> None:

@@ -45,6 +45,23 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `RateLimitError.retry_after` ([#10]).
 - The client-side rate limiter reserves a slot per request, so concurrent
   requests are spaced out ([#10]).
+- **Breaking:** Client-side rate limiting is per Steam host (Web API, store,
+  community), as a token bucket with a burst. Defaults: Web API 1 request/s
+  (burst 10; Steam allows 100,000 calls a day per key), store 0.5/s (burst
+  10), community 0.25/s (burst 5). `REQUESTS_PER_SECOND` (previously one
+  10/s limit for everything) is replaced by `API_/STORE_/COMMUNITY_`
+  `REQUESTS_PER_SECOND` and `_BURST` ([#24]).
+- **Breaking:** `Steam()` no longer requires a credential; methods that need
+  one raise `AuthenticationError` when it is missing ([#24]).
+- Endpoints send only the credential they need: `get_current_players()`,
+  `get_news_for_app()`, `get_global_achievement_percentages()` and
+  `get_global_stats_for_game()` send none, and `get_owned_games()` and the
+  app list use the access token when there is no API key ([#24]).
+- **Breaking:** `MarketAPI.get_price_history()` needs the `steamLoginSecure`
+  cookie (`Steam(steam_login_secure=...)`) and raises `AuthenticationError`
+  without it; Steam refuses anonymous calls ([#22], [#24]).
+- `repr(Steam(...))` lists only the credentials that are set, masked
+  ([#24]).
 - POST inputs are sent as a form body; repeated fields are sent as
   `name[0]=…&name[1]=…` (`appids_filter`, `request_ids`) ([#18]).
 - `Client.request()` reconnects after `close()` ([#10]).
@@ -134,6 +151,13 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   session (never closed by the library), and `Settings.CONNECTION_LIMIT`
   ([#10]).
 - `SteamAPIError.eresult` ([#18]).
+- `steam_login_secure` parameter (or `STEAM_LOGIN_SECURE` environment
+  variable) and `auth_type="cookie"` for steamcommunity.com endpoints that
+  need a login, and `auth_type="any"` (API key if set, else access token)
+  ([#24]).
+- `Settings.API_KEY_DAILY_LIMIT`: stop sending requests with the API key
+  after this many per UTC day (`RateLimitError`, not sent);
+  `Client.api_key_requests_today` ([#24]).
 - `SteamID` type: parses SteamID64, Steam2 (`STEAM_1:0:84901`), Steam3
   (`[U:1:169802]`) and `/profiles/<id>` URLs, and converts between them
   ([#23]).
@@ -249,3 +273,4 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#21]: https://github.com/AuthFailed/steamy-py/issues/21
 [#22]: https://github.com/AuthFailed/steamy-py/issues/22
 [#23]: https://github.com/AuthFailed/steamy-py/issues/23
+[#24]: https://github.com/AuthFailed/steamy-py/issues/24

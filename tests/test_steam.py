@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from steamy_py import (
+    AuthenticationError,
     ConfigurationError,
     FamilyAPI,
     GameAPI,
@@ -123,11 +124,25 @@ async def send_probe(
         pytest.param({"api_key": "", "access_token": ""}, id="both-empty"),
     ],
 )
-def test_missing_credentials_raise_configuration_error(
-    clean_config: Path, credentials: dict[str, Any]
+async def test_client_without_credentials_calls_keyless_endpoints(
+    clean_config: Path,
+    fake_steam: FakeSteam,
+    settings: Settings,
+    credentials: dict[str, Any],
 ) -> None:
-    with pytest.raises(ConfigurationError, match=r"STEAM_API_KEY.*STEAM_ACCESS_TOKEN"):
-        Steam(**credentials)
+    fake_steam.api(
+        "GET",
+        "/ISteamUserStats/GetNumberOfCurrentPlayers/v1/",
+        json={"response": {"player_count": 1043578, "result": 1}},
+    )
+
+    async with Steam(settings=settings, **credentials) as steam:
+        count = await steam.stats.get_current_players(730)
+        with pytest.raises(AuthenticationError, match="API key"):
+            await steam.player.get_player_summary(STEAMID)
+
+    assert count.player_count == 1043578
+    assert len(fake_steam.requests) == 1
 
 
 @pytest.mark.parametrize("credential", ["api_key", "access_token"])
@@ -264,9 +279,8 @@ async def test_settings_kwargs_drive_the_requests(
         count = await steam.stats.get_current_players(730)
 
     assert count.player_count == 1043578
-    assert [r.params for r in fake_steam.requests_to(path)] == [
-        {"appid": "730", "key": API_KEY}
-    ] * 3
+    # GetNumberOfCurrentPlayers needs no key, so none is sent.
+    assert [r.params for r in fake_steam.requests_to(path)] == [{"appid": "730"}] * 3
 
 
 def test_default_settings_target_the_real_steam_hosts(clean_config: Path) -> None:
@@ -423,10 +437,6 @@ def test_repr_hides_credentials_and_reports_disconnected(
     assert "status='disconnected'" in text
 
 
-@pytest.mark.xfail(
-    reason="#24: repr reports api_key='***' for a token-only client",
-    raises=AssertionError,
-)
 def test_repr_does_not_claim_an_api_key_for_a_token_only_client(
     settings: Settings,
 ) -> None:
