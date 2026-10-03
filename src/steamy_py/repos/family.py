@@ -382,7 +382,8 @@ class FamilyAPI(BaseAPI):
         """Gets the family group of user.
 
         **Only SUPPORT/ADMIN accounts can specify steamid.**
-        By default, the method receives the family group of the currently authorized user.
+        By default, the method receives the family group of the currently
+        authorized user.
 
         Args:
             steamid: Steam ID of user
@@ -601,19 +602,14 @@ class FamilyAPI(BaseAPI):
             AuthenticationError: If access token is not provided
             SteamAPIError: On API errors
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if include_own is not None:
-            params["include_own"] = int(include_own)
-        if include_excluded is not None:
-            params["include_excluded"] = int(include_excluded)
-        if include_free is not None:
-            params["include_free"] = int(include_free)
-        if include_non_games is not None:
-            params["include_non_games"] = int(include_non_games)
-        if language is not None:
-            params["language"] = language
+        params = {
+            "family_groupid": str(family_groupid),
+            "include_own": int(include_own),
+            "include_excluded": int(include_excluded),
+            "include_free": int(include_free),
+            "include_non_games": int(include_non_games),
+            "language": language,
+        }
         if max_apps is not None:
             params["max_apps"] = str(max_apps)
         if steamid is not None:

@@ -84,7 +84,12 @@ class BaseAPI:
         url = self._build_url(interface, method, version)
 
         logger.debug(
-            f"Making {http_method} request to {interface}/{method}/{version} with auth: {auth_type}"
+            "Making %s request to %s/%s/%s with auth: %s",
+            http_method,
+            interface,
+            method,
+            version,
+            auth_type,
         )
 
         return await self.client.request(
@@ -117,7 +122,10 @@ class BaseAPI:
         url = self._build_store_url(endpoint)
 
         logger.debug(
-            f"Making {http_method} store request to {endpoint} with auth: {auth_type}"
+            "Making %s store request to %s with auth: %s",
+            http_method,
+            endpoint,
+            auth_type,
         )
 
         return await self.client.request(

@@ -91,6 +91,66 @@ class Client:
 
         self._last_request_time = time.time()
 
+    async def _get_session(self) -> ClientSession:
+        """Return the open session, creating it if needed."""
+        if self._session is None:
+            await self.connect()
+        assert self._session is not None
+        return self._session
+
+    def _apply_auth(self, params: dict[str, Any], auth_type: str) -> dict[str, Any]:
+        """Return a copy of ``params`` with the credential for ``auth_type`` added."""
+        params = dict(params)
+        if auth_type == "api_key":
+            if not self.api_key:
+                raise ValueError("API key is required but not provided")
+            params["key"] = self.api_key
+        elif auth_type == "access_token":
+            if not self.access_token:
+                raise ValueError("Access token is required but not provided")
+            params["access_token"] = self.access_token
+        elif auth_type != "none":
+            raise ValueError(
+                f"Invalid auth_type: {auth_type}. "
+                "Must be 'api_key', 'access_token', or 'none'"
+            )
+        return params
+
+    async def _send(
+        self,
+        session: ClientSession,
+        method: str,
+        url: str,
+        params: dict[str, Any],
+        **kwargs,
+    ) -> dict[str, Any]:
+        """Send a single request and parse the JSON body.
+
+        Raises:
+            _RateLimitedError: On HTTP 429, after sleeping for ``Retry-After``
+            ClientError: On HTTP errors
+            ValueError: On invalid JSON response
+        """
+        async with session.request(method, url, params=params, **kwargs) as response:
+            if response.status == 429:
+                retry_after = float(
+                    response.headers.get("Retry-After", self.settings.RETRY_DELAY)
+                )
+                logger.warning("Rate limited, sleeping for %s seconds", retry_after)
+                await asyncio.sleep(retry_after)
+                raise _RateLimitedError
+
+            response.raise_for_status()
+
+            try:
+                data = await response.json()
+            except (ValueError, aiohttp.ContentTypeError) as e:
+                logger.error("Invalid JSON response from %s: %s", url, e)
+                raise ValueError(f"Invalid JSON response: {e}") from e
+
+            logger.debug("Successful response from %s", url)
+            return data
+
     async def request(
         self,
         method: str,
@@ -115,79 +175,40 @@ class Client:
             ClientError: On HTTP errors
             ValueError: On invalid JSON response
         """
-        if not self._session:
-            await self.connect()
+        session = await self._get_session()
+        request_params = self._apply_auth(params or {}, auth_type)
 
-        # Add authentication to parameters
-        if params is None:
-            params = {}
-
-        if auth_type == "api_key":
-            if not self.api_key:
-                raise ValueError("API key is required but not provided")
-            params["key"] = self.api_key
-        elif auth_type == "access_token":
-            if not self.access_token:
-                raise ValueError("Access token is required but not provided")
-            params["access_token"] = self.access_token
-        elif auth_type == "none":
-            # No authentication required (for some public endpoints)
-            pass
-        else:
-            raise ValueError(
-                f"Invalid auth_type: {auth_type}. Must be 'api_key', 'access_token', or 'none'"
-            )
-
-        # Apply rate limiting
         await self._rate_limit()
 
-        # Retry logic
-        last_exception = None
+        last_exception: ClientError | None = None
         for attempt in range(self.settings.MAX_RETRIES + 1):
+            logger.debug(
+                "Making %s request to %s (attempt %d)", method, url, attempt + 1
+            )
             try:
-                logger.debug(
-                    f"Making {method} request to {url} (attempt {attempt + 1})"
-                )
-
-                async with self._session.request(
-                    method, url, params=params, **kwargs
-                ) as response:
-                    # Check for rate limiting
-                    if response.status == 429:
-                        retry_after = float(
-                            response.headers.get(
-                                "Retry-After", self.settings.RETRY_DELAY
-                            )
-                        )
-                        logger.warning(
-                            f"Rate limited, sleeping for {retry_after} seconds"
-                        )
-                        await asyncio.sleep(retry_after)
-                        continue
-
-                    # Raise for HTTP errors
-                    response.raise_for_status()
-
-                    # Parse JSON response
-                    try:
-                        data = await response.json()
-                        logger.debug(f"Successful response from {url}")
-                        return data
-                    except (ValueError, aiohttp.ContentTypeError) as e:
-                        logger.error(f"Invalid JSON response from {url}: {e}")
-                        raise ValueError(f"Invalid JSON response: {e}")
-
+                return await self._send(session, method, url, request_params, **kwargs)
+            except _RateLimitedError:
+                continue
             except ClientError as e:
                 last_exception = e
                 if attempt < self.settings.MAX_RETRIES:
                     sleep_time = self.settings.RETRY_DELAY * (2**attempt)
                     logger.warning(
-                        f"Request failed (attempt {attempt + 1}), retrying in {sleep_time} seconds: {e}"
+                        "Request failed (attempt %d), retrying in %s seconds: %s",
+                        attempt + 1,
+                        sleep_time,
+                        e,
                     )
                     await asyncio.sleep(sleep_time)
                 else:
                     logger.error(
-                        f"Request failed after {self.settings.MAX_RETRIES + 1} attempts: {e}"
+                        "Request failed after %d attempts: %s",
+                        self.settings.MAX_RETRIES + 1,
+                        e,
                     )
 
         raise last_exception or ClientError("Request failed for unknown reason")
+
+
+class _RateLimitedError(Exception):
+    """Internal signal: the request hit HTTP 429 and should be retried."""

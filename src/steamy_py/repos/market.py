@@ -83,7 +83,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting price for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get item price: {e}")
+            raise SteamAPIError(f"Failed to get item price: {e}") from e
 
     async def get_market_listings(
         self, market_hash_name: str, app_id: int = 730, start: int = 0, count: int = 100
@@ -122,7 +122,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting listings for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get market listings: {e}")
+            raise SteamAPIError(f"Failed to get market listings: {e}") from e
 
     async def get_price_history(
         self, market_hash_name: str, app_id: int = 730
@@ -156,7 +156,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting price history for '{market_hash_name}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get price history: {e}")
+            raise SteamAPIError(f"Failed to get price history: {e}") from e
 
     async def get_inventory(
         self,
@@ -215,7 +215,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error getting inventory for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get inventory: {e}")
+            raise SteamAPIError(f"Failed to get inventory: {e}") from e
 
     async def search_market(
         self,
@@ -270,7 +270,7 @@ class MarketAPI(BaseAPI):
             logger.error(f"Error searching market: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to search market: {e}")
+            raise SteamAPIError(f"Failed to search market: {e}") from e
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100

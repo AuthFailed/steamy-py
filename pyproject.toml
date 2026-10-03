@@ -72,3 +72,20 @@ dev = [
     "ruff>=0.14.10",
     "ty>=0.0.8",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C90",   # mccabe complexity
+    "UP",    # pyupgrade
+    "ASYNC", # flake8-async
+    "RUF",   # ruff-specific rules
+]

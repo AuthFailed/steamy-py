@@ -1,7 +1,6 @@
 """Player/User API endpoints for Steam API."""
 
 import logging
-from typing import Union
 
 from ..exceptions import (
     InvalidSteamIDError,
@@ -26,7 +25,7 @@ class PlayerAPI(BaseAPI):
     """Steam Player/User API endpoints."""
 
     async def get_player_summaries(
-        self, steam_ids: Union[str, list[str]]
+        self, steam_ids: str | list[str]
     ) -> list[PlayerSummary]:
         """Get player summary information for one or more Steam IDs.
 
@@ -71,7 +70,7 @@ class PlayerAPI(BaseAPI):
             logger.error(f"Error getting player summaries: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get player summaries: {e}")
+            raise SteamAPIError(f"Failed to get player summaries: {e}") from e
 
     async def get_friends_list(
         self, steamid: str, relationship: str = "friend"
@@ -116,11 +115,9 @@ class PlayerAPI(BaseAPI):
             logger.error(f"Error getting friends list for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get friends list: {e}")
+            raise SteamAPIError(f"Failed to get friends list: {e}") from e
 
-    async def get_player_bans(
-        self, steam_ids: Union[str, list[str]]
-    ) -> list[PlayerBan]:
+    async def get_player_bans(self, steam_ids: str | list[str]) -> list[PlayerBan]:
         """Get ban information for one or more Steam users.
 
         Args:
@@ -163,7 +160,7 @@ class PlayerAPI(BaseAPI):
             logger.error(f"Error getting player bans: {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to get player bans: {e}")
+            raise SteamAPIError(f"Failed to get player bans: {e}") from e
 
     async def resolve_vanity_url(
         self, vanity_url: str, url_type: int = 1
@@ -206,7 +203,7 @@ class PlayerAPI(BaseAPI):
             logger.error(f"Error resolving vanity URL '{vanity_url}': {e}")
             if isinstance(e, SteamAPIError):
                 raise
-            raise SteamAPIError(f"Failed to resolve vanity URL: {e}")
+            raise SteamAPIError(f"Failed to resolve vanity URL: {e}") from e
 
     def _validate_steam_id(self, steamid: str) -> None:
         """Validate Steam ID format.
