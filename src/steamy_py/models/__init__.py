@@ -3,6 +3,26 @@
 # Base models
 from .base import ErrorResponse, PaginatedResponse, SteamModel, SteamResponse
 
+# Family models
+from .family import (
+    EFamilyGroupRole,
+    EPurchaseRequestAction,
+    FamilyGroup,
+    FamilyGroupFormerMember,
+    FamilyGroupMember,
+    FamilyGroupPendingInvite,
+    FamilyGroupPendingInviteForUser,
+    FamilyGroupStatus,
+    FamilyGroupStatusResponse,
+    MembershipHistoryEntry,
+    PlaytimeEntry,
+    PlaytimeSummary,
+    PlaytimeSummaryResponse,
+    SharedLibraryApp,
+    SharedLibraryAppsData,
+    SharedLibraryAppsResponse,
+)
+
 # Game models
 from .game import (
     Achievement,
@@ -83,7 +103,16 @@ __all__ = [
     "AppDetails",
     "AppListResponse",
     "CommunityVisibilityState",
+    "EFamilyGroupRole",
+    "EPurchaseRequestAction",
     "ErrorResponse",
+    "FamilyGroup",
+    "FamilyGroupFormerMember",
+    "FamilyGroupMember",
+    "FamilyGroupPendingInvite",
+    "FamilyGroupPendingInviteForUser",
+    "FamilyGroupStatus",
+    "FamilyGroupStatusResponse",
     "Friend",
     "FriendsListResponse",
     "GameSchema",
@@ -115,6 +144,7 @@ __all__ = [
     "MarketListing",
     "MarketListingsResponse",
     "MarketSearch",
+    "MembershipHistoryEntry",
     "NewsItem",
     "NewsResponse",
     "OwnedGame",
@@ -128,10 +158,16 @@ __all__ = [
     "PlayerCountResponse",
     "PlayerSummariesResponse",
     "PlayerSummary",
+    "PlaytimeEntry",
+    "PlaytimeSummary",
+    "PlaytimeSummaryResponse",
     "PriceInfo",
     "ResolveVanityURLResponse",
     "SchemaAchievement",
     "SchemaStat",
+    "SharedLibraryApp",
+    "SharedLibraryAppsData",
+    "SharedLibraryAppsResponse",
     "StatsUserStatsResponse",
     "SteamApp",
     "SteamModel",

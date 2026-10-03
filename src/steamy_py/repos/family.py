@@ -2,11 +2,13 @@
 
 import logging
 
-from ..exceptions import SteamAPIError
+from pydantic import ValidationError
+
+from ..exceptions import ResponseParsingError, SteamAPIError
 from ..models.family import (
     FamilyGroupStatusResponse,
+    PlaytimeSummaryResponse,
     SharedLibraryAppsResponse,
-    SteamResponse,
 )
 from .base import BaseAPI
 
@@ -58,6 +60,8 @@ class FamilyAPI(BaseAPI):
         self, steamid: int | None = None, invite_id: int | None = None
     ):
         """Clear cooldown skip of user.
+
+        **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
             steamid: Steamid of user to clear cooldown skip
@@ -173,7 +177,7 @@ class FamilyAPI(BaseAPI):
 
         Args:
             name: Name of new family group
-            steamid: (Support only) User to create this family group for
+            steamid: (Steam Support only) User to create this family group for
              and add to the group.
 
         Returns:
@@ -240,6 +244,8 @@ class FamilyAPI(BaseAPI):
     ):
         """Accepts invite for family group.
 
+        **Steam Support only:** Steam rejects ordinary user access tokens.
+
         Args:
             family_groupid: Family group id
             steamid: Steamid of user to accept invite
@@ -272,12 +278,11 @@ class FamilyAPI(BaseAPI):
     async def get_change_log(self, family_groupid: int | None = None):
         """Return a log of changes made to this family group.
 
-        **Not finished. Missing Unknown required routing parameter**
-
         Args:
             family_groupid: Family group id
 
         Returns:
+            The raw response body
 
         """
         params = {}
@@ -291,6 +296,7 @@ class FamilyAPI(BaseAPI):
                 version="v1",
                 params=params,
                 auth_type="access_token",
+                http_method="POST",
             )
             return response_data
         except SteamAPIError:
@@ -341,7 +347,9 @@ class FamilyAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get family group: {e}") from e
 
     async def get_family_group_for_user(
-        self, steamid: int | None = None
+        self,
+        steamid: int | None = None,
+        include_family_group_response: bool = False,
     ) -> FamilyGroupStatusResponse:
         """Gets the family group of user.
 
@@ -351,6 +359,8 @@ class FamilyAPI(BaseAPI):
 
         Args:
             steamid: Steam ID of user
+            include_family_group_response: Also return the full family group
+                (as from *get_family_group*) in ``family_group``
 
         Returns:
             Family group data for the user
@@ -362,6 +372,8 @@ class FamilyAPI(BaseAPI):
         params = {}
         if steamid is not None:
             params["steamid"] = str(steamid)
+        if include_family_group_response:
+            params["include_family_group_response"] = "1"
 
         try:
             response_data = await self._request(
@@ -374,6 +386,10 @@ class FamilyAPI(BaseAPI):
             return FamilyGroupStatusResponse.model_validate(response_data)
         except SteamAPIError:
             raise
+        except ValidationError as e:
+            raise ResponseParsingError(
+                f"Unexpected response to get family group for user: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to get family group for user: {e}")
             raise SteamAPIError(f"Failed to get family group for user: {e}") from e
@@ -411,7 +427,9 @@ class FamilyAPI(BaseAPI):
             logger.error(f"Failed to get invite check results: {e}")
             raise SteamAPIError(f"Failed to get invite check results: {e}") from e
 
-    async def get_playtime_summary(self, family_groupid: int) -> SteamResponse:
+    async def get_playtime_summary(
+        self, family_groupid: int
+    ) -> PlaytimeSummaryResponse:
         """Get the playtimes in all apps from the shared library
          for the whole family group.
 
@@ -438,9 +456,13 @@ class FamilyAPI(BaseAPI):
                 auth_type="access_token",
                 http_method="POST",
             )
-            return SteamResponse.model_validate(response_data)
+            return PlaytimeSummaryResponse.model_validate(response_data)
         except SteamAPIError:
             raise
+        except ValidationError as e:
+            raise ResponseParsingError(
+                f"Unexpected response to get playtime summary: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to get playtime summary: {e}")
             raise SteamAPIError(f"Failed to get playtime summary: {e}") from e
@@ -475,7 +497,7 @@ class FamilyAPI(BaseAPI):
 
     async def get_purchase_requests(
         self,
-        request_ids: list[int],
+        request_ids: list[int] | None = None,
         family_groupid: int | None = None,
         include_completed: bool = False,
         rt_include_completed_since: int | None = None,
@@ -483,10 +505,12 @@ class FamilyAPI(BaseAPI):
         """Get pending purchase requests for the family.
 
         Args:
-            request_ids:
+            request_ids: Only return these requests (all requests if omitted)
             family_groupid: Requester's family group id
-            include_completed:
-            rt_include_completed_since:
+            include_completed: Also return completed requests (may no longer
+                be honored by Steam; use *rt_include_completed_since*)
+            rt_include_completed_since: Return requests completed since this
+                Unix time
 
         Returns:
 
@@ -573,6 +597,10 @@ class FamilyAPI(BaseAPI):
             return SharedLibraryAppsResponse.model_validate(response_data)
         except SteamAPIError:
             raise
+        except ValidationError as e:
+            raise ResponseParsingError(
+                f"Unexpected response to get shared library apps: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to get shared library apps: {e}")
             raise SteamAPIError(f"Failed to get shared library apps: {e}") from e
@@ -761,7 +789,7 @@ class FamilyAPI(BaseAPI):
     async def request_purchase(
         self,
         family_groupid: int | None = None,
-        gid_shopping_card: int | None = None,
+        gid_shopping_cart: int | None = None,
         store_country_code: str | None = None,
         use_account_cart: bool = False,
     ):
@@ -769,9 +797,9 @@ class FamilyAPI(BaseAPI):
 
         Args:
             family_groupid: Requester's family group id
-            gid_shopping_card:
-            store_country_code:
-            use_account_cart:
+            gid_shopping_cart: Shopping cart id, sent as ``gidshoppingcart``
+            store_country_code: Store country code, e.g. ``"US"``
+            use_account_cart: Request the account's cart instead
 
         Returns:
 
@@ -779,8 +807,8 @@ class FamilyAPI(BaseAPI):
         params = {}
         if family_groupid is not None:
             params["family_groupid"] = str(family_groupid)
-        if gid_shopping_card is not None:
-            params["gid_shopping_card"] = str(gid_shopping_card)
+        if gid_shopping_cart is not None:
+            params["gidshoppingcart"] = str(gid_shopping_cart)
         if store_country_code is not None:
             params["store_country_code"] = store_country_code
         if use_account_cart:
@@ -807,13 +835,14 @@ class FamilyAPI(BaseAPI):
         family_groupid: int | None = None,
         steamid: int | None = None,
     ):
-        """
+        """Resend a pending invitation to the specified family group.
 
         Args:
             family_groupid: Requester's family group id
-            steamid:
+            steamid: Steam ID of the invited user
 
         Returns:
+            The raw response body
 
         """
         params = {}
@@ -825,7 +854,7 @@ class FamilyAPI(BaseAPI):
         try:
             response_data = await self._request(
                 interface="IFamilyGroupsService",
-                method="RespondToRequestedPurchase",
+                method="ResendInvitationToFamilyGroup",
                 version="v1",
                 params=params,
                 auth_type="access_token",
@@ -847,13 +876,14 @@ class FamilyAPI(BaseAPI):
         action: int | None = None,
         request_id: int | None = None,
     ):
-        """
+        """Respond to a purchase request from a family member.
 
         Args:
             family_groupid: Requester's family group id
-            purchase_requester_steamid:
-            action:
-            request_id:
+            purchase_requester_steamid: Steam ID of the member who asked
+            action: An ``EPurchaseRequestAction``: 1 Decline, 2 Purchased,
+                3 Abandoned, 4 Cancel
+            request_id: Purchase request id
 
         Returns:
 
@@ -887,13 +917,16 @@ class FamilyAPI(BaseAPI):
     async def rollback_family_group(
         self, family_groupid: int | None = None, rtime32_target: int | None = None
     ):
-        """
+        """Roll the family group back to its state at a point in time.
+
+        **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
-            family_groupid: Requester's family group id
-            rtime32_target:
+            family_groupid: Family group id
+            rtime32_target: Unix time to roll back to
 
         Returns:
+            The raw response body
 
         """
         params = {}
@@ -905,7 +938,7 @@ class FamilyAPI(BaseAPI):
         try:
             response_data = await self._request(
                 interface="IFamilyGroupsService",
-                method="SetFamilyCooldownOverrides",
+                method="RollbackFamilyGroup",
                 version="v1",
                 params=params,
                 auth_type="access_token",
@@ -923,6 +956,8 @@ class FamilyAPI(BaseAPI):
     ):
         """Set the number of times a family group's cooldown time
          should be ignored for joins.
+
+        **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
             family_groupid: Requester's family group id
@@ -994,7 +1029,9 @@ class FamilyAPI(BaseAPI):
             raise SteamAPIError(f"Failed to set preferred lender: {e}") from e
 
     async def undelete_family_group(self, family_groupid: int | None = None):
-        """
+        """Restore a deleted family group.
+
+        **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
             family_groupid: Family group id

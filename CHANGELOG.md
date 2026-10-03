@@ -49,8 +49,21 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `name[0]=…&name[1]=…` (`appids_filter`, `request_ids`) ([#18]).
 - `Client.request()` reconnects after `close()` ([#10]).
 - Family API calls re-raise library exceptions unchanged and wrap model
-  validation errors in `SteamAPIError`; error messages name the right
-  operation ([#10]).
+  validation errors in `ResponseParsingError`; error messages name the right
+  operation ([#10], [#14]).
+- **Breaking:** `FamilyAPI.request_purchase()` takes `gid_shopping_cart`
+  (was `gid_shopping_card`) and sends it as `gidshoppingcart`; the cart id
+  was silently dropped before ([#19]).
+- **Breaking:** `FamilyAPI.get_playtime_summary()` returns
+  `PlaytimeSummaryResponse`; the `SteamResponse`, `Entry` and `ResponseData`
+  classes in `steamy_py.models.family` are renamed to
+  `PlaytimeSummaryResponse`, `PlaytimeEntry` and `PlaytimeSummary` ([#14]).
+- Family models are based on `SteamModel` and exported from
+  `steamy_py.models` ([#14]).
+- `FamilyAPI.get_purchase_requests()`: `request_ids` is optional ([#19]).
+- Support-only Family methods (`force_accept_invite`, `clear_cooldown_skip`,
+  `set_family_cooldown_overrides`, `rollback_family_group`,
+  `undelete_family_group`) are documented as such ([#19]).
 - **Breaking:** `Client.request()` raises library exceptions instead of
   aiohttp errors: `SteamAPIError` (with `status_code`) for HTTP errors,
   `NetworkError` for connection errors, `RateLimitError` when every attempt
@@ -75,6 +88,12 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   session (never closed by the library), and `Settings.CONNECTION_LIMIT`
   ([#10]).
 - `SteamAPIError.eresult` ([#18]).
+- `include_family_group_response` parameter for
+  `FamilyAPI.get_family_group_for_user()` ([#19]).
+- Family models keep `pending_group_invites` and `family_group`
+  (`FamilyGroup`) on the user's status, `entries_by_owner` on the playtime
+  summary, and `owner_steamid` / `sort_as` on shared library apps; new
+  `EFamilyGroupRole` and `EPurchaseRequestAction` enums ([#14]).
 - `input_json` support and an `_indexed()` helper for repeated fields in
   `BaseAPI` ([#18]).
 - Support for Python 3.10, 3.11 and 3.12 (the minimum was 3.13) ([#6]).
@@ -95,6 +114,13 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 - Project URLs in the package metadata pointed to the wrong repository
   ([#6]).
+- `FamilyAPI.resend_invitation_to_family_group()` called
+  `RespondToRequestedPurchase` and `rollback_family_group()` called
+  `SetFamilyCooldownOverrides`; both now call their own method ([#19]).
+- `FamilyAPI.get_change_log()` uses POST, as Steam documents ([#19]).
+- Family models no longer fail when Steam omits fields at their default
+  value, e.g. for a user outside any family, an empty shared library or an
+  empty playtime summary ([#14]).
 
 [Unreleased]: https://github.com/AuthFailed/steamy-py/compare/ba78383...main
 [#6]: https://github.com/AuthFailed/steamy-py/issues/6
@@ -102,5 +128,7 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#10]: https://github.com/AuthFailed/steamy-py/issues/10
 [#9]: https://github.com/AuthFailed/steamy-py/issues/9
 [#11]: https://github.com/AuthFailed/steamy-py/issues/11
+[#14]: https://github.com/AuthFailed/steamy-py/issues/14
 [#17]: https://github.com/AuthFailed/steamy-py/issues/17
 [#18]: https://github.com/AuthFailed/steamy-py/issues/18
+[#19]: https://github.com/AuthFailed/steamy-py/issues/19
