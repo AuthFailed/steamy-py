@@ -9,13 +9,12 @@ from .base import SteamModel, SteamResponse
 
 
 class OwnedGame(SteamModel):
-    """Game owned by a Steam user."""
+    """Game owned by a Steam user (``CPlayer_GetOwnedGames_Response.Game``)."""
 
     appid: int = Field(description="Unique identifier for the game")
     name: str | None = Field(default=None, description="Game name")
     playtime_forever: int = Field(description="Total playtime in minutes")
-    img_icon_url: str | None = Field(default=None, description="Icon image filename")
-    img_logo_url: str | None = Field(default=None, description="Logo image filename")
+    img_icon_url: str | None = Field(default=None, description="Icon image hash")
 
     # Recent playtime data
     playtime_windows_forever: int | None = Field(
@@ -27,8 +26,36 @@ class OwnedGame(SteamModel):
     playtime_linux_forever: int | None = Field(
         default=None, description="Linux playtime in minutes"
     )
+    playtime_deck_forever: int | None = Field(
+        default=None, description="Steam Deck playtime in minutes"
+    )
+    playtime_disconnected: int | None = Field(
+        default=None, description="Offline playtime in minutes"
+    )
     playtime_2weeks: int | None = Field(
         default=None, description="Playtime in last 2 weeks (minutes)"
+    )
+    rtime_last_played: int | None = Field(
+        default=None, description="Last played time (Unix timestamp, 0 if never)"
+    )
+
+    # Sent with include_appinfo / include_extended_appinfo
+    has_community_visible_stats: bool | None = Field(
+        default=None, description="Whether the game has public stats"
+    )
+    has_workshop: bool | None = Field(default=None, description="Has Workshop")
+    has_market: bool | None = Field(default=None, description="Has market items")
+    has_dlc: bool | None = Field(default=None, description="Has DLC")
+    has_leaderboards: bool | None = Field(default=None, description="Has leaderboards")
+    capsule_filename: str | None = Field(
+        default=None, description="Store capsule image filename"
+    )
+    sort_as: str | None = Field(default=None, description="Name to sort by")
+    content_descriptorids: list[int] = Field(
+        default_factory=list, description="Mature content descriptor IDs"
+    )
+    family_shared: bool | None = Field(
+        default=None, description="Owned through Steam Family sharing"
     )
 
     @property
@@ -42,17 +69,17 @@ class OwnedGame(SteamModel):
         return round(self.playtime_2weeks / 60, 1) if self.playtime_2weeks else None
 
     @property
-    def icon_url(self) -> str | None:
-        """Get full icon URL."""
-        if self.img_icon_url:
-            return f"http://media.steampowered.com/steamcommunity/public/images/apps/{self.appid}/{self.img_icon_url}.jpg"
+    def last_played(self) -> datetime | None:
+        """Get the last played time, or None if never played."""
+        if self.rtime_last_played:
+            return datetime.fromtimestamp(self.rtime_last_played)
         return None
 
     @property
-    def logo_url(self) -> str | None:
-        """Get full logo URL."""
-        if self.img_logo_url:
-            return f"http://media.steampowered.com/steamcommunity/public/images/apps/{self.appid}/{self.img_logo_url}.jpg"
+    def icon_url(self) -> str | None:
+        """Get full icon URL."""
+        if self.img_icon_url:
+            return f"https://media.steampowered.com/steamcommunity/public/images/apps/{self.appid}/{self.img_icon_url}.jpg"
         return None
 
 
@@ -97,8 +124,8 @@ class GameStat(SteamModel):
 class GameSchema(SteamModel):
     """Game statistics and achievements schema."""
 
-    gameName: str = Field(description="Game name")
-    gameVersion: str = Field(description="Game version")
+    gameName: str | None = Field(default=None, description="Game name")
+    gameVersion: str | None = Field(default=None, description="Game version")
     availableGameStats: dict[str, Any] | None = Field(
         default=None, description="Available game statistics"
     )
@@ -109,7 +136,9 @@ class SchemaAchievement(SteamModel):
 
     name: str = Field(description="Achievement internal name")
     displayName: str = Field(description="Achievement display name")
-    description: str = Field(description="Achievement description")
+    description: str | None = Field(
+        default=None, description="Achievement description (absent when hidden)"
+    )
     icon: str = Field(description="Achievement icon URL")
     icongray: str = Field(description="Achievement icon URL (locked)")
     hidden: int | None = Field(default=0, description="Hidden achievement flag")
@@ -230,6 +259,42 @@ class AppDetails(SteamModel):
         default_factory=list, description="Game genres"
     )
     release_date: dict[str, Any] = Field(description="Release date information")
+
+    dlc: list[int] = Field(default_factory=list, description="DLC App IDs")
+    detailed_description: str | None = Field(
+        default=None, description="Full HTML description"
+    )
+    about_the_game: str | None = Field(default=None, description="About the game HTML")
+    supported_languages: str | None = Field(
+        default=None, description="Supported languages (HTML)"
+    )
+    capsule_image: str | None = Field(default=None, description="Capsule image URL")
+    # Steam sends [] instead of an object when there are no requirements.
+    pc_requirements: dict[str, Any] | list[Any] | None = Field(
+        default=None, description="PC system requirements"
+    )
+    mac_requirements: dict[str, Any] | list[Any] | None = Field(
+        default=None, description="Mac system requirements"
+    )
+    linux_requirements: dict[str, Any] | list[Any] | None = Field(
+        default=None, description="Linux system requirements"
+    )
+    packages: list[int] = Field(default_factory=list, description="Package IDs")
+    metacritic: dict[str, Any] | None = Field(
+        default=None, description="Metacritic score and URL"
+    )
+    recommendations: dict[str, Any] | None = Field(
+        default=None, description="Recommendation count"
+    )
+    achievements: dict[str, Any] | None = Field(
+        default=None, description="Achievement count and highlights"
+    )
+    support_info: dict[str, Any] | None = Field(
+        default=None, description="Support URL and email"
+    )
+    content_descriptors: dict[str, Any] | None = Field(
+        default=None, description="Mature content descriptors"
+    )
 
     @property
     def is_released(self) -> bool:

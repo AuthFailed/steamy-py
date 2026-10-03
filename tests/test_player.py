@@ -720,10 +720,6 @@ async def test_get_friends_list_without_friendslist_raises_private_profile_error
     assert_sent_with_api_key(fake_steam.last, FRIENDS_PATH)
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#20: HTTP 401 for a private friends list surfaces as plain SteamAPIError",
-)
 async def test_get_friends_list_private_profile_401_raises_private_profile_error(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -758,10 +754,6 @@ async def test_get_player_bans_sends_comma_joined_ids(
     }
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#20: PlayerBan expects snake_case keys; Steam sends PascalCase",
-)
 async def test_get_player_bans_parses_real_response(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -833,10 +825,6 @@ async def test_resolve_vanity_url_passes_url_type(
         "steamcommunity.com/id/robinwalker",
         pytest.param(
             "https://steamcommunity.com/id/robinwalker/",
-            marks=pytest.mark.xfail(
-                raises=AssertionError,
-                reason="#20: trailing slash leaves an empty vanityurl",
-            ),
         ),
     ],
 )
@@ -849,3 +837,17 @@ async def test_resolve_vanity_url_accepts_profile_url(
 
     assert fake_steam.last.params["vanityurl"] == "robinwalker"
     assert steamid == STEAMID
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"https://steamcommunity.com/profiles/{STEAMID}",
+        f"https://steamcommunity.com/profiles/{STEAMID}/",
+    ],
+)
+async def test_resolve_vanity_url_returns_id_from_profiles_url_without_request(
+    steam: Steam, fake_steam: FakeSteam, url: str
+) -> None:
+    assert await steam.player.resolve_vanity_url(url) == STEAMID
+    assert fake_steam.requests == []

@@ -3,6 +3,7 @@
 import logging
 
 from ..exceptions import (
+    AuthenticationError,
     InvalidSteamIDError,
     PrivateProfileError,
     SteamAPIError,
@@ -111,6 +112,12 @@ class PlayerAPI(BaseAPI):
 
         except PrivateProfileError:
             raise
+        except AuthenticationError as e:
+            # GetFriendList answers HTTP 401 for a friends list that is not
+            # public; an invalid key is HTTP 403.
+            if e.status_code == 401:
+                raise PrivateProfileError(steamid) from e
+            raise
         except Exception as e:
             logger.error(f"Error getting friends list for {steamid}: {e}")
             if isinstance(e, SteamAPIError):
@@ -168,8 +175,12 @@ class PlayerAPI(BaseAPI):
         """Resolve a Steam vanity URL to a Steam ID.
 
         Args:
-            vanity_url: The vanity URL to resolve (just the custom part)
-            url_type: URL type (1=individual, 2=group, 3=gameserver)
+            vanity_url: The vanity name, or a full profile URL such as
+                ``https://steamcommunity.com/id/<name>/``. For a
+                ``/profiles/<steamid>`` URL the Steam ID is returned without
+                a request.
+            url_type: URL type (1=individual profile, 2=group,
+                3=official game group)
 
         Returns:
             Steam ID if successful, None if not found
@@ -177,9 +188,12 @@ class PlayerAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        # Clean the vanity URL (remove full URL parts if provided)
+        # Accept a full profile URL as well as the bare vanity name.
         if "/" in vanity_url:
-            vanity_url = vanity_url.split("/")[-1]
+            parts = [part for part in vanity_url.split("/") if part]
+            if len(parts) >= 2 and parts[-2] in ("profiles", "gid"):
+                return parts[-1]
+            vanity_url = parts[-1] if parts else ""
 
         try:
             response_data = await self._request(

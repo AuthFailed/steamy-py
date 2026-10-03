@@ -35,6 +35,7 @@ NEWS_PATH = "/ISteamNews/GetNewsForApp/v2/"
 USER_STATS_PATH = "/ISteamUserStats/GetUserStatsForGame/v2/"
 GLOBAL_ACHIEVEMENTS_PATH = "/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
 GLOBAL_STATS_PATH = "/ISteamUserStats/GetGlobalStatsForGame/v1/"
+PLAYER_ACHIEVEMENTS_PATH = "/ISteamUserStats/GetPlayerAchievements/v1/"
 
 CS2_PLAYERS: dict[str, Any] = {"response": {"player_count": 1043578, "result": 1}}
 NO_NEWS: dict[str, Any] = {"appnews": {"appid": 440, "newsitems": [], "count": 0}}
@@ -96,7 +97,7 @@ ENDPOINTS = [
     ),
     pytest.param(
         lambda steam: steam.stats.get_user_achievements_only(STEAMID, 730),
-        USER_STATS_PATH,
+        PLAYER_ACHIEVEMENTS_PATH,
         id="get_user_achievements_only",
     ),
     pytest.param(
@@ -299,10 +300,6 @@ async def test_get_current_players_without_response_raises_game_not_found(
     assert excinfo.value.app_id == "999999"
 
 
-@pytest.mark.xfail(
-    reason="#20: PlayerCount requires player_count, so result 42 fails validation",
-    raises=SteamAPIError,
-)
 async def test_get_current_players_unknown_app_raises_game_not_found(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -360,10 +357,6 @@ async def test_get_news_for_app_sends_default_count_and_length(
             50,
             300,
             {"count": "50", "maxlength": "300"},
-            marks=pytest.mark.xfail(
-                reason="#20: get_news_for_app caps count at 20",
-                raises=AssertionError,
-            ),
             id="more-than-20",
         ),
     ],
@@ -380,6 +373,28 @@ async def test_get_news_for_app_passes_count_and_length_through(
     await steam.stats.get_news_for_app(440, count=count, max_length=max_length)
 
     assert sent_params(fake_steam.last) == {"appid": "440", **expected}
+
+
+async def test_get_news_for_app_sends_paging_and_filters(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", NEWS_PATH, json=NO_NEWS)
+
+    await steam.stats.get_news_for_app(
+        440,
+        end_date=1727740800,
+        feeds=["tf2_blog", "steam_community_announcements"],
+        tags=["patchnotes"],
+    )
+
+    assert sent_params(fake_steam.last) == {
+        "appid": "440",
+        "count": "20",
+        "maxlength": "300",
+        "enddate": "1727740800",
+        "feeds": "tf2_blog,steam_community_announcements",
+        "tags": "patchnotes",
+    }
 
 
 async def test_get_news_for_app_parses_news_items(
@@ -572,22 +587,39 @@ async def test_get_user_stats_for_game_maps_steam_errors(
         await steam.stats.get_user_stats_for_game(STEAMID, 440)
 
 
-async def test_get_user_achievements_only_returns_achievements(
+async def test_get_user_achievements_only_returns_locked_and_unlocked(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.api(
-        "GET", USER_STATS_PATH, json=load_fixture("stats_user_stats_730.json")
+        "GET",
+        PLAYER_ACHIEVEMENTS_PATH,
+        json=load_fixture("game_player_achievements_440.json"),
     )
 
-    achievements = await steam.stats.get_user_achievements_only(STEAMID, 730)
+    achievements = await steam.stats.get_user_achievements_only(STEAMID, 440)
 
     assert all(isinstance(a, UserAchievement) for a in achievements)
-    assert [a.name for a in achievements] == [
-        "WIN_BOMB_PLANT",
-        "BOMB_PLANT_LOW",
-        "KILL_ENEMY_LOW",
+    assert [(a.name, a.is_achieved, a.unlocktime) for a in achievements] == [
+        ("TF_PLAY_GAME_EVERYCLASS", True, 1206047153),
+        ("TF_PLAY_GAME_EVERYMAP", True, 1206133580),
+        ("TF_GET_HEALPOINTS", False, 0),
     ]
-    assert len(fake_steam.requests_to(USER_STATS_PATH)) == 1
+    assert fake_steam.requests_to(USER_STATS_PATH) == []
+    assert fake_steam.last.params["appid"] == "440"
+
+
+async def test_get_user_achievements_only_private_profile_raises(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api(
+        "GET",
+        PLAYER_ACHIEVEMENTS_PATH,
+        status=403,
+        json={"playerstats": {"error": "Profile is not public", "success": False}},
+    )
+
+    with pytest.raises(PrivateProfileError):
+        await steam.stats.get_user_achievements_only(STEAMID, 440)
 
 
 async def test_get_user_stats_only_returns_stats(
@@ -631,11 +663,6 @@ async def test_get_global_achievement_percentages_without_data_raises_not_found(
     assert excinfo.value.app_id == "999999"
 
 
-@pytest.mark.xfail(
-    reason="#20: the model nests achievementpercentages twice, so real "
-    "responses fail validation",
-    raises=SteamAPIError,
-)
 async def test_get_global_achievement_percentages_parses_real_response(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -713,11 +740,6 @@ async def test_get_global_stats_for_game_without_response_raises_not_found(
     assert excinfo.value.app_id == "999999"
 
 
-@pytest.mark.xfail(
-    reason="#20: globalstats is required, so a failed lookup fails validation "
-    "instead of raising GameNotFoundError",
-    raises=SteamAPIError,
-)
 async def test_get_global_stats_for_game_failed_lookup_raises_game_not_found(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -730,11 +752,6 @@ async def test_get_global_stats_for_game_failed_lookup_raises_game_not_found(
     assert excinfo.value.app_id == "999999"
 
 
-@pytest.mark.xfail(
-    reason="#20: globalstats is typed as flat numbers, but Steam nests "
-    "{'total': '<string>'} per stat",
-    raises=SteamAPIError,
-)
 async def test_get_global_stats_for_game_parses_real_response(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
