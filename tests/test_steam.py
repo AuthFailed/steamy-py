@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from steamy_py import (
+    AuthAPI,
     AuthenticationError,
     ConfigurationError,
     EconomyAPI,
@@ -19,7 +20,9 @@ from steamy_py import (
     GameAPI,
     LibraryAPI,
     MarketAPI,
+    NotificationsAPI,
     PlayerAPI,
+    ServersAPI,
     Settings,
     StatsAPI,
     Steam,
@@ -315,6 +318,9 @@ def test_default_settings_target_the_real_steam_hosts(clean_config: Path) -> Non
         ("market", MarketAPI),
         ("family", FamilyAPI),
         ("friends", FriendsAPI),
+        ("notifications", NotificationsAPI),
+        ("servers", ServersAPI),
+        ("auth", AuthAPI),
         ("util", UtilAPI),
         ("games", GameAPI),
     ],

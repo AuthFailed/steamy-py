@@ -40,13 +40,16 @@ from .models import (
 
 # API classes (for advanced users who want direct access)
 from .repos import (
+    AuthAPI,
     EconomyAPI,
     FamilyAPI,
     FriendsAPI,
     GameAPI,
     LibraryAPI,
     MarketAPI,
+    NotificationsAPI,
     PlayerAPI,
+    ServersAPI,
     StatsAPI,
     StoreAPI,
     UsersAPI,
@@ -59,6 +62,7 @@ from .steamid import SteamID
 
 __all__ = [
     "Achievement",
+    "AuthAPI",
     "AuthenticationError",
     "Client",
     "ConfigurationError",
@@ -77,6 +81,7 @@ __all__ = [
     "MarketListing",
     "NetworkError",
     "NewsItem",
+    "NotificationsAPI",
     "OwnedGame",
     "PlayerAPI",
     "PlayerBan",
@@ -87,6 +92,7 @@ __all__ = [
     "PrivateProfileError",
     "RateLimitError",
     "ResponseParsingError",
+    "ServersAPI",
     "ServiceUnavailableError",
     "Settings",
     "StatsAPI",

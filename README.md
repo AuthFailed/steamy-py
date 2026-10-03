@@ -92,6 +92,9 @@ See the [`examples`](examples) directory for more.
 | `steam.workshop` | Workshop items |
 | `steam.friends` | The signed-in user's friends |
 | `steam.family` | Steam Families |
+| `steam.notifications` | The signed-in user's notifications |
+| `steam.servers` | Game servers |
+| `steam.auth` | QR sign-in and access tokens |
 | `steam.economy` | Community inventories |
 | `steam.market` | The community market |
 | `steam.util` | Server time, the list of supported API methods |
