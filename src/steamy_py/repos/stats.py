@@ -24,6 +24,7 @@ from ..models.stats import (
     UserStatsResponse,
 )
 from .base import BaseAPI
+from .game import GameAPI
 
 logger = logging.getLogger(__name__)
 
@@ -130,13 +131,7 @@ class StatsAPI(BaseAPI):
                     params={"steamid": steamid, "appid": str(app_id)},
                 )
             except SteamAPIError as e:
-                # Steam answers a private profile with 403 and an app without
-                # stats with 400; the reason is in the JSON body.
-                body = e.response_data if isinstance(e.response_data, dict) else {}
-                error = body.get("playerstats", {}).get("error")
-                if not isinstance(error, str):
-                    raise
-                response_data = body
+                response_data = self._playerstats_body(e)
 
             if "playerstats" not in response_data:
                 raise GameNotFoundError(
@@ -144,16 +139,10 @@ class StatsAPI(BaseAPI):
                 )
 
             playerstats = response_data["playerstats"]
-
-            # Check for errors in the response
             if "error" in playerstats:
-                error_msg = playerstats["error"].lower()
-                if "private" in error_msg or "not public" in error_msg:
-                    raise PrivateProfileError(steamid)
-                elif "not found" in error_msg or "no stats" in error_msg:
-                    raise GameNotFoundError(str(app_id))
-                else:
-                    raise SteamAPIError(f"Steam API error: {playerstats['error']}")
+                self._raise_playerstats_error(
+                    str(playerstats["error"]), steamid, app_id
+                )
 
             response_obj = GetUserStatsGameResponse(**response_data)
             return response_obj.playerstats
@@ -253,14 +242,25 @@ class StatsAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get current players: {e}") from e
 
     async def get_news_for_app(
-        self, app_id: int, count: int = 20, max_length: int = 300
+        self,
+        app_id: int,
+        count: int = 20,
+        max_length: int = 300,
+        end_date: int | None = None,
+        feeds: list[str] | None = None,
+        tags: list[str] | None = None,
     ) -> list[NewsItem]:
         """Get news items for a game.
 
         Args:
             app_id: Steam App ID
-            count: Number of news items to return (max 20)
-            max_length: Maximum length of news content
+            count: Number of news items to return (Steam's default is 20)
+            max_length: Maximum length of each item's contents; longer
+                contents are truncated. 0 returns the full contents.
+            end_date: Only return items published before this Unix
+                timestamp (use the last item's ``date`` to page)
+            feeds: Only return items from these feed names
+            tags: Only return items with these tags
 
         Returns:
             List of news items
@@ -271,19 +271,24 @@ class StatsAPI(BaseAPI):
         """
         self._validate_app_id(app_id)
 
-        if count > 20:
-            count = 20
+        params = {
+            "appid": str(app_id),
+            "count": str(count),
+            "maxlength": str(max_length),
+        }
+        if end_date is not None:
+            params["enddate"] = str(end_date)
+        if feeds:
+            params["feeds"] = ",".join(feeds)
+        if tags:
+            params["tags"] = ",".join(tags)
 
         try:
             response_data = await self._request(
                 interface="ISteamNews",
                 method="GetNewsForApp",
                 version="v2",
-                params={
-                    "appid": str(app_id),
-                    "count": str(count),
-                    "maxlength": str(max_length),
-                },
+                params=params,
             )
 
             if "appnews" not in response_data:
@@ -301,7 +306,10 @@ class StatsAPI(BaseAPI):
     async def get_user_achievements_only(
         self, steamid: str, app_id: int
     ) -> list[UserAchievement]:
-        """Get only user achievements (convenience method).
+        """Get a user's achievements for a game, locked and unlocked.
+
+        Uses ``GetPlayerAchievements``, which lists every achievement with
+        its unlock time (``GetUserStatsForGame`` lists only unlocked ones).
 
         Args:
             steamid: Steam ID of the player
@@ -317,8 +325,17 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        user_stats = await self.get_user_stats_for_game(steamid, app_id)
-        return user_stats.achievements
+        achievements = await GameAPI(self.client).get_player_achievements(
+            steamid, app_id
+        )
+        return [
+            UserAchievement(
+                name=achievement.apiname,
+                achieved=achievement.achieved,
+                unlocktime=achievement.unlocktime,
+            )
+            for achievement in achievements
+        ]
 
     async def get_user_stats_only(self, steamid: str, app_id: int) -> list[UserStat]:
         """Get only user statistics (convenience method).
