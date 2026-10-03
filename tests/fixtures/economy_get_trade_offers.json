@@ -1,0 +1,66 @@
+{
+  "response": {
+    "trade_offers_sent": [
+      {
+        "tradeofferid": "8588538066",
+        "accountid_other": 374860975,
+        "message": "",
+        "expiration_time": 1763648681,
+        "trade_offer_state": 3,
+        "items_to_give": [
+          {
+            "appid": 730,
+            "contextid": "2",
+            "assetid": "46269328138",
+            "classid": "3213411179",
+            "instanceid": "0",
+            "amount": "1",
+            "missing": true,
+            "est_usd": "185"
+          }
+        ],
+        "is_our_offer": true,
+        "time_created": 1762439081,
+        "time_updated": 1762439897,
+        "tradeid": "819218913135024606",
+        "from_real_time_trade": false,
+        "escrow_end_date": 0,
+        "confirmation_method": 2,
+        "eresult": 1,
+        "delay_settlement": true,
+        "settlement_date": 1763107200
+      }
+    ],
+    "trade_offers_received": [
+      {
+        "tradeofferid": "8588570967",
+        "accountid_other": 1915640240,
+        "message": "###1253505",
+        "expiration_time": 1763649629,
+        "trade_offer_state": 2,
+        "items_to_receive": [
+          {
+            "appid": 730,
+            "contextid": "2",
+            "assetid": "47414331877",
+            "classid": "6216346414",
+            "instanceid": "7650726084",
+            "amount": "1",
+            "missing": false,
+            "est_usd": "34"
+          }
+        ],
+        "is_our_offer": false,
+        "time_created": 1762440029,
+        "time_updated": 1762440049,
+        "from_real_time_trade": false,
+        "escrow_end_date": 0,
+        "confirmation_method": 0,
+        "eresult": 1,
+        "delay_settlement": true,
+        "settlement_date": 0
+      }
+    ],
+    "next_cursor": 0
+  }
+}
