@@ -6,11 +6,12 @@ them much more aggressively than api.steampowered.com.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import quote
 
 from ..exceptions import (
-    InvalidSteamIDError,
+    AuthenticationError,
     PlayerNotFoundError,
     PrivateProfileError,
     SteamAPIError,
@@ -24,9 +25,18 @@ from ..models.market import (
     MarketSearchResponse,
     PriceInfo,
 )
+from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
+
+# Largest page Steam serves from /inventory/.
+INVENTORY_PAGE_SIZE = 2000
+
+
+def _is_unsuccessful(body: Any) -> bool:
+    """Whether ``body`` is Steam's ``{"success": false}`` reply."""
+    return isinstance(body, dict) and body.get("success") in (False, 0)
 
 
 class MarketAPI(BaseAPI):
@@ -55,10 +65,10 @@ class MarketAPI(BaseAPI):
         return f"{self.market_base_url}/{endpoint}"
 
     async def _request_community(
-        self, url: str, params: dict[str, Any]
+        self, url: str, params: dict[str, Any], auth_type: str = "none"
     ) -> dict[str, Any]:
-        """GET a steamcommunity.com URL without sending any credentials."""
-        return await self.client.request("GET", url, params=params, auth_type="none")
+        """GET a steamcommunity.com URL; never sends the API key or token."""
+        return await self.client.request("GET", url, params=params, auth_type=auth_type)
 
     async def get_item_price(
         self,
@@ -79,7 +89,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get item price"):
             url = self._build_market_url("priceoverview/")
 
             params = {
@@ -88,19 +98,19 @@ class MarketAPI(BaseAPI):
                 "currency": str(currency),
             }
 
-            response_data = await self._request_community(url, params)
+            try:
+                response_data = await self._request_community(url, params)
+            except SteamAPIError as e:
+                # Steam answers an unknown item with HTTP 500 {"success": false}.
+                if e.status_code == 500 and _is_unsuccessful(e.response_data):
+                    return None
+                raise
 
             if not response_data.get("success"):
                 return None
 
-            response_obj = ItemPriceResponse(**response_data)
+            response_obj = ItemPriceResponse.model_validate(response_data)
             return response_obj.to_price_info()
-
-        except Exception as e:
-            logger.error("Error getting price for '%s': %s", market_hash_name, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get item price: {e}") from e
 
     async def get_market_listings(
         self,
@@ -125,7 +135,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get market listings"):
             url = self._build_market_url(
                 f"listings/{app_id}/{quote(market_hash_name, safe='')}/render/"
             )
@@ -139,80 +149,92 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            return MarketListingsResponse(**response_data)
-
-        except Exception as e:
-            logger.error("Error getting listings for '%s': %s", market_hash_name, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get market listings: {e}") from e
+            return MarketListingsResponse.model_validate(response_data)
 
     async def get_price_history(
         self, market_hash_name: str, app_id: int = 730
     ) -> list[MarketHistoryEntry]:
         """Get price history for an item.
 
+        Steam only answers signed-in users: pass the ``steamLoginSecure``
+        cookie of a steamcommunity.com session to ``Steam(steam_login_secure=...)``.
+
         Args:
             market_hash_name: Item's market hash name
             app_id: Steam App ID
 
         Returns:
-            List of price history entries
+            List of price history entries (empty if Steam reports no success)
 
         Raises:
+            AuthenticationError: If no ``steamLoginSecure`` cookie is configured,
+                or Steam rejects it
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get price history"):
             url = self._build_market_url("pricehistory/")
 
             params = {"appid": str(app_id), "market_hash_name": market_hash_name}
 
-            response_data = await self._request_community(url, params)
+            try:
+                response_data = await self._request_community(
+                    url, params, auth_type="cookie"
+                )
+            except SteamAPIError as e:
+                # Steam answers an expired or invalid cookie with HTTP 400 []
+                # or a redirect to the login page (never followed with a
+                # credential).
+                status = e.status_code
+                if type(e) is SteamAPIError and (
+                    (status == 400 and e.response_data == [])
+                    or (status is not None and 300 <= status < 400)
+                ):
+                    raise AuthenticationError(
+                        "Steam rejected the steamLoginSecure cookie",
+                        status,
+                        e.response_data,
+                    ) from None
+                raise
 
             if not isinstance(response_data, dict) or not response_data.get("success"):
                 return []
 
-            response_obj = MarketHistoryResponse(**response_data)
+            response_obj = MarketHistoryResponse.model_validate(response_data)
             return response_obj.to_history_entries()
-
-        except Exception as e:
-            logger.error(
-                "Error getting price history for '%s': %s", market_hash_name, e
-            )
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get price history: {e}") from e
 
     async def get_inventory(
         self,
-        steamid: str,
+        steamid: SteamIDLike,
         app_id: int,
         context_id: str = "2",
         start_assetid: str | None = None,
-        count: int = 5000,
+        count: int = INVENTORY_PAGE_SIZE,
         language: str = "english",
     ) -> InventoryResponse:
-        """Get Steam inventory for a user.
+        """Get one page of a user's Steam inventory.
+
+        Use ``get_full_inventory`` or ``iter_inventory_pages`` for every page.
 
         Args:
             steamid: Steam ID of the user
             app_id: Steam App ID
             context_id: Inventory context ID (usually "2")
-            start_assetid: Starting asset ID for pagination
-            count: Maximum items to return
+            start_assetid: Return items after this asset id (a previous
+                page's ``last_assetid``)
+            count: Maximum items to return; Steam allows up to 2000
             language: Language for item descriptions
 
         Returns:
-            Inventory response
+            Inventory page; ``has_more_items`` tells whether more follow
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
             PrivateProfileError: If inventory is private
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
+        steamid = validate_steam_id(steamid)
 
-        try:
+        with self._errors("get inventory"):
             url = f"{self.community_base_url}/inventory/{steamid}/{app_id}/{context_id}"
 
             params = {"l": language, "count": str(count)}
@@ -238,15 +260,89 @@ class MarketAPI(BaseAPI):
                 else:
                     raise SteamAPIError(f"Inventory error: {error_msg}")
 
-            return InventoryResponse(**response_data)
+            return InventoryResponse.model_validate(response_data)
 
-        except (PrivateProfileError, PlayerNotFoundError):
-            raise
-        except Exception as e:
-            logger.error("Error getting inventory for %s: %s", steamid, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get inventory: {e}") from e
+    async def iter_inventory_pages(
+        self,
+        steamid: SteamIDLike,
+        app_id: int,
+        context_id: str = "2",
+        count: int = INVENTORY_PAGE_SIZE,
+        language: str = "english",
+    ) -> AsyncIterator[InventoryResponse]:
+        """Iterate over every page of a user's inventory.
+
+        Args:
+            steamid: Steam ID of the user
+            app_id: Steam App ID
+            context_id: Inventory context ID (usually "2")
+            count: Page size; Steam allows up to 2000
+            language: Language for item descriptions
+
+        Yields:
+            Inventory pages, one request each
+
+        Raises:
+            InvalidSteamIDError: If Steam ID format is invalid
+            PrivateProfileError: If inventory is private
+            SteamAPIError: On API errors
+        """
+        start_assetid: str | None = None
+        while True:
+            page = await self.get_inventory(
+                steamid, app_id, context_id, start_assetid, count, language
+            )
+            yield page
+            if not page.has_more_items or not page.last_assetid:
+                return
+            if page.last_assetid == start_assetid:
+                raise SteamAPIError("Steam returned the same inventory page twice")
+            start_assetid = page.last_assetid
+
+    async def get_full_inventory(
+        self,
+        steamid: SteamIDLike,
+        app_id: int,
+        context_id: str = "2",
+        count: int = INVENTORY_PAGE_SIZE,
+        language: str = "english",
+    ) -> InventoryResponse:
+        """Get a user's whole inventory, merging every page.
+
+        Args:
+            steamid: Steam ID of the user
+            app_id: Steam App ID
+            context_id: Inventory context ID (usually "2")
+            count: Page size; Steam allows up to 2000
+            language: Language for item descriptions
+
+        Returns:
+            One inventory with every asset, each description once, and
+            ``more_items`` unset
+
+        Raises:
+            InvalidSteamIDError: If Steam ID format is invalid
+            PrivateProfileError: If inventory is private
+            SteamAPIError: On API errors
+        """
+        merged: InventoryResponse | None = None
+        seen: set[tuple[str, str]] = set()
+        async for page in self.iter_inventory_pages(
+            steamid, app_id, context_id, count, language
+        ):
+            if merged is None:
+                merged = page.model_copy(
+                    update={"assets": [], "descriptions": [], "asset_properties": []}
+                )
+            merged.assets.extend(page.assets)
+            merged.asset_properties.extend(page.asset_properties)
+            for description in page.descriptions:
+                key = (description.classid, description.instanceid)
+                if key not in seen:
+                    seen.add(key)
+                    merged.descriptions.append(description)
+        assert merged is not None
+        return merged.model_copy(update={"more_items": None, "last_assetid": None})
 
     async def search_market(
         self,
@@ -273,7 +369,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("search market"):
             url = self._build_market_url("search/render/")
 
             params = {
@@ -290,13 +386,7 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            return MarketSearchResponse(**response_data)
-
-        except Exception as e:
-            logger.error("Error searching market: %s", e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to search market: {e}") from e
+            return MarketSearchResponse.model_validate(response_data)
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100
@@ -316,24 +406,3 @@ class MarketAPI(BaseAPI):
         return await self.search_market(
             query="", app_id=app_id, count=count, sort_column="popular", sort_dir="desc"
         )
-
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")

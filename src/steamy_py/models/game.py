@@ -120,13 +120,6 @@ class Achievement(SteamModel):
         return None
 
 
-class GameStat(SteamModel):
-    """Player statistic for a game."""
-
-    name: str = Field(description="Stat name")
-    value: int = Field(description="Stat value")
-
-
 class GameSchema(SteamModel):
     """Game statistics and achievements schema."""
 
@@ -198,17 +191,6 @@ class PlayerAchievementsResponse(SteamModel):
     success: bool = Field(description="Request success status")
 
 
-class UserStatsResponse(SteamModel):
-    """Response wrapper for GetUserStatsForGame."""
-
-    steamID: str = Field(description="Player Steam ID")
-    gameName: str = Field(description="Game name")
-    stats: list[GameStat] = Field(default_factory=list, description="Player statistics")
-    achievements: list[Achievement] = Field(
-        default_factory=list, description="Player achievements"
-    )
-
-
 class GameSchemaResponse(SteamModel):
     """Response wrapper for GetSchemaForGame."""
 
@@ -234,12 +216,6 @@ class GetPlayerAchievementsResponse(SteamResponse):
     playerstats: PlayerAchievementsResponse = Field(
         description="Player achievements data"
     )
-
-
-class GetUserStatsResponse(SteamResponse):
-    """Top-level response for GetUserStatsForGame."""
-
-    playerstats: UserStatsResponse = Field(description="Player stats data")
 
 
 class GetSchemaResponse(SteamResponse):

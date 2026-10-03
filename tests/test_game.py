@@ -272,10 +272,6 @@ async def test_invalid_app_id_is_rejected_before_any_request(
     assert fake_steam.requests == []
 
 
-@pytest.mark.xfail(
-    reason="#23: bool passes the app id check and is sent as appid=True",
-    raises=pytest.fail.Exception,
-)
 async def test_bool_app_id_is_rejected_before_any_request(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1077,3 +1073,30 @@ async def test_schema_achievement_without_description() -> None:
 
     assert achievement.description is None
     assert achievement.is_hidden
+
+
+# -- service methods take either credential -----------------------------------
+
+
+async def test_get_owned_games_falls_back_to_the_access_token(
+    fake_steam: FakeSteam, settings: Settings
+) -> None:
+    fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as token_only:
+        await token_only.games.get_owned_games(STEAMID)
+
+    assert fake_steam.last.query.getall("access_token") == [ACCESS_TOKEN]
+    assert "key" not in fake_steam.last.query
+
+
+async def test_get_app_list_page_falls_back_to_the_access_token(
+    fake_steam: FakeSteam, settings: Settings
+) -> None:
+    fake_steam.api("GET", STORE_APP_LIST_PATH, json={"response": {"apps": []}})
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as token_only:
+        await token_only.games.get_app_list_page()
+
+    assert fake_steam.last.query.getall("access_token") == [ACCESS_TOKEN]
+    assert "key" not in fake_steam.last.query

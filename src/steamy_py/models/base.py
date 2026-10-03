@@ -20,20 +20,3 @@ class SteamResponse(SteamModel):
 
     success: bool = True
     message: str | None = None
-
-
-class PaginatedResponse(SteamModel):
-    """Base for paginated API responses."""
-
-    total: int | None = None
-    has_more: bool = False
-    next_cursor: str | None = None
-
-
-class ErrorResponse(SteamModel):
-    """Steam API error response model."""
-
-    success: bool = False
-    error: str | None = None
-    error_code: int | None = None
-    error_msg: str | None = None

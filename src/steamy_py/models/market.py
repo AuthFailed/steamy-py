@@ -100,17 +100,6 @@ class MarketHistoryEntry(SteamModel):
         return int((Decimal(str(self.price)) * 100).to_integral_value())
 
 
-class MarketSearch(SteamModel):
-    """Market search parameters."""
-
-    query: str | None = Field(default=None, description="Search query")
-    start: int = Field(default=0, description="Starting index")
-    count: int = Field(default=100, description="Number of results")
-    sort_column: str = Field(default="popular", description="Sort column")
-    sort_dir: str = Field(default="desc", description="Sort direction")
-    appid: int | None = Field(default=None, description="Filter by app ID")
-
-
 class InventoryItem(SteamModel):
     """Steam inventory item."""
 

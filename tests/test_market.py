@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import contextlib
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 import pytest
 
 from steamy_py import (
+    AuthenticationError,
     Client,
     InvalidSteamIDError,
     MarketAPI,
@@ -34,6 +34,7 @@ from tests.fakesteam import (
 
 PRICE_PATH = "/market/priceoverview/"
 PRICE_HISTORY_PATH = "/market/pricehistory/"
+LOGIN_COOKIE = "76561197960435530%7C%7CeyJhbGciOiJFZERTQSJ9.cookie-value"
 SEARCH_PATH = "/market/search/render/"
 
 REDLINE = "AK-47 | Redline (Field-Tested)"
@@ -123,6 +124,7 @@ def assert_sent_without_credentials(request: RecordedRequest) -> None:
     raw = raw_request(request)
     assert API_KEY not in raw
     assert ACCESS_TOKEN not in raw
+    assert LOGIN_COOKIE not in raw
 
 
 # Every public method, with the route and reply Steam would serve it.
@@ -138,12 +140,6 @@ ENDPOINTS = [
         listings_render_path(),
         {"json": load_fixture("market_listings_render.json")},
         id="get_market_listings",
-    ),
-    pytest.param(
-        lambda steam: steam.market.get_price_history(REDLINE),
-        PRICE_HISTORY_PATH,
-        {"status": 400, "json": []},
-        id="get_price_history",
     ),
     pytest.param(
         lambda steam: steam.market.get_inventory(STEAMID, 730),
@@ -165,10 +161,22 @@ ENDPOINTS = [
     ),
 ]
 
-CREDENTIALS = [
+CREDENTIALS_WITHOUT_COOKIE = [
     pytest.param({"api_key": API_KEY, "access_token": ACCESS_TOKEN}, id="both"),
     pytest.param({"access_token": ACCESS_TOKEN}, id="access-token-only"),
     pytest.param({"api_key": API_KEY}, id="api-key-only"),
+]
+
+CREDENTIALS = [
+    *CREDENTIALS_WITHOUT_COOKIE,
+    pytest.param(
+        {
+            "api_key": API_KEY,
+            "access_token": ACCESS_TOKEN,
+            "steam_login_secure": LOGIN_COOKIE,
+        },
+        id="all-three",
+    ),
 ]
 
 INVALID_STEAMIDS = [
@@ -199,10 +207,7 @@ async def test_request_goes_to_community_host_without_credentials(
     fake_steam.community("GET", path, **reply)
 
     async with Steam(settings=settings, **credentials) as client:
-        # Only the outgoing request matters here: pricehistory refuses
-        # anonymous calls.
-        with contextlib.suppress(SteamAPIError):
-            await call(client)
+        await call(client)
 
     (request,) = fake_steam.requests
     assert_sent_without_credentials(request)
@@ -482,37 +487,91 @@ async def test_get_market_listings_uses_render_endpoint(
 # -- get_price_history ------------------------------------------------------------
 
 
-async def test_get_price_history_sends_item_without_login_cookie(
-    steam: Steam, fake_steam: FakeSteam
+@pytest.fixture
+async def cookie_steam(settings: Settings) -> AsyncIterator[Steam]:
+    """A client with every credential, including the steamLoginSecure cookie."""
+    async with Steam(
+        api_key=API_KEY,
+        access_token=ACCESS_TOKEN,
+        steam_login_secure=LOGIN_COOKIE,
+        settings=settings,
+    ) as client:
+        yield client
+
+
+async def test_get_price_history_sends_login_cookie_and_nothing_else(
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
 
-    await steam.market.get_price_history(REDLINE)
+    await cookie_steam.market.get_price_history(REDLINE)
 
-    assert fake_steam.last.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
-    assert fake_steam.last.params == {"appid": "730", "market_hash_name": REDLINE}
-    assert_sent_without_credentials(fake_steam.last)
+    sent = fake_steam.last
+    assert sent.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
+    assert sent.params == {"appid": "730", "market_hash_name": REDLINE}
+    assert sent.headers["Cookie"] == f"steamLoginSecure={LOGIN_COOKIE}"
+    raw = raw_request(sent)
+    assert API_KEY not in raw
+    assert ACCESS_TOKEN not in raw
 
 
-async def test_get_price_history_is_refused_without_login(
-    steam: Steam, fake_steam: FakeSteam
+@pytest.mark.parametrize("credentials", CREDENTIALS_WITHOUT_COOKIE)
+async def test_get_price_history_without_cookie_raises_before_any_request(
+    fake_steam: FakeSteam, settings: Settings, credentials: dict[str, str]
 ) -> None:
-    """Steam answers ``400 []`` without a steamLoginSecure cookie, which the
-    library has no way to send."""
-    fake_steam.community("GET", PRICE_HISTORY_PATH, status=400, json=[])
+    fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
+
+    async with Steam(settings=settings, **credentials) as client:
+        with pytest.raises(AuthenticationError, match="steamLoginSecure"):
+            await client.market.get_price_history(REDLINE)
+
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    ("status", "reply"),
+    [
+        pytest.param(400, {"json": []}, id="400-empty-list"),
+        pytest.param(
+            302,
+            {"headers": {"Location": "https://steamcommunity.com/login/home/"}},
+            id="redirect-to-login",
+        ),
+        pytest.param(403, {"text": "Forbidden"}, id="403"),
+    ],
+)
+async def test_get_price_history_rejected_cookie_raises_authentication_error(
+    cookie_steam: Steam, fake_steam: FakeSteam, status: int, reply: dict[str, Any]
+) -> None:
+    """Steam answers an expired or invalid cookie with ``400 []`` or a redirect
+    to the login page."""
+    fake_steam.community("GET", PRICE_HISTORY_PATH, status=status, **reply)
+
+    with pytest.raises(AuthenticationError) as excinfo:
+        await cookie_steam.market.get_price_history(REDLINE)
+
+    assert excinfo.value.status_code == status
+    assert LOGIN_COOKIE not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+async def test_get_price_history_server_error_is_not_an_authentication_error(
+    cookie_steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community("GET", PRICE_HISTORY_PATH, status=500, text="Oops")
 
     with pytest.raises(SteamAPIError) as excinfo:
-        await steam.market.get_price_history(REDLINE)
+        await cookie_steam.market.get_price_history(REDLINE)
 
-    assert excinfo.value.status_code == 400
+    assert type(excinfo.value) is SteamAPIError
 
 
 async def test_get_price_history_parses_price_rows(
-    steam: Steam, fake_steam: FakeSteam
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=PRICE_HISTORY_REPLY)
 
-    history = await steam.market.get_price_history(REDLINE, app_id=730)
+    history = await cookie_steam.market.get_price_history(REDLINE, app_id=730)
 
     assert history == [
         MarketHistoryEntry(date="Dec 06 2013 01: +0", price=4.712, volume=47),
@@ -522,11 +581,11 @@ async def test_get_price_history_parses_price_rows(
 
 
 async def test_get_price_history_unsuccessful_reply_returns_empty_list(
-    steam: Steam, fake_steam: FakeSteam
+    cookie_steam: Steam, fake_steam: FakeSteam
 ) -> None:
     fake_steam.community("GET", PRICE_HISTORY_PATH, json=NOT_SUCCESSFUL)
 
-    assert await steam.market.get_price_history(REDLINE) == []
+    assert await cookie_steam.market.get_price_history(REDLINE) == []
     assert fake_steam.last.path == COMMUNITY_PREFIX + PRICE_HISTORY_PATH
 
 
@@ -541,7 +600,7 @@ async def test_get_inventory_sends_default_language_and_count(
     await steam.market.get_inventory(STEAMID, 730)
 
     assert fake_steam.last.path == COMMUNITY_PREFIX + inventory_path()
-    assert fake_steam.last.params == {"l": "english", "count": "5000"}
+    assert fake_steam.last.params == {"l": "english", "count": "2000"}
 
 
 async def test_get_inventory_sends_context_language_count_and_start_assetid(
@@ -662,10 +721,6 @@ async def test_get_inventory_rejects_invalid_steamid_before_any_request(
     assert fake_steam.requests == []
 
 
-@pytest.mark.xfail(
-    raises=InvalidSteamIDError,
-    reason="#23: ids above 76561199999999999 fail the '7656119' prefix check",
-)
 async def test_get_inventory_accepts_high_account_id(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -813,3 +868,90 @@ async def test_get_popular_items_without_app_id_searches_all_apps(
     await steam.market.get_popular_items()
 
     assert fake_steam.last.params == SEARCH_DEFAULT_PARAMS
+
+
+# -- inventory paging ----------------------------------------------------------
+
+
+def second_inventory_page() -> dict[str, Any]:
+    """The last page after ``market_inventory_730.json``: one new asset whose
+    description repeats one from the first page."""
+    first = load_fixture("market_inventory_730.json")
+    asset = {**first["assets"][0], "assetid": "38212365999"}
+    return {
+        "assets": [asset],
+        "descriptions": [first["descriptions"][0]],
+        "total_inventory_count": 3,
+        "success": 1,
+        "rwgrsn": -2,
+    }
+
+
+async def test_iter_inventory_pages_follows_last_assetid(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    first = load_fixture("market_inventory_730.json")
+    fake_steam.community("GET", inventory_path(), json=first)
+    fake_steam.community("GET", inventory_path(), json=second_inventory_page())
+
+    pages = [page async for page in steam.market.iter_inventory_pages(STEAMID, 730)]
+
+    assert len(pages) == 2
+    first_request, second_request = fake_steam.requests
+    assert "start_assetid" not in first_request.params
+    assert second_request.params["start_assetid"] == first["last_assetid"]
+    assert second_request.params["count"] == "2000"
+
+
+async def test_get_full_inventory_merges_pages(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    first = load_fixture("market_inventory_730.json")
+    fake_steam.community("GET", inventory_path(), json=first)
+    fake_steam.community("GET", inventory_path(), json=second_inventory_page())
+
+    inventory = await steam.market.get_full_inventory(STEAMID, 730)
+
+    assert [asset.assetid for asset in inventory.assets] == [
+        *(asset["assetid"] for asset in first["assets"]),
+        "38212365999",
+    ]
+    assert len(inventory.descriptions) == len(first["descriptions"])
+    assert not inventory.has_more_items
+    assert inventory.last_assetid is None
+
+
+async def test_iter_inventory_pages_stops_when_steam_repeats_a_page(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community(
+        "GET", inventory_path(), json=load_fixture("market_inventory_730.json")
+    )
+
+    with pytest.raises(SteamAPIError, match="same inventory page"):
+        async for _ in steam.market.iter_inventory_pages(STEAMID, 730):
+            pass
+
+    assert len(fake_steam.requests) == 2
+
+
+# -- priceoverview for an unknown item -------------------------------------------
+
+
+async def test_get_item_price_unknown_item_returns_none(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community("GET", PRICE_PATH, status=500, json=NOT_SUCCESSFUL)
+
+    assert await steam.market.get_item_price("No Such Item") is None
+
+
+async def test_get_item_price_server_error_is_still_raised(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community("GET", PRICE_PATH, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await steam.market.get_item_price(REDLINE)
+
+    assert excinfo.value.status_code == 500

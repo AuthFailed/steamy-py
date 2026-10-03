@@ -54,6 +54,22 @@ _ERESULT_RATE_LIMIT_EXCEEDED = 84
 # HTTP statuses that mean "try again later" rather than "your request is wrong".
 _UNAVAILABLE_STATUSES = frozenset({502, 503, 504})
 
+# Which credential a request carries:
+#   "none"          nothing
+#   "api_key"       the Web API key (``key``)
+#   "access_token"  the user's access token (``access_token``)
+#   "any"           the API key if there is one, else the access token
+#   "cookie"        the ``steamLoginSecure`` community login cookie
+AUTH_TYPES = ("none", "api_key", "access_token", "any", "cookie")
+
+_MISSING_CREDENTIAL = {
+    "api_key": "API key is required but not provided",
+    "access_token": "Access token is required but not provided",
+    "cookie": "A steamLoginSecure cookie is required but not provided",
+}
+
+_SECONDS_PER_DAY = 86_400
+
 
 class Client:
     """Async HTTP client with Steam API authentication."""
@@ -64,6 +80,7 @@ class Client:
         access_token: str | None = None,
         settings: Settings | None = None,
         session: ClientSession | None = None,
+        steam_login_secure: str | None = None,
     ):
         """Initialize the client.
 
@@ -73,13 +90,19 @@ class Client:
             settings: Optional settings configuration
             session: Optional aiohttp session to use. The client never closes a
                 session it did not create.
+            steam_login_secure: Value of the ``steamLoginSecure`` cookie of a
+                signed-in steamcommunity.com session, for the few community
+                endpoints that need a login (e.g. market price history)
         """
         self.api_key = api_key
         self.access_token = access_token
+        self.steam_login_secure = steam_login_secure
         self.settings = settings or Settings()
         self._session: ClientSession | None = session
         self._owns_session = session is None
-        self._next_request_at = 0.0
+        self._limiters: dict[str, _RateLimiter] = {}
+        self._api_key_day = -1
+        self._api_key_requests = 0
 
     async def __aenter__(self):
         """Async context manager entry - creates session."""
@@ -114,21 +137,89 @@ class Client:
             logger.debug("Steam API client disconnected")
         self._session = None
 
-    async def _rate_limit(self):
-        """Wait for this request's slot when client-side rate limiting is on.
+    async def _rate_limit(self, url: str) -> None:
+        """Wait for this request's slot on its host's rate limiter.
 
-        Each call reserves the next free slot before it waits, so concurrent
-        requests are spaced out instead of being released together.
+        Each Steam host (Web API, store, community) has its own limiter. A
+        call reserves its slot before it waits, so concurrent requests are
+        spaced out instead of being released together.
         """
         if not self.settings.RATE_LIMIT_ENABLED:
             return
 
-        interval = 1.0 / self.settings.REQUESTS_PER_SECOND
-        now = time.monotonic()
-        slot = max(now, self._next_request_at)
-        self._next_request_at = slot + interval
-        if slot > now:
-            await asyncio.sleep(slot - now)
+        host = self._host_of(url)
+        limiter = self._limiters.get(host)
+        if limiter is None:
+            rate, burst = self._host_limits(host)
+            limiter = self._limiters[host] = _RateLimiter(rate, burst)
+        delay = limiter.reserve(time.monotonic())
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+    def _host_of(self, url: str) -> str:
+        """Which Steam host ("api", "store" or "community") ``url`` belongs to.
+
+        The longest configured base URL that ``url`` starts with wins; a URL
+        under none of them is matched by origin, else counts as "api".
+        """
+        bases = {
+            "api": self.settings.STEAM_API_BASE_URL.rstrip("/"),
+            "store": self.settings.STEAM_STORE_BASE_URL.rstrip("/"),
+            "community": self.settings.STEAM_COMMUNITY_BASE_URL.rstrip("/"),
+        }
+        under = [
+            (len(base), host)
+            for host, base in bases.items()
+            if url == base or url.startswith((base + "/", base + "?"))
+        ]
+        if under:
+            return max(under)[1]
+        origin = URL(url).origin()
+        for host, base in bases.items():
+            if URL(base).origin() == origin:
+                return host
+        return "api"
+
+    def _host_limits(self, host: str) -> tuple[float, int]:
+        """(requests per second, burst) configured for ``host``."""
+        settings = self.settings
+        if host == "store":
+            return settings.STORE_REQUESTS_PER_SECOND, settings.STORE_BURST
+        if host == "community":
+            return settings.COMMUNITY_REQUESTS_PER_SECOND, settings.COMMUNITY_BURST
+        return settings.API_REQUESTS_PER_SECOND, settings.API_BURST
+
+    @property
+    def api_key_requests_today(self) -> int:
+        """Requests sent with the API key during the current UTC day."""
+        if self._api_key_day != int(time.time() // _SECONDS_PER_DAY):
+            return 0
+        return self._api_key_requests
+
+    def _api_key_budget_used_up(self) -> bool:
+        """Whether ``API_KEY_DAILY_LIMIT`` requests were sent today (UTC)."""
+        limit = self.settings.API_KEY_DAILY_LIMIT
+        return limit is not None and self.api_key_requests_today >= limit
+
+    def _spend_api_key_request(self) -> None:
+        """Count a request carrying the API key against the daily limit.
+
+        Raises:
+            RateLimitError: If ``API_KEY_DAILY_LIMIT`` requests were already
+                sent today (UTC); ``retry_after`` is the time to midnight
+        """
+        now = time.time()
+        day = int(now // _SECONDS_PER_DAY)
+        if day != self._api_key_day:
+            self._api_key_day, self._api_key_requests = day, 0
+        if self._api_key_budget_used_up():
+            raise RateLimitError(
+                f"Daily limit of {self.settings.API_KEY_DAILY_LIMIT} API key "
+                "requests reached (Settings.API_KEY_DAILY_LIMIT)",
+                retry_after=(day + 1) * _SECONDS_PER_DAY - now,
+                status_code=None,
+            )
+        self._api_key_requests += 1
 
     async def _get_session(self) -> ClientSession:
         """Return the open session, creating it if needed."""
@@ -137,17 +228,49 @@ class Client:
         assert self._session is not None
         return self._session
 
-    def _apply_auth(
-        self, params: Params | None, auth_type: str
-    ) -> list[tuple[str, Any]]:
-        """Return ``params`` as (key, value) pairs with the credential added.
+    def _credential(self, auth_type: str) -> str | None:
+        """The credential a request with ``auth_type`` carries, if any.
 
-        Repeated keys (from a MultiDict or a list of pairs) are kept. The
-        caller's object is never modified.
+        Returns:
+            "api_key", "access_token", "cookie", or None for "none"
 
         Raises:
             AuthenticationError: If the credential for ``auth_type`` is missing
             ValueError: If ``auth_type`` is not a known value
+        """
+        if auth_type == "none":
+            return None
+        if auth_type == "any":
+            if not self.api_key and not self.access_token:
+                raise AuthenticationError(
+                    "An API key or access token is required but neither is provided",
+                    status_code=None,
+                )
+            return "api_key" if self.api_key else "access_token"
+        values = {
+            "api_key": self.api_key,
+            "access_token": self.access_token,
+            "cookie": self.steam_login_secure,
+        }
+        if auth_type not in values:
+            raise ValueError(
+                f"Invalid auth_type: {auth_type}. "
+                f"Must be one of {', '.join(AUTH_TYPES)}"
+            )
+        if not values[auth_type]:
+            raise AuthenticationError(_MISSING_CREDENTIAL[auth_type], status_code=None)
+        return auth_type
+
+    def _apply_auth(
+        self, params: Params | None, credential: str | None
+    ) -> list[tuple[str, Any]]:
+        """Return ``params`` as (key, value) pairs with the credential added.
+
+        Repeated keys (from a MultiDict or a list of pairs) are kept. The
+        caller's object is never modified. The cookie is sent as a header,
+        not here.
+
+        Raises:
             TypeError: If ``params`` is a string
         """
         pairs: list[tuple[str, Any]]
@@ -160,39 +283,27 @@ class Client:
         else:
             pairs = list(params)
 
-        if auth_type == "api_key":
-            if not self.api_key:
-                raise AuthenticationError(
-                    "API key is required but not provided", status_code=None
-                )
-            credential = ("key", self.api_key)
-        elif auth_type == "access_token":
-            if not self.access_token:
-                raise AuthenticationError(
-                    "Access token is required but not provided", status_code=None
-                )
-            credential = ("access_token", self.access_token)
-        elif auth_type == "none":
-            return pairs
+        if credential == "api_key":
+            name, value = "key", self.api_key
+        elif credential == "access_token":
+            name, value = "access_token", self.access_token
         else:
-            raise ValueError(
-                f"Invalid auth_type: {auth_type}. "
-                "Must be 'api_key', 'access_token', or 'none'"
-            )
-        name, value = credential
+            return pairs
         return [pair for pair in pairs if pair[0] != name] + [(name, value)]
 
     def _request_options(
         self,
         method: str,
         pairs: list[tuple[str, Any]],
-        auth_type: str,
+        credential: str | None,
         options: dict[str, Any],
     ) -> dict[str, Any]:
         """Build the keyword arguments for ``ClientSession.request``."""
         options = dict(options)
         options["headers"] = {**_DEFAULT_HEADERS, **dict(options.get("headers") or {})}
-        if auth_type != "none":
+        if credential == "cookie":
+            options["headers"]["Cookie"] = f"steamLoginSecure={self.steam_login_secure}"
+        if credential is not None:
             # A redirect target must never receive the credentials.
             options.setdefault("allow_redirects", False)
         if method == "POST" and "data" not in options and "json" not in options:
@@ -342,7 +453,9 @@ class Client:
             method: HTTP method (GET, POST, etc.)
             url: Complete URL to request
             params: Request parameters, as a mapping or (key, value) pairs
-            auth_type: Authentication type ("api_key", "access_token", or "none")
+            auth_type: Credential to send: "none", "api_key", "access_token",
+                "any" (the API key if set, else the access token) or "cookie"
+                (the ``steamLoginSecure`` cookie)
             **kwargs: Additional aiohttp parameters
 
         Returns:
@@ -352,7 +465,8 @@ class Client:
             AuthenticationError: If the credential is missing, rejected
                 (HTTP 401/403) or lacks access (EResult AccessDenied etc.)
             RateLimitError: If Steam rate limited the request (HTTP 429 or
-                EResult RateLimitExceeded); ``retry_after`` is set when known
+                EResult RateLimitExceeded), or ``API_KEY_DAILY_LIMIT`` is used
+                up; ``retry_after`` is set when known
             ServiceUnavailableError: On HTTP 502/503/504 or a busy Steam
             NetworkError: On connection errors and timeouts
             ResponseParsingError: On invalid JSON response
@@ -369,8 +483,9 @@ class Client:
         key or access token.
         """
         method = method.upper()
-        pairs = self._apply_auth(params, auth_type)
-        options = self._request_options(method, pairs, auth_type, kwargs)
+        credential = self._credential(auth_type)
+        pairs = self._apply_auth(params, credential)
+        options = self._request_options(method, pairs, credential, kwargs)
         session = await self._get_session()
 
         # Only sanitized library exceptions leave this method, and never with
@@ -379,7 +494,9 @@ class Client:
         failure: SteamAPIError | None = None
         attempts = self.settings.MAX_RETRIES + 1
         for attempt in range(attempts):
-            await self._rate_limit()
+            if credential == "api_key":
+                self._spend_api_key_request()
+            await self._rate_limit(url)
             logger.debug(
                 "Making %s request to %s (attempt %d)",
                 method,
@@ -388,7 +505,7 @@ class Client:
             )
             try:
                 return await self._send(
-                    session, method, url, auth_type != "none", **options
+                    session, method, url, credential is not None, **options
                 )
             except _AttemptFailedError as e:
                 outcome = e
@@ -408,6 +525,8 @@ class Client:
                 not outcome.retryable
                 or attempt == attempts - 1
                 or delay > self.settings.MAX_RETRY_WAIT
+                # Out of daily budget: report this failure, not the budget.
+                or (credential == "api_key" and self._api_key_budget_used_up())
             ):
                 break
 
@@ -423,8 +542,8 @@ class Client:
         _raise_unchained(failure or SteamAPIError("Request failed for unknown reason"))
 
     def _redact(self, text: str) -> str:
-        """Remove the API key and access token from ``text``."""
-        for secret in (self.api_key, self.access_token):
+        """Remove the API key, access token and login cookie from ``text``."""
+        for secret in (self.api_key, self.access_token, self.steam_login_secure):
             if secret:
                 for form in _encoded_forms(secret):
                     text = text.replace(form, "***")
@@ -438,6 +557,25 @@ class Client:
         if isinstance(error, asyncio.TimeoutError) and not str(error):
             return "TimeoutError: the request timed out"
         return self._redact(f"{type(error).__name__}: {error}")
+
+
+class _RateLimiter:
+    """A token bucket (as GCRA): ``burst`` requests at once, then ``rate``/s.
+
+    ``reserve`` books the next slot and returns how long to wait for it, so
+    concurrent callers queue up in order.
+    """
+
+    def __init__(self, rate: float, burst: int) -> None:
+        self._interval = 1.0 / rate
+        self._tolerance = (burst - 1) * self._interval
+        self._theoretical_arrival = 0.0
+
+    def reserve(self, now: float) -> float:
+        """Book a slot; return the seconds to wait before using it."""
+        arrival = max(self._theoretical_arrival, now)
+        self._theoretical_arrival = arrival + self._interval
+        return max(0.0, arrival - self._tolerance - now)
 
 
 class _AttemptFailedError(Exception):

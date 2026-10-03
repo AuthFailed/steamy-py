@@ -99,19 +99,6 @@ class NewsItem(SteamModel):
         return self.feed_type == 1
 
 
-class LeaderboardEntry(SteamModel):
-    """Leaderboard entry."""
-
-    steamid: str = Field(description="Player Steam ID")
-    rank: int = Field(description="Player rank")
-    score: int = Field(description="Player score")
-    details: bytes | None = Field(default=None, description="Additional details")
-
-    # Additional player info (if requested)
-    persona_name: str | None = Field(default=None, description="Player display name")
-    avatar: str | None = Field(default=None, description="Player avatar URL")
-
-
 # Response wrapper models
 class GlobalStatTotal(SteamModel):
     """One stat in a GetGlobalStatsForGame response.
@@ -185,21 +172,6 @@ class NewsResponse(SteamModel):
         """Convert to list of NewsItem objects."""
         newsitems = self.appnews.get("newsitems", [])
         return [NewsItem(**item) for item in newsitems]
-
-
-class LeaderboardResponse(SteamModel):
-    """Response wrapper for leaderboard data."""
-
-    resultCount: int = Field(description="Number of results")
-    totalLeaderboardEntryCount: int = Field(description="Total entries in leaderboard")
-    leaderboardEntries: list[LeaderboardEntry] = Field(
-        description="Leaderboard entries"
-    )
-
-    @property
-    def has_more_entries(self) -> bool:
-        """Check if there are more entries available."""
-        return self.resultCount < self.totalLeaderboardEntryCount
 
 
 # Top-level response wrappers

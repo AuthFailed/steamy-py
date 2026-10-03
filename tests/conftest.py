@@ -21,6 +21,7 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the developer's real Steam credentials out of the tests."""
     monkeypatch.delenv("STEAM_API_KEY", raising=False)
     monkeypatch.delenv("STEAM_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("STEAM_LOGIN_SECURE", raising=False)
 
 
 @pytest.fixture

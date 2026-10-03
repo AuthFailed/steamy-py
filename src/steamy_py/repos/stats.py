@@ -4,9 +4,6 @@ import logging
 
 from ..exceptions import (
     GameNotFoundError,
-    InvalidAppIDError,
-    InvalidSteamIDError,
-    PrivateProfileError,
     SteamAPIError,
 )
 from ..models.stats import (
@@ -23,6 +20,7 @@ from ..models.stats import (
     UserStat,
     UserStatsResponse,
 )
+from ..steamid import SteamIDLike, validate_app_id, validate_steam_id
 from .base import BaseAPI
 from .game import GameAPI
 
@@ -55,7 +53,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found or has no stats
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         if not stat_names:
             raise ValueError("At least one stat name must be provided")
@@ -72,11 +70,12 @@ class StatsAPI(BaseAPI):
         if end_date:
             params["enddate"] = str(end_date)
 
-        try:
+        with self._errors("get global stats"):
             response_data = await self._request(
                 interface="ISteamUserStats",
                 method="GetGlobalStatsForGame",
                 version="v1",
+                auth_type="none",
                 params=params,
             )
 
@@ -85,23 +84,15 @@ class StatsAPI(BaseAPI):
                     str(app_id), "Game not found or has no statistics"
                 )
 
-            response_obj = GetGlobalStatsResponse(**response_data)
+            response_obj = GetGlobalStatsResponse.model_validate(response_data)
 
             if not response_obj.response.is_success:
                 raise GameNotFoundError(str(app_id), "Game statistics not available")
 
             return response_obj.response.to_global_stats()
 
-        except GameNotFoundError:
-            raise
-        except Exception as e:
-            logger.error("Error getting global stats for app %s: %s", app_id, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get global stats: {e}") from e
-
     async def get_user_stats_for_game(
-        self, steamid: str, app_id: int
+        self, steamid: SteamIDLike, app_id: int
     ) -> UserStatsResponse:
         """Get user statistics for a specific game.
 
@@ -119,10 +110,10 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
-        self._validate_app_id(app_id)
+        steamid = validate_steam_id(steamid)
+        validate_app_id(app_id)
 
-        try:
+        with self._errors("get user stats"):
             try:
                 response_data = await self._request(
                     interface="ISteamUserStats",
@@ -144,18 +135,8 @@ class StatsAPI(BaseAPI):
                     str(playerstats["error"]), steamid, app_id
                 )
 
-            response_obj = GetUserStatsGameResponse(**response_data)
+            response_obj = GetUserStatsGameResponse.model_validate(response_data)
             return response_obj.playerstats
-
-        except (PrivateProfileError, GameNotFoundError):
-            raise
-        except Exception as e:
-            logger.error(
-                "Error getting user stats for %s, app %s: %s", steamid, app_id, e
-            )
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get user stats: {e}") from e
 
     async def get_global_achievement_percentages(
         self, app_id: int
@@ -173,13 +154,14 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found or has no achievements
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
-        try:
+        with self._errors("get achievement percentages"):
             response_data = await self._request(
                 interface="ISteamUserStats",
                 method="GetGlobalAchievementPercentagesForApp",
                 version="v2",
+                auth_type="none",
                 params={"gameid": str(app_id)},
             )
 
@@ -188,18 +170,8 @@ class StatsAPI(BaseAPI):
                     str(app_id), "Game not found or has no achievements"
                 )
 
-            response_obj = GetGlobalAchievementResponse(**response_data)
+            response_obj = GetGlobalAchievementResponse.model_validate(response_data)
             return response_obj.achievementpercentages.to_achievement_stats()
-
-        except GameNotFoundError:
-            raise
-        except Exception as e:
-            logger.error(
-                "Error getting achievement percentages for app %s: %s", app_id, e
-            )
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get achievement percentages: {e}") from e
 
     async def get_current_players(self, app_id: int) -> PlayerCount:
         """Get current number of players for a game.
@@ -215,20 +187,21 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
-        try:
+        with self._errors("get current players"):
             response_data = await self._request(
                 interface="ISteamUserStats",
                 method="GetNumberOfCurrentPlayers",
                 version="v1",
+                auth_type="none",
                 params={"appid": str(app_id)},
             )
 
             if "response" not in response_data:
                 raise GameNotFoundError(str(app_id), "Game not found")
 
-            response_obj = GetPlayerCountResponse(**response_data)
+            response_obj = GetPlayerCountResponse.model_validate(response_data)
 
             if not response_obj.response.is_success:
                 raise GameNotFoundError(
@@ -236,14 +209,6 @@ class StatsAPI(BaseAPI):
                 )
 
             return response_obj.response
-
-        except GameNotFoundError:
-            raise
-        except Exception as e:
-            logger.error("Error getting current players for app %s: %s", app_id, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get current players: {e}") from e
 
     async def get_news_for_app(
         self,
@@ -273,7 +238,7 @@ class StatsAPI(BaseAPI):
             InvalidAppIDError: If App ID is invalid
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         params = {
             "appid": str(app_id),
@@ -287,28 +252,23 @@ class StatsAPI(BaseAPI):
         if tags:
             params["tags"] = ",".join(tags)
 
-        try:
+        with self._errors("get news"):
             response_data = await self._request(
                 interface="ISteamNews",
                 method="GetNewsForApp",
                 version="v2",
+                auth_type="none",
                 params=params,
             )
 
             if "appnews" not in response_data:
                 return []
 
-            response_obj = GetNewsResponse(**response_data)
+            response_obj = GetNewsResponse.model_validate(response_data)
             return response_obj.to_news_items()
 
-        except Exception as e:
-            logger.error("Error getting news for app %s: %s", app_id, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get news: {e}") from e
-
     async def get_user_achievements_only(
-        self, steamid: str, app_id: int
+        self, steamid: SteamIDLike, app_id: int
     ) -> list[UserAchievement]:
         """Get a user's achievements for a game, locked and unlocked.
 
@@ -341,7 +301,9 @@ class StatsAPI(BaseAPI):
             for achievement in achievements
         ]
 
-    async def get_user_stats_only(self, steamid: str, app_id: int) -> list[UserStat]:
+    async def get_user_stats_only(
+        self, steamid: SteamIDLike, app_id: int
+    ) -> list[UserStat]:
         """Get only user statistics (convenience method).
 
         Args:
@@ -360,36 +322,3 @@ class StatsAPI(BaseAPI):
         """
         user_stats = await self.get_user_stats_for_game(steamid, app_id)
         return user_stats.stats
-
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
-
-    def _validate_app_id(self, app_id: int) -> None:
-        """Validate App ID format.
-
-        Args:
-            app_id: App ID to validate
-
-        Raises:
-            InvalidAppIDError: If App ID is invalid
-        """
-        if not isinstance(app_id, int) or app_id <= 0:
-            raise InvalidAppIDError(str(app_id), "App ID must be a positive integer")
