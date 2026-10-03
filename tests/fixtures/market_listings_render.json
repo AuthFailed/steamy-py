@@ -1,0 +1,83 @@
+{
+  "success": true,
+  "start": 0,
+  "pagesize": 100,
+  "total_count": 1517,
+  "results_html": "<div class=\"market_listing_table_header\"></div>",
+  "listinginfo": {
+    "4919330447447834915": {
+      "listingid": "4919330447447834915",
+      "price": 2618,
+      "fee": 393,
+      "publisher_fee_app": 730,
+      "publisher_fee_percent": "0.100000001490116119",
+      "currencyid": 2001,
+      "steam_fee": 131,
+      "publisher_fee": 262,
+      "converted_price": 2618,
+      "converted_fee": 393,
+      "converted_currencyid": 2001,
+      "converted_steam_fee": 131,
+      "converted_publisher_fee": 262,
+      "converted_price_per_unit": 2618,
+      "converted_fee_per_unit": 393,
+      "converted_steam_fee_per_unit": 131,
+      "converted_publisher_fee_per_unit": 262,
+      "asset": {
+        "currency": 0,
+        "appid": 730,
+        "contextid": "2",
+        "id": "38350195478",
+        "amount": "1",
+        "market_actions": [
+          {
+            "link": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M%listingid%A%assetid%D7935523998312483177",
+            "name": "Inspect in Game..."
+          }
+        ]
+      }
+    }
+  },
+  "assets": {
+    "730": {
+      "2": {
+        "38350195478": {
+          "currency": 0,
+          "appid": 730,
+          "contextid": "2",
+          "id": "38350195478",
+          "classid": "5154337733",
+          "instanceid": "188530139",
+          "amount": "1",
+          "status": 2,
+          "original_amount": "1",
+          "unowned_id": "38350195478",
+          "unowned_contextid": "2",
+          "background_color": "",
+          "icon_url": "-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmnjQO3-UdsZGHyd4_Bd1RvNQ7T_FDrw-_ng5Pu75iY1zI97bhLsvQz",
+          "tradable": 1,
+          "name": "AK-47 | Redline",
+          "name_color": "D2D2D2",
+          "type": "Classified Rifle",
+          "market_name": "AK-47 | Redline (Field-Tested)",
+          "market_hash_name": "AK-47 | Redline (Field-Tested)",
+          "commodity": 0,
+          "market_tradable_restriction": 7,
+          "market_marketable_restriction": 0,
+          "marketable": 1,
+          "owner": 0
+        }
+      }
+    }
+  },
+  "currency": [],
+  "hovers": "",
+  "app_data": {
+    "730": {
+      "appid": 730,
+      "name": "Counter-Strike 2",
+      "icon": "https://cdn.fastly.steamstatic.com/steamcommunity/public/images/apps/730/8dbc71957312bbd3baea65848b545be9eae2a355.jpg",
+      "link": "https://steamcommunity.com/app/730"
+    }
+  }
+}

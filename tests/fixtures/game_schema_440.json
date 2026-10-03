@@ -1,0 +1,40 @@
+{
+  "game": {
+    "gameName": "Team Fortress 2",
+    "gameVersion": "142",
+    "availableGameStats": {
+      "achievements": [
+        {
+          "name": "TF_PLAY_GAME_EVERYCLASS",
+          "defaultvalue": 0,
+          "displayName": "Head of the Class",
+          "hidden": 0,
+          "description": "Play a complete round with every class.",
+          "icon": "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/tf_play_game_everyclass.jpg",
+          "icongray": "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/tf_play_game_everyclass_bw.jpg"
+        },
+        {
+          "name": "TF_GET_HEALPOINTS",
+          "defaultvalue": 0,
+          "displayName": "Team Doctor",
+          "hidden": 0,
+          "description": "Accumulate 25000 heal points as a Medic.",
+          "icon": "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/tf_get_healpoints.jpg",
+          "icongray": "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/440/tf_get_healpoints_bw.jpg"
+        }
+      ],
+      "stats": [
+        {
+          "name": "Scout.accum.iNumberOfKills",
+          "defaultvalue": 0,
+          "displayName": ""
+        },
+        {
+          "name": "Medic.accum.iHealthPointsHealed",
+          "defaultvalue": 0,
+          "displayName": ""
+        }
+      ]
+    }
+  }
+}

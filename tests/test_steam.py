@@ -206,6 +206,32 @@ def test_settings_kwargs_are_forwarded_to_settings(clean_config: Path) -> None:
     assert steam.client.settings.REQUEST_TIMEOUT == 12
 
 
+def test_settings_kwargs_win_over_the_environment(
+    clean_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MAX_RETRIES", "1")
+
+    steam = Steam(api_key=API_KEY, MAX_RETRIES=5)
+
+    assert steam.client.settings.MAX_RETRIES == 5
+
+
+@pytest.mark.xfail(
+    reason="#12: settings kwargs are silently dropped when settings= is given",
+    raises=AssertionError,
+)
+def test_settings_kwargs_are_not_silently_dropped_next_to_a_settings_object(
+    settings: Settings,
+) -> None:
+    assert settings.MAX_RETRIES == 0
+    try:
+        steam = Steam(api_key=API_KEY, settings=settings, MAX_RETRIES=5)
+    except (TypeError, ConfigurationError):
+        return  # rejecting the ambiguous call is fine too
+
+    assert steam.client.settings.MAX_RETRIES == 5
+
+
 async def test_settings_kwargs_drive_the_requests(
     clean_config: Path, fake_steam: FakeSteam
 ) -> None:
@@ -226,7 +252,9 @@ async def test_settings_kwargs_drive_the_requests(
         count = await steam.stats.get_current_players(730)
 
     assert count.player_count == 1043578
-    assert [r.params["appid"] for r in fake_steam.requests_to(path)] == ["730"] * 3
+    assert [r.params for r in fake_steam.requests_to(path)] == [
+        {"appid": "730", "key": API_KEY}
+    ] * 3
 
 
 def test_default_settings_target_the_real_steam_hosts(clean_config: Path) -> None:
@@ -387,6 +415,18 @@ def test_repr_hides_credentials_and_reports_disconnected(
     assert "status='disconnected'" in text
 
 
+@pytest.mark.xfail(
+    reason="#24: repr reports api_key='***' for a token-only client",
+    raises=AssertionError,
+)
+def test_repr_does_not_claim_an_api_key_for_a_token_only_client(
+    settings: Settings,
+) -> None:
+    text = repr(Steam(access_token=ACCESS_TOKEN, settings=settings))
+
+    assert "api_key" not in text
+
+
 async def test_repr_reports_connected(steam: Steam) -> None:
     text = repr(steam)
 
@@ -470,6 +510,8 @@ async def test_get_api_key_info_reports_a_working_key(
         "connected": True,
         "test_result": "Successfully retrieved 3 Steam applications",
     }
+    assert fake_steam.last.method == "GET"
+    assert fake_steam.last.path == APP_LIST_PATH
     assert fake_steam.last.params == {"key": API_KEY}
 
 
@@ -486,6 +528,36 @@ async def test_get_api_key_info_reports_a_rejected_key_without_leaking_it(
     assert info["connected"] is True
     assert "403" in info["error"]
     assert API_KEY not in info["error"]
+    assert ACCESS_TOKEN not in info["error"]
+
+
+async def test_get_api_key_info_connects_when_needed(
+    fake_steam: FakeSteam, settings: Settings
+) -> None:
+    fake_steam.api("GET", APP_LIST_PATH, json=APP_LIST)
+    steam = Steam(api_key=API_KEY, settings=settings)
+    try:
+        info = await steam.get_api_key_info()
+
+        assert info["valid"] is True
+        assert steam.is_connected is True
+    finally:
+        await steam.close()
+
+
+async def test_test_connection_failure_does_not_log_credentials(
+    steam: Steam, fake_steam: FakeSteam, caplog: pytest.LogCaptureFixture
+) -> None:
+    fake_steam.api(
+        "GET", APP_LIST_PATH, status=403, text=FORBIDDEN_HTML, content_type="text/html"
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="steamy_py"):
+        assert await steam.test_connection() is False
+
+    assert "connection test failed" in caplog.text
+    assert API_KEY not in caplog.text
+    assert ACCESS_TOKEN not in caplog.text
 
 
 @pytest.mark.xfail(
@@ -502,6 +574,7 @@ async def test_health_checks_avoid_the_deprecated_app_list(
     await getattr(steam, check)()
 
     assert fake_steam.requests_to(APP_LIST_PATH) == []
+    assert fake_steam.requests, "the health check must still reach Steam"
 
 
 @pytest.mark.xfail(

@@ -1,0 +1,35 @@
+{
+  "appnews": {
+    "appid": 440,
+    "newsitems": [
+      {
+        "gid": "5765041530813586405",
+        "title": "Team Fortress 2 Update Released",
+        "url": "https://steamstore-a.akamaihd.net/news/externalpost/tf2_blog/5765041530813586405",
+        "is_external_url": true,
+        "author": "",
+        "contents": "An update to Team Fortress 2 has been released. The update will be applied automatically when you restart Team Fortress 2. The major changes include: Fixed a client crash related to...",
+        "feedlabel": "TF2 Blog",
+        "date": 1727301600,
+        "feedname": "tf2_blog",
+        "feed_type": 0,
+        "appid": 440
+      },
+      {
+        "gid": "5770545024583217912",
+        "title": "Summer Event 2024",
+        "url": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/5770545024583217912",
+        "is_external_url": true,
+        "author": "Erik",
+        "contents": "The Summer Event is here! Play community maps, earn summer-themed unusual effects and try out new taunts...",
+        "feedlabel": "Community Announcements",
+        "date": 1720569600,
+        "feedname": "steam_community_announcements",
+        "feed_type": 1,
+        "appid": 440,
+        "tags": ["patchnotes"]
+      }
+    ],
+    "count": 4318
+  }
+}

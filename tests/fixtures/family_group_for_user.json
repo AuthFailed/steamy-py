@@ -1,0 +1,74 @@
+{
+  "response": {
+    "family_groupid": "4223817",
+    "is_not_member_of_any_group": false,
+    "latest_time_joined": 1727740800,
+    "latest_joined_family_groupid": "4223817",
+    "pending_group_invites": [
+      {
+        "family_groupid": "5017342",
+        "role": 1,
+        "inviter_steamid": "76561198045678901",
+        "awaiting_2fa": false,
+        "invite_id": "5512903876"
+      }
+    ],
+    "role": 1,
+    "cooldown_seconds_remaining": 0,
+    "family_group": {
+      "name": "The Walkers",
+      "members": [
+        {
+          "steamid": "76561197960435530",
+          "role": 1,
+          "time_joined": 1727740800,
+          "cooldown_seconds_remaining": 0
+        },
+        {
+          "steamid": "76561198012345678",
+          "role": 1,
+          "time_joined": 1727827200,
+          "cooldown_seconds_remaining": 0
+        },
+        {
+          "steamid": "76561198087654321",
+          "role": 2,
+          "time_joined": 1728000000,
+          "cooldown_seconds_remaining": 0
+        }
+      ],
+      "pending_invites": [
+        {
+          "steamid": "76561198034567890",
+          "role": 2
+        }
+      ],
+      "free_spots": 2,
+      "country": "US",
+      "slot_cooldown_remaining_seconds": 0,
+      "former_members": [
+        {
+          "steamid": "76561198056789012"
+        }
+      ],
+      "slot_cooldown_overrides": 0
+    },
+    "can_undelete_last_joined_family": false,
+    "membership_history": [
+      {
+        "family_groupid": "3988120",
+        "rtime_joined": 1695326573,
+        "rtime_left": 1696118400,
+        "role": 2,
+        "participated": false
+      },
+      {
+        "family_groupid": "4223817",
+        "rtime_joined": 1727740800,
+        "rtime_left": 0,
+        "role": 1,
+        "participated": true
+      }
+    ]
+  }
+}

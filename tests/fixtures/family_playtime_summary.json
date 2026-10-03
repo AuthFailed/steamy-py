@@ -1,0 +1,29 @@
+{
+  "response": {
+    "entries": [
+      {
+        "steamid": "76561198012345678",
+        "appid": 620,
+        "first_played": 1727913600,
+        "latest_played": 1730246400,
+        "seconds_played": 80520
+      },
+      {
+        "steamid": "76561198087654321",
+        "appid": 220,
+        "first_played": 1728086400,
+        "latest_played": 1729036800,
+        "seconds_played": 170100
+      }
+    ],
+    "entries_by_owner": [
+      {
+        "steamid": "76561197960435530",
+        "appid": 620,
+        "first_played": 1727913600,
+        "latest_played": 1730246400,
+        "seconds_played": 80520
+      }
+    ]
+  }
+}

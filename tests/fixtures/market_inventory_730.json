@@ -1,0 +1,177 @@
+{
+  "assets": [
+    {
+      "appid": 730,
+      "contextid": "2",
+      "assetid": "38350195478",
+      "classid": "5154337733",
+      "instanceid": "188530139",
+      "amount": "1"
+    },
+    {
+      "appid": 730,
+      "contextid": "2",
+      "assetid": "38212365110",
+      "classid": "4839650857",
+      "instanceid": "0",
+      "amount": "1"
+    }
+  ],
+  "descriptions": [
+    {
+      "appid": 730,
+      "classid": "5154337733",
+      "instanceid": "188530139",
+      "currency": 0,
+      "background_color": "",
+      "icon_url": "-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjxszJemkV09-5lpKKqPrxN7LEmyVQ7MEpiLuSrYmnjQO3-UdsZGHyd4_Bd1RvNQ7T_FDrw-_ng5Pu75iY1zI97bhLsvQz",
+      "descriptions": [
+        {
+          "type": "html",
+          "value": "Exterior: Field-Tested",
+          "name": "exterior_wear"
+        },
+        {
+          "type": "html",
+          "value": " ",
+          "name": "blank"
+        },
+        {
+          "type": "html",
+          "value": "Powerful and reliable, the AK-47 is one of the most popular assault rifles in the world. It is most deadly in short, controlled bursts of fire. It has been painted using a carbon fiber hydrographic and a dry-transfer decal of a red pinstripe.",
+          "name": "description"
+        },
+        {
+          "type": "html",
+          "value": "The Phoenix Collection",
+          "color": "9da1a9",
+          "name": "itemset_name"
+        }
+      ],
+      "tradable": 1,
+      "actions": [
+        {
+          "link": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20S%owner_steamid%A%assetid%D7935523998312483177",
+          "name": "Inspect in Game..."
+        }
+      ],
+      "name": "AK-47 | Redline",
+      "name_color": "D2D2D2",
+      "type": "Classified Rifle",
+      "market_name": "AK-47 | Redline (Field-Tested)",
+      "market_hash_name": "AK-47 | Redline (Field-Tested)",
+      "market_actions": [
+        {
+          "link": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M%listingid%A%assetid%D7935523998312483177",
+          "name": "Inspect in Game..."
+        }
+      ],
+      "commodity": 0,
+      "market_tradable_restriction": 7,
+      "market_marketable_restriction": 0,
+      "marketable": 1,
+      "tags": [
+        {
+          "category": "Type",
+          "internal_name": "CSGO_Type_Rifle",
+          "localized_category_name": "Type",
+          "localized_tag_name": "Rifle"
+        },
+        {
+          "category": "Weapon",
+          "internal_name": "weapon_ak47",
+          "localized_category_name": "Weapon",
+          "localized_tag_name": "AK-47"
+        },
+        {
+          "category": "ItemSet",
+          "internal_name": "set_community_2",
+          "localized_category_name": "Collection",
+          "localized_tag_name": "The Phoenix Collection"
+        },
+        {
+          "category": "Quality",
+          "internal_name": "normal",
+          "localized_category_name": "Category",
+          "localized_tag_name": "Normal"
+        },
+        {
+          "category": "Rarity",
+          "internal_name": "Rarity_Legendary_Weapon",
+          "localized_category_name": "Quality",
+          "localized_tag_name": "Classified",
+          "color": "d32ce6"
+        },
+        {
+          "category": "Exterior",
+          "internal_name": "WearCategory2",
+          "localized_category_name": "Exterior",
+          "localized_tag_name": "Field-Tested"
+        }
+      ]
+    },
+    {
+      "appid": 730,
+      "classid": "4839650857",
+      "instanceid": "0",
+      "currency": 0,
+      "background_color": "",
+      "icon_url": "i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyL6kJ_m-B1Q7uCvZaZkNM-SA1iSzuF6v-R9TnG1nhFztmTWzNj6ci6RaFJyCJclRbVfthG8k4CyZb7ns1Te2t9Hni_7jjQJsHhAVrUOUA",
+      "descriptions": [
+        {
+          "type": "html",
+          "value": " ",
+          "name": "blank"
+        },
+        {
+          "type": "html",
+          "value": "Container Series #301",
+          "color": "99ccff",
+          "name": "attribute"
+        }
+      ],
+      "tradable": 1,
+      "name": "Dreams & Nightmares Case",
+      "name_color": "D2D2D2",
+      "type": "Base Grade Container",
+      "market_name": "Dreams & Nightmares Case",
+      "market_hash_name": "Dreams & Nightmares Case",
+      "commodity": 1,
+      "market_tradable_restriction": 7,
+      "market_marketable_restriction": 0,
+      "marketable": 1,
+      "tags": [
+        {
+          "category": "Type",
+          "internal_name": "CSGO_Type_WeaponCase",
+          "localized_category_name": "Type",
+          "localized_tag_name": "Container"
+        },
+        {
+          "category": "ItemSet",
+          "internal_name": "set_xpshop_wpn_01",
+          "localized_category_name": "Collection",
+          "localized_tag_name": "The Dreams & Nightmares Collection"
+        },
+        {
+          "category": "Quality",
+          "internal_name": "normal",
+          "localized_category_name": "Category",
+          "localized_tag_name": "Normal"
+        },
+        {
+          "category": "Rarity",
+          "internal_name": "Rarity_Common",
+          "localized_category_name": "Quality",
+          "localized_tag_name": "Base Grade",
+          "color": "b0c3d9"
+        }
+      ]
+    }
+  ],
+  "more_items": 1,
+  "last_assetid": "38212365110",
+  "total_inventory_count": 412,
+  "success": 1,
+  "rwgrsn": -2
+}

@@ -13,11 +13,19 @@ from steamy_py import (
     PlayerBan,
     PlayerSummary,
     PrivateProfileError,
+    Settings,
     Steam,
     SteamAPIError,
 )
 from steamy_py.models.player import CommunityVisibilityState, PersonaState
-from tests.fakesteam import API_KEY, STEAMID, FakeSteam, RecordedRequest, load_fixture
+from tests.fakesteam import (
+    ACCESS_TOKEN,
+    API_KEY,
+    STEAMID,
+    FakeSteam,
+    RecordedRequest,
+    load_fixture,
+)
 
 SUMMARIES_PATH = "/ISteamUser/GetPlayerSummaries/v2/"
 FRIENDS_PATH = "/ISteamUser/GetFriendList/v1/"
@@ -169,6 +177,9 @@ INVALID_STEAMIDS = [
     pytest.param(STEAMID + "0", id="18-digits"),
     pytest.param(VALVE_GROUP, id="group-steamid"),
     pytest.param("12345678901234567", id="17-digits-not-a-steamid"),
+    pytest.param(f" {STEAMID}", id="leading-space"),
+    pytest.param(f"{STEAMID}\n", id="trailing-newline"),
+    pytest.param("-" + STEAMID[1:], id="negative"),
 ]
 
 
@@ -200,60 +211,114 @@ async def test_http_error_is_raised_as_steam_api_error(
     assert API_KEY not in str(excinfo.value)
 
 
+INVALID_STRUCTURE = "Invalid response structure from Steam API"
+
+
 @pytest.mark.parametrize(
-    ("call", "path", "body"),
+    ("call", "path", "body", "message"),
     [
         pytest.param(
             lambda steam: steam.player.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {},
+            INVALID_STRUCTURE,
             id="summaries-no-response",
         ),
         pytest.param(
             lambda steam: steam.player.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {"response": {}},
+            "Failed to get player summaries",
             id="summaries-no-players",
         ),
         pytest.param(
             lambda steam: steam.player.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {"response": {"players": [{"steamid": STEAMID}]}},
+            "Failed to get player summaries",
             id="summaries-truncated-player",
         ),
         pytest.param(
             lambda steam: steam.player.get_friends_list(STEAMID),
             FRIENDS_PATH,
             {"friendslist": {"friends": [{"relationship": "friend"}]}},
+            "Failed to get friends list",
             id="friends-entry-without-steamid",
         ),
         pytest.param(
             lambda steam: steam.player.get_player_bans(STEAMID),
             BANS_PATH,
             {},
+            INVALID_STRUCTURE,
             id="bans-no-players",
         ),
         pytest.param(
             lambda steam: steam.player.resolve_vanity_url("robinwalker"),
             VANITY_PATH,
             {},
+            INVALID_STRUCTURE,
             id="vanity-no-response",
         ),
         pytest.param(
             lambda steam: steam.player.resolve_vanity_url("robinwalker"),
             VANITY_PATH,
             {"response": {"steamid": STEAMID}},
+            "Failed to resolve vanity URL",
             id="vanity-no-success",
         ),
     ],
 )
 async def test_unexpected_body_is_raised_as_steam_api_error(
-    steam: Steam, fake_steam: FakeSteam, call: Call, path: str, body: dict[str, Any]
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    body: dict[str, Any],
+    message: str,
 ) -> None:
     fake_steam.api("GET", path, json=body)
 
-    with pytest.raises(SteamAPIError):
+    with pytest.raises(SteamAPIError, match=message) as excinfo:
         await call(steam)
+
+    # The plain wrapper, not a more specific subclass such as PrivateProfileError.
+    assert type(excinfo.value) is SteamAPIError
+    assert excinfo.value.status_code is None
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), ENDPOINTS)
+async def test_endpoint_works_with_api_key_only(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(api_key=API_KEY, settings=settings) as steam:
+        await call(steam)
+
+    assert_sent_with_api_key(fake_steam.last, path)
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), ENDPOINTS)
+async def test_endpoint_without_api_key_never_sends_access_token(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    """The access token must not be used as a fallback for key-only endpoints."""
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as steam:
+        with pytest.raises((ValueError, SteamAPIError), match="API key is required"):
+            await call(steam)
+
+    assert fake_steam.requests == []
 
 
 # -- Steam ID validation -------------------------------------------------------
@@ -306,7 +371,10 @@ async def test_valid_individual_steamid_is_sent(
     assert fake_steam.last.params["steamids"] == steamid
 
 
-@pytest.mark.xfail(reason="#23: str.isdigit() accepts non-ASCII digits")
+@pytest.mark.xfail(
+    raises=pytest.fail.Exception,
+    reason="#23: str.isdigit() accepts non-ASCII digits",
+)
 async def test_steamid_with_non_ascii_digit_is_rejected(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -414,9 +482,10 @@ async def test_get_player_summaries_parses_public_profile(
     assert robin.personaname == "Robin"
     assert robin.realname == "Robin Walker"
     assert robin.profileurl == "https://steamcommunity.com/id/robinwalker/"
-    assert robin.avatar.endswith("81b5478529dce13bf24b55ac42c1af7058aaf7a9.jpg")
-    assert robin.avatarmedium.endswith("_medium.jpg")
-    assert robin.avatarfull.endswith("_full.jpg")
+    avatar = "https://avatars.steamstatic.com/81b5478529dce13bf24b55ac42c1af7058aaf7a9"
+    assert robin.avatar == f"{avatar}.jpg"
+    assert robin.avatarmedium == f"{avatar}_medium.jpg"
+    assert robin.avatarfull == f"{avatar}_full.jpg"
     assert robin.communityvisibilitystate == CommunityVisibilityState.PUBLIC
     assert robin.personastate == PersonaState.OFFLINE
     assert robin.profilestate == 1
@@ -648,6 +717,7 @@ async def test_get_friends_list_without_friendslist_raises_private_profile_error
         await steam.player.get_friends_list(STEAMID)
 
     assert excinfo.value.steamid == STEAMID
+    assert_sent_with_api_key(fake_steam.last, FRIENDS_PATH)
 
 
 @pytest.mark.xfail(

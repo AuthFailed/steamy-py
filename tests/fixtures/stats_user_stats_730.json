@@ -1,0 +1,17 @@
+{
+  "playerstats": {
+    "steamID": "76561197960435530",
+    "gameName": "ValveTestApp260",
+    "stats": [
+      {"name": "total_kills", "value": 18734},
+      {"name": "total_deaths", "value": 16502},
+      {"name": "total_time_played", "value": 1953262},
+      {"name": "total_kills_headshot", "value": 8123}
+    ],
+    "achievements": [
+      {"name": "WIN_BOMB_PLANT", "achieved": 1},
+      {"name": "BOMB_PLANT_LOW", "achieved": 1},
+      {"name": "KILL_ENEMY_LOW", "achieved": 1}
+    ]
+  }
+}

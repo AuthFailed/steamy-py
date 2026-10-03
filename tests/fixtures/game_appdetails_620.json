@@ -1,0 +1,59 @@
+{
+  "620": {
+    "success": true,
+    "data": {
+      "type": "game",
+      "name": "Portal 2",
+      "steam_appid": 620,
+      "required_age": 0,
+      "is_free": false,
+      "dlc": [323180],
+      "detailed_description": "Portal 2 draws from the award-winning formula of innovative gameplay, story, and music that earned the original Portal over 70 industry accolades and created a cult following.",
+      "about_the_game": "Portal 2 draws from the award-winning formula of innovative gameplay, story, and music that earned the original Portal over 70 industry accolades and created a cult following.",
+      "short_description": "The \"Perpetual Testing Initiative\" has been expanded to allow you to design co-op puzzles for you and your friends!",
+      "supported_languages": "English<strong>*</strong>, French<strong>*</strong>, German<strong>*</strong>, Spanish - Spain<strong>*</strong><br><strong>*</strong>languages with full audio support",
+      "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/header.jpg?t=1745363004",
+      "capsule_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/capsule_231x87.jpg?t=1745363004",
+      "website": "http://www.thinkwithportals.com/",
+      "pc_requirements": {
+        "minimum": "<strong>Minimum:</strong><br><ul class=\"bb_ul\"><li><strong>OS:</strong> Windows 7 / Vista / XP<br></li></ul>"
+      },
+      "mac_requirements": {
+        "minimum": "<strong>Minimum:</strong><br><ul class=\"bb_ul\"><li><strong>OS:</strong> OS X version Leopard 10.5.8 and above<br></li></ul>"
+      },
+      "linux_requirements": {
+        "minimum": "<strong>Minimum:</strong><br><ul class=\"bb_ul\"><li><strong>OS:</strong> Ubuntu 12.04<br></li></ul>"
+      },
+      "developers": ["Valve"],
+      "publishers": ["Valve"],
+      "price_overview": {
+        "currency": "USD",
+        "initial": 999,
+        "final": 999,
+        "discount_percent": 0,
+        "initial_formatted": "",
+        "final_formatted": "$9.99"
+      },
+      "packages": [7877, 204343],
+      "platforms": {"windows": true, "mac": false, "linux": true},
+      "metacritic": {
+        "score": 95,
+        "url": "https://www.metacritic.com/game/pc/portal-2?ftag=MCD-06-10aaa1f"
+      },
+      "categories": [
+        {"id": 2, "description": "Single-player"},
+        {"id": 9, "description": "Co-op"},
+        {"id": 22, "description": "Steam Achievements"}
+      ],
+      "genres": [
+        {"id": "1", "description": "Action"},
+        {"id": "25", "description": "Adventure"}
+      ],
+      "recommendations": {"total": 435123},
+      "achievements": {"total": 51},
+      "release_date": {"coming_soon": false, "date": "18 Apr, 2011"},
+      "support_info": {"url": "", "email": ""},
+      "content_descriptors": {"ids": [], "notes": null}
+    }
+  }
+}

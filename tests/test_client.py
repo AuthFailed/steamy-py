@@ -7,7 +7,6 @@ import contextlib
 import heapq
 import itertools
 import logging
-import sys
 import traceback
 from collections.abc import AsyncIterator, Awaitable, Callable
 from functools import partial
@@ -100,6 +99,20 @@ SORRY_HTML = (
 
 # Nothing listens on port 1, so connecting is refused straight away.
 UNREACHABLE = "http://127.0.0.1:1"
+
+# A front end that keeps redirecting to itself with the credentials still in
+# the query string. aiohttp gives up with TooManyRedirects, whose own text
+# holds the full first URL (credential included).
+REDIRECT_LOOP: dict[str, Any] = {
+    "status": 302,
+    "text": "",
+    "headers": {
+        "Location": (
+            f"{SUMMARIES_PATH}?steamids={STEAMID}"
+            f"&key={API_KEY}&access_token={ACCESS_TOKEN}"
+        )
+    },
+}
 
 
 def steam_error_page(status: int) -> str:
@@ -358,6 +371,18 @@ async def test_request_defaults_to_api_key_auth(
             "Access token is required",
             id="no-access-token",
         ),
+        pytest.param(
+            "api_key",
+            {"api_key": "", "access_token": ACCESS_TOKEN},
+            "API key is required",
+            id="empty-api-key",
+        ),
+        pytest.param(
+            "access_token",
+            {"api_key": API_KEY, "access_token": ""},
+            "Access token is required",
+            id="empty-access-token",
+        ),
     ],
 )
 async def test_missing_credential_raises_value_error_before_sending(
@@ -398,6 +423,7 @@ async def test_request_does_not_mutate_caller_params(
     await client.request("GET", url_for(fake_steam, SUMMARIES_PATH), params=params)
 
     assert params == {"steamids": STEAMID}
+    assert fake_steam.last.params == {"steamids": STEAMID, "key": API_KEY}
 
 
 async def test_reused_params_do_not_carry_credentials_between_requests(
@@ -573,6 +599,22 @@ async def test_http_status_maps_to_specific_exception(
         await get_summaries(client, fake_steam)
 
     assert excinfo.value.status_code == status
+
+
+@pytest.mark.xfail(
+    reason="#10: a redirect loop is reported as 'HTTP 0' with status_code 0",
+    raises=AssertionError,
+)
+async def test_redirect_loop_is_not_reported_as_http_status_zero(
+    client: Client, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, **REDIRECT_LOOP)
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await get_summaries(client, fake_steam)
+
+    assert excinfo.value.status_code != 0
+    assert "HTTP 0 " not in str(excinfo.value)
 
 
 # -- x-eresult --------------------------------------------------------------
@@ -823,7 +865,7 @@ async def test_close_without_connect_is_a_no_op() -> None:
 
 
 @pytest.mark.xfail(
-    reason="untracked: request() after close() reuses the closed session",
+    reason="#10: request() after close() reuses the closed session",
     raises=RuntimeError,
 )
 async def test_request_after_close_reconnects(
@@ -872,7 +914,7 @@ async def test_rate_limiter_waits_out_the_rest_of_the_interval(
 
 
 @pytest.mark.xfail(
-    reason="untracked: rate limiter lets concurrent requests through together",
+    reason="#10: rate limiter lets concurrent requests through together",
     raises=AssertionError,
 )
 async def test_rate_limiter_spaces_out_concurrent_requests(
@@ -943,21 +985,13 @@ ANSWERED_FAILURES = [
         {},
         id="invalid-json",
     ),
+    pytest.param([REDIRECT_LOOP], SteamAPIError, {}, id="redirect-loop"),
 ]
 CONNECTION_REFUSED = ([], NetworkError, {"STEAM_API_BASE_URL": UNREACHABLE})
 FAILURES = [
     *ANSWERED_FAILURES,
     pytest.param(*CONNECTION_REFUSED, id="connection-refused"),
 ]
-
-# Before 3.11 pytest-asyncio runs tests on the pure-Python asyncio Task (via
-# backports.asyncio.runner), which exposes the context bug pinned down by
-# test_network_error_is_not_chained_under_pure_python_task.
-PURE_PYTHON_TASK = sys.version_info < (3, 11)
-PURE_PYTHON_TASK_CHAINS = (
-    "untracked: under the pure-Python asyncio Task, NetworkError.__context__ "
-    "is the underlying OSError"
-)
 
 CREDENTIAL_PARAM = {
     "api_key": ("key", API_KEY),
@@ -1024,19 +1058,7 @@ async def test_failure_never_exposes_credentials(
     assert any(r.name.startswith("steamy_py") for r in caplog.records)
 
 
-@pytest.mark.parametrize(
-    ("replies", "error", "overrides"),
-    [
-        *ANSWERED_FAILURES,
-        pytest.param(
-            *CONNECTION_REFUSED,
-            id="connection-refused",
-            marks=pytest.mark.xfail(
-                PURE_PYTHON_TASK, reason=PURE_PYTHON_TASK_CHAINS, raises=AssertionError
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize(("replies", "error", "overrides"), FAILURES)
 async def test_failure_is_not_chained_to_the_aiohttp_error(
     make_client: ClientFactory,
     fake_steam: FakeSteam,
@@ -1052,7 +1074,6 @@ async def test_failure_is_not_chained_to_the_aiohttp_error(
     assert exc.__context__ is None
 
 
-@pytest.mark.xfail(reason=PURE_PYTHON_TASK_CHAINS, raises=AssertionError)
 async def test_network_error_is_not_chained_under_pure_python_task(
     make_client: ClientFactory,
 ) -> None:
@@ -1316,10 +1337,10 @@ async def test_http_method_helpers_use_their_verb(
     data = await call("IPlayerService", "GetSteamLevel", params={"steamid": STEAMID})
 
     assert data == STEAM_LEVEL
-    assert (fake_steam.last.method, fake_steam.last.path) == (
-        http_method,
-        STEAM_LEVEL_PATH,
-    )
+    sent = fake_steam.last
+    assert (sent.method, sent.path) == (http_method, STEAM_LEVEL_PATH)
+    # Query or form body: where POST inputs belong is pinned down by #18 below.
+    assert {**sent.query, **sent.form} == {"steamid": STEAMID, "key": API_KEY}
 
 
 @pytest.mark.xfail(
