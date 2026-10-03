@@ -1,0 +1,32 @@
+{
+  "response": {
+    "games": [
+      {
+        "appid": 1342330,
+        "total_achievements": 73,
+        "achievements": [
+          {
+            "statid": 1,
+            "bit": 6,
+            "name": "Super Lario World",
+            "desc": "Create an platformer with a rating of at least 70%.",
+            "icon": "27b8689b12105d9fafbee6c14067ab33f7fa51f6.jpg",
+            "icon_gray": "0172bba081531c548774003d1efca16d312b991c.jpg",
+            "hidden": false,
+            "player_percent_unlocked": "26.8"
+          },
+          {
+            "statid": 3,
+            "bit": 7,
+            "name": "Shopping Tour II",
+            "desc": "Buy at least 10 NPC developers or publishers.",
+            "icon": "85243cda71c1ac2975e6a3daeab34dce0b8a92dd.jpg",
+            "icon_gray": "3bf73a0bec5b60142fba384bab38fe2d46cdeefd.jpg",
+            "hidden": false,
+            "player_percent_unlocked": "15.1"
+          }
+        ]
+      }
+    ]
+  }
+}

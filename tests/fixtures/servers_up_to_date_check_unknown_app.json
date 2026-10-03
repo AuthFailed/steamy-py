@@ -1,0 +1,6 @@
+{
+  "response": {
+    "success": false,
+    "error": "Couldn't get app info for the app specified."
+  }
+}

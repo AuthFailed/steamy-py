@@ -1,0 +1,24 @@
+{
+  "response": {
+    "achievements": [
+      {
+        "internal_name": "TF_PLAY_GAME_EVERYCLASS",
+        "localized_name": "Head of the Class",
+        "localized_desc": "Play a complete round with every class.",
+        "icon": "tf_play_game_everyclass.jpg",
+        "icon_gray": "tf_play_game_everyclass_bw.jpg",
+        "hidden": false,
+        "player_percent_unlocked": "71.9"
+      },
+      {
+        "internal_name": "TF_GET_HEALPOINTS",
+        "localized_name": "Team Doctor",
+        "localized_desc": "Accumulate 25000 heal points as a Medic.",
+        "icon": "tf_get_healpoints.jpg",
+        "icon_gray": "tf_get_healpoints_bw.jpg",
+        "hidden": false,
+        "player_percent_unlocked": "23.4"
+      }
+    ]
+  }
+}

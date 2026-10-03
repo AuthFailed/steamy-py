@@ -1,0 +1,25 @@
+{
+  "response": {
+    "servers": [
+      {
+        "addr": "173.235.136.46:2457",
+        "gameport": 2456,
+        "steamid": "90158276832560132",
+        "name": "michaellamb",
+        "appid": 892970,
+        "gamedir": "valheim",
+        "version": "1.0.0.0",
+        "product": "valheim",
+        "region": -1,
+        "players": 0,
+        "max_players": 64,
+        "bots": 0,
+        "map": "michaellamb",
+        "secure": false,
+        "dedicated": true,
+        "os": "w",
+        "gametype": "0.208.1"
+      }
+    ]
+  }
+}

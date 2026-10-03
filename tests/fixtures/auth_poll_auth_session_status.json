@@ -1,0 +1,8 @@
+{
+  "response": {
+    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSJ9.test-refresh-token-from-poll",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJFZERTQSJ9.test-access-token-from-poll",
+    "had_remote_interaction": true,
+    "account_name": "steamy_test_account"
+  }
+}

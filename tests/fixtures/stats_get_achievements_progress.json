@@ -1,0 +1,24 @@
+{
+  "response": {
+    "achievement_progress": [
+      {
+        "appid": 440,
+        "unlocked": 125,
+        "total": 520,
+        "percentage": 24.038461685180664,
+        "all_unlocked": false,
+        "cache_time": 1759489200,
+        "vetted": true
+      },
+      {
+        "appid": 620,
+        "unlocked": 51,
+        "total": 51,
+        "percentage": 100,
+        "all_unlocked": true,
+        "cache_time": 1759489200,
+        "vetted": true
+      }
+    ]
+  }
+}
