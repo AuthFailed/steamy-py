@@ -61,7 +61,7 @@ Issues = "https://github.com/AuthFailed/steamy-py/issues"
 Changelog = "https://github.com/AuthFailed/steamy-py/blob/main/CHANGELOG.md"
 
 [build-system]
-requires = ["uv-build>=0.9.21,<0.10.0"]
+requires = ["uv-build>=0.9.21,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
