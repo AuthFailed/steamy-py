@@ -37,6 +37,7 @@ from .market import (
     MarketListing,
     MarketListingsResponse,
     MarketSearch,
+    MarketSearchResponse,
     PriceInfo,
 )
 
@@ -115,6 +116,7 @@ __all__ = [
     "MarketListing",
     "MarketListingsResponse",
     "MarketSearch",
+    "MarketSearchResponse",
     "NewsItem",
     "NewsResponse",
     "OwnedGame",

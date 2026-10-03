@@ -1,10 +1,36 @@
 """Market related data models for Steam API."""
 
+import re
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from pydantic import Field
 
 from .base import SteamModel, SteamResponse
+
+
+def _price_to_cents(price: str | None) -> int | None:
+    """Convert a formatted price such as ``"$1,234.56"`` or ``"1,23€"`` to cents.
+
+    The currency symbol may sit on either side. A ``,`` or ``.`` followed by
+    one or two trailing digits is the decimal separator; any other separator
+    groups thousands.
+    """
+    if not price:
+        return None
+    number = re.sub(r"[^\d.,]", "", price).strip(".,")
+    if not number:
+        return None
+    match = re.search(r"[.,](\d{1,2})$", number)
+    if match:
+        whole = re.sub(r"[.,]", "", number[: match.start()])
+        number = f"{whole or 0}.{match.group(1)}"
+    else:
+        number = re.sub(r"[.,]", "", number)
+    try:
+        return int((Decimal(number) * 100).to_integral_value())
+    except InvalidOperation:
+        return None
 
 
 class MarketItem(SteamModel):
@@ -27,26 +53,13 @@ class PriceInfo(SteamModel):
 
     @property
     def lowest_price_cents(self) -> int | None:
-        """Get lowest price in cents."""
-        if self.lowest_price:
-            # Parse price string like "$1.23" -> 123
-            price_str = self.lowest_price.replace("$", "").replace(",", "")
-            try:
-                return int(float(price_str) * 100)
-            except ValueError:
-                return None
-        return None
+        """Get lowest price in cents (minor currency units)."""
+        return _price_to_cents(self.lowest_price)
 
     @property
     def median_price_cents(self) -> int | None:
-        """Get median price in cents."""
-        if self.median_price:
-            price_str = self.median_price.replace("$", "").replace(",", "")
-            try:
-                return int(float(price_str) * 100)
-            except ValueError:
-                return None
-        return None
+        """Get median price in cents (minor currency units)."""
+        return _price_to_cents(self.median_price)
 
 
 class MarketListing(SteamModel):
@@ -83,8 +96,8 @@ class MarketHistoryEntry(SteamModel):
 
     @property
     def price_cents(self) -> int:
-        """Get price in cents."""
-        return int(self.price * 100)
+        """Get price in cents (minor currency units)."""
+        return int((Decimal(str(self.price)) * 100).to_integral_value())
 
 
 class MarketSearch(SteamModel):
@@ -107,7 +120,9 @@ class InventoryItem(SteamModel):
     classid: str = Field(description="Class ID")
     instanceid: str = Field(description="Instance ID")
     amount: str = Field(description="Item amount")
-    pos: int = Field(description="Position in inventory")
+    pos: int | None = Field(
+        default=None, description="Position in inventory (absent from /inventory/)"
+    )
 
 
 class ItemDescription(SteamModel):
@@ -131,10 +146,31 @@ class ItemDescription(SteamModel):
     market_tradable_restriction: int | None = Field(
         default=None, description="Trade restriction days"
     )
-    descriptions: list[dict[str, str]] = Field(
+    descriptions: list[dict[str, Any]] = Field(
         default_factory=list, description="Item descriptions"
     )
+    owner_descriptions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Descriptions only the owner sees"
+    )
+    actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Item actions, e.g. CS2 inspect links"
+    )
+    owner_actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Actions only the owner sees"
+    )
+    market_actions: list[dict[str, Any]] = Field(
+        default_factory=list, description="Market actions"
+    )
     tags: list[dict[str, Any]] = Field(default_factory=list, description="Item tags")
+    fraudwarnings: list[str] = Field(default_factory=list, description="Fraud warnings")
+    owner: int | None = Field(default=None, description="Owner flag")
+    market_marketable_restriction: int | None = Field(
+        default=None, description="Market restriction days"
+    )
+    market_buy_country_restriction: str | None = Field(
+        default=None, description="Country restriction for market purchases"
+    )
+    sealed: int | None = Field(default=None, description="Sealed flag")
 
     @property
     def is_tradable(self) -> bool:
@@ -183,7 +219,29 @@ class ItemPriceResponse(SteamResponse):
 
 
 class MarketListingsResponse(SteamResponse):
-    """Response for market listings."""
+    """Sell listings of one item (``/market/listings/{appid}/{hash}/render/``)."""
+
+    success: bool = Field(description="Request success")
+    start: int = Field(default=0, description="Starting index")
+    pagesize: int = Field(default=0, description="Page size")
+    total_count: int = Field(default=0, description="Total listings")
+    listinginfo: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Listings keyed by listing ID"
+    )
+    assets: dict[str, dict[str, dict[str, dict[str, Any]]]] = Field(
+        default_factory=dict,
+        description="Listed assets keyed by app ID, context ID, then asset ID",
+    )
+    currency: list[Any] = Field(default_factory=list, description="Currencies")
+
+    @property
+    def has_more_results(self) -> bool:
+        """Check if there are more results available."""
+        return self.start + self.pagesize < self.total_count
+
+
+class MarketSearchResponse(SteamResponse):
+    """Response for a market search (``/market/search/render/``)."""
 
     success: bool = Field(description="Request success")
     start: int = Field(description="Starting index")
@@ -238,6 +296,9 @@ class InventoryResponse(SteamResponse):
     )
     total_inventory_count: int | None = Field(
         default=None, description="Total inventory count"
+    )
+    asset_properties: list[dict[str, Any]] = Field(
+        default_factory=list, description="Per-asset properties"
     )
     success: int = Field(description="Success flag")
     rwgrsn: int | None = Field(default=None, description="Request reason code")

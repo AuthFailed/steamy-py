@@ -84,13 +84,6 @@ SEARCH_DEFAULT_PARAMS = {
     "norender": "1",
 }
 
-XFAIL_FLOAT_TRUNCATION = pytest.mark.xfail(
-    reason="#22: prices are truncated via float, e.g. 0.29 becomes 28 cents"
-)
-XFAIL_NON_DOLLAR = pytest.mark.xfail(
-    reason="#22: only '$' prices are parsed, other currencies give None"
-)
-
 Call = Callable[[Steam], Awaitable[object]]
 
 
@@ -206,8 +199,8 @@ async def test_request_goes_to_community_host_without_credentials(
     fake_steam.community("GET", path, **reply)
 
     async with Steam(settings=settings, **credentials) as client:
-        # Only the outgoing request matters here: get_market_listings still
-        # requests the wrong URL (#22) and pricehistory refuses anonymous calls.
+        # Only the outgoing request matters here: pricehistory refuses
+        # anonymous calls.
         with contextlib.suppress(SteamAPIError):
             await call(client)
 
@@ -414,14 +407,20 @@ async def test_get_item_price_html_reply_is_response_parsing_error(
     [
         pytest.param("$1.23", 123, id="dollars"),
         pytest.param("$1,234.56", 123456, id="thousands-separator"),
-        pytest.param("$0.29", 29, id="0.29-dollars", marks=XFAIL_FLOAT_TRUNCATION),
-        pytest.param("$0.57", 57, id="0.57-dollars", marks=XFAIL_FLOAT_TRUNCATION),
-        pytest.param("1,23€", 123, id="euro", marks=XFAIL_NON_DOLLAR),
-        pytest.param("£1.23", 123, id="pound", marks=XFAIL_NON_DOLLAR),
+        pytest.param("$0.29", 29, id="0.29-dollars"),
+        pytest.param("$0.57", 57, id="0.57-dollars"),
+        pytest.param("1,23€", 123, id="euro"),
+        pytest.param("£1.23", 123, id="pound"),
+        pytest.param("1.234,56€", 123456, id="euro-thousands"),
+        pytest.param("1 234,56 \u0440\u0443\u0431.", 123456, id="rouble"),
+        pytest.param("$1,234", 123400, id="thousands-without-decimals"),
+        pytest.param("Free", None, id="no-number"),
     ],
 )
 @pytest.mark.parametrize("field", ["lowest_price", "median_price"])
-def test_price_string_converts_to_cents(field: str, price: str, cents: int) -> None:
+def test_price_string_converts_to_cents(
+    field: str, price: str, cents: int | None
+) -> None:
     info = PriceInfo(**{field: price})
 
     assert getattr(info, f"{field}_cents") == cents
@@ -432,7 +431,6 @@ def test_missing_price_has_no_cents(field: str) -> None:
     assert getattr(PriceInfo(), f"{field}_cents") is None
 
 
-@XFAIL_FLOAT_TRUNCATION
 def test_history_entry_price_converts_to_cents() -> None:
     entry = MarketHistoryEntry(date="Oct 02 2026 18: +0", price=0.29, volume=21)
 
@@ -449,8 +447,7 @@ async def test_get_market_listings_passes_currency_through(
         "GET", listings_render_path(), json=load_fixture("market_listings_render.json")
     )
 
-    with contextlib.suppress(SteamAPIError):  # wrong URL today, see #22
-        await steam.market.get_market_listings(REDLINE, currency=3)
+    await steam.market.get_market_listings(REDLINE, currency=3)
 
     assert fake_steam.last.query.getall("currency") == ["3"]
 
@@ -462,17 +459,12 @@ async def test_get_market_listings_sends_paging(
         "GET", listings_render_path(), json=load_fixture("market_listings_render.json")
     )
 
-    with contextlib.suppress(SteamAPIError):  # wrong URL today, see #22
-        await steam.market.get_market_listings(REDLINE, start=100, count=10)
+    await steam.market.get_market_listings(REDLINE, start=100, count=10)
 
     assert fake_steam.last.params["start"] == "100"
     assert fake_steam.last.params["count"] == "10"
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#22: listings JSON is at /market/listings/{appid}/{hash}/render/",
-)
 async def test_get_market_listings_uses_render_endpoint(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -589,10 +581,6 @@ async def test_get_inventory_parses_empty_inventory(
     assert not inventory.has_more_items
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#22: InventoryItem requires 'pos', which /inventory/ assets lack",
-)
 async def test_get_inventory_parses_assets_and_descriptions(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -635,6 +623,32 @@ def test_item_description_parses_inventory_description() -> None:
     assert case.is_commodity
 
 
+def test_item_description_accepts_nested_description_lines() -> None:
+    description = load_fixture("market_inventory_730.json")["descriptions"][0]
+    description["descriptions"] = [
+        {"type": "html", "value": "Item set", "app_data": {"is_itemset_name": 1}}
+    ]
+    description["actions"] = [{"link": "steam://rungame/730", "name": "Inspect"}]
+
+    item = ItemDescription(**description)
+
+    assert item.descriptions[0]["app_data"] == {"is_itemset_name": 1}
+    assert item.actions[0]["name"] == "Inspect"
+
+
+async def test_get_market_listings_parses_listing_info(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community(
+        "GET", listings_render_path(), json=load_fixture("market_listings_render.json")
+    )
+
+    listings = await steam.market.get_market_listings(REDLINE)
+
+    assert len(listings.listinginfo) == 1
+    assert listings.has_more_results
+
+
 @pytest.mark.parametrize("bad_id", INVALID_STEAMIDS)
 async def test_get_inventory_rejects_invalid_steamid_before_any_request(
     steam: Steam, fake_steam: FakeSteam, bad_id: str
@@ -663,10 +677,6 @@ async def test_get_inventory_accepts_high_account_id(
     assert fake_steam.last.path == COMMUNITY_PREFIX + inventory_path(steamid)
 
 
-@pytest.mark.xfail(
-    raises=SteamAPIError,
-    reason="#22: a private inventory (HTTP 403) is not PrivateProfileError",
-)
 async def test_get_inventory_private_inventory_raises_private_profile_error(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:

@@ -7,6 +7,7 @@ them much more aggressively than api.steampowered.com.
 
 import logging
 from typing import Any
+from urllib.parse import quote
 
 from ..exceptions import (
     InvalidSteamIDError,
@@ -20,6 +21,7 @@ from ..models.market import (
     MarketHistoryEntry,
     MarketHistoryResponse,
     MarketListingsResponse,
+    MarketSearchResponse,
     PriceInfo,
 )
 from .base import BaseAPI
@@ -124,11 +126,11 @@ class MarketAPI(BaseAPI):
             SteamAPIError: On API errors
         """
         try:
-            url = self._build_market_url("listings/")
+            url = self._build_market_url(
+                f"listings/{app_id}/{quote(market_hash_name, safe='')}/render/"
+            )
 
             params = {
-                "appid": str(app_id),
-                "market_hash_name": market_hash_name,
                 "start": str(start),
                 "count": str(count),
                 "currency": str(currency),
@@ -167,7 +169,7 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            if not response_data.get("success"):
+            if not isinstance(response_data, dict) or not response_data.get("success"):
                 return []
 
             response_obj = MarketHistoryResponse(**response_data)
@@ -216,7 +218,13 @@ class MarketAPI(BaseAPI):
             if start_assetid:
                 params["start_assetid"] = start_assetid
 
-            response_data = await self._request_community(url, params)
+            try:
+                response_data = await self._request_community(url, params)
+            except SteamAPIError as e:
+                # Steam answers a private inventory with HTTP 403 and a null body.
+                if e.status_code == 403:
+                    raise PrivateProfileError(steamid) from None
+                raise
 
             # Check for common error responses
             if "error" in response_data:
@@ -246,7 +254,7 @@ class MarketAPI(BaseAPI):
         count: int = 100,
         sort_column: str = "popular",
         sort_dir: str = "desc",
-    ) -> MarketListingsResponse:
+    ) -> MarketSearchResponse:
         """Search the Steam Community Market.
 
         Args:
@@ -280,7 +288,7 @@ class MarketAPI(BaseAPI):
 
             response_data = await self._request_community(url, params)
 
-            return MarketListingsResponse(**response_data)
+            return MarketSearchResponse(**response_data)
 
         except Exception as e:
             logger.error(f"Error searching market: {e}")
@@ -290,7 +298,7 @@ class MarketAPI(BaseAPI):
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100
-    ) -> MarketListingsResponse:
+    ) -> MarketSearchResponse:
         """Get popular market items.
 
         Args:
