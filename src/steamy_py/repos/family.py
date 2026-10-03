@@ -1,360 +1,252 @@
-"""Steam Family API endpoints."""
+"""Steam Family API endpoints (IFamilyGroupsService)."""
 
-import logging
+from typing import Any
 
-from pydantic import ValidationError
-
-from ..exceptions import ResponseParsingError, SteamAPIError
 from ..models.family import (
     FamilyGroupStatusResponse,
     PlaytimeSummaryResponse,
     SharedLibraryAppsResponse,
 )
+from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
-logger = logging.getLogger(__name__)
+_INTERFACE = "IFamilyGroupsService"
+
+# Family group ids, invite ids, nonces and cart ids are 64-bit; pass them as
+# int or as the string Steam returns.
+FamilyID = int | str
+
+
+def _steamid(value: SteamIDLike | None) -> str | None:
+    """Validate an optional Steam ID input."""
+    return None if value is None else validate_steam_id(value)
 
 
 class FamilyAPI(BaseAPI):
     """Steam Family API endpoints.
 
-    Endpoints for IFamilyGroupsService
-    Note: These endpoints require access_token authentication, not api_key.
+    Every method calls IFamilyGroupsService with the user's access token. A
+    method returning a raw body returns Steam's JSON, ``{"response": {...}}``.
     """
 
+    async def _family(
+        self,
+        method: str,
+        operation: str,
+        inputs: dict[str, Any],
+        http_method: str = "POST",
+    ) -> dict[str, Any]:
+        """Call an IFamilyGroupsService method and return the raw body."""
+        return await self._call_service(
+            _INTERFACE,
+            method,
+            operation,
+            inputs,
+            http_method=http_method,
+            auth_type="access_token",
+        )
+
     async def cancel_family_group_invite(
-        self, family_groupid: int | None = None, steamid_to_cancel: int | None = None
-    ):
+        self,
+        family_groupid: FamilyID | None = None,
+        steamid_to_cancel: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
         """Cancel a pending invite to the specified family group.
 
         Args:
             family_groupid: Requester's family group id
-            steamid_to_cancel: Steamid of user for invite cancellation
+            steamid_to_cancel: Steam ID of the user whose invite is cancelled
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-        if steamid_to_cancel:
-            params["steamid_to_cancel"] = str(steamid_to_cancel)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="CancelFamilyGroupInvite",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to cancel family group invite: %s", e)
-            raise SteamAPIError(f"Failed to cancel family group invite: {e}") from e
+        return await self._family(
+            "CancelFamilyGroupInvite",
+            "cancel family group invite",
+            {
+                "family_groupid": family_groupid,
+                "steamid_to_cancel": _steamid(steamid_to_cancel),
+            },
+        )
 
     async def clear_cooldown_skip(
-        self, steamid: int | None = None, invite_id: int | None = None
-    ):
-        """Clear cooldown skip of user.
+        self, steamid: SteamIDLike | None = None, invite_id: FamilyID | None = None
+    ) -> dict[str, Any]:
+        """Clear the cooldown skip of a user.
 
         **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
-            steamid: Steamid of user to clear cooldown skip
+            steamid: Steam ID of the user whose cooldown skip is cleared
             invite_id: Invitation id
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if steamid:
-            params["steamid"] = str(steamid)
-        if invite_id:
-            params["invite_id"] = str(invite_id)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ClearCooldownSkip",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to clear cooldown skip: %s", e)
-            raise SteamAPIError(f"Failed to clear cooldown skip: {e}") from e
+        return await self._family(
+            "ClearCooldownSkip",
+            "clear cooldown skip",
+            {"steamid": _steamid(steamid), "invite_id": invite_id},
+        )
 
     async def confirm_invite_to_family_group(
         self,
-        family_groupid: int | None = None,
-        invite_id: int | None = None,
-        nonce: int | None = None,
-    ):
-        """
+        family_groupid: FamilyID | None = None,
+        invite_id: FamilyID | None = None,
+        nonce: FamilyID | None = None,
+    ) -> dict[str, Any]:
+        """Confirm an invitation sent with *invite_to_family_group*.
+
+        Steam asks for this second step after the inviter confirmed the
+        invitation (e.g. by email or the mobile app).
 
         Args:
             family_groupid: Family group id
             invite_id: Invitation id
-            nonce:
+            nonce: Nonce from the confirmation
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-        if invite_id:
-            params["invite_id"] = str(invite_id)
-        if nonce:
-            params["nonce"] = str(nonce)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ConfirmInviteToFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to confirm invite to family group: %s", e)
-            raise SteamAPIError(f"Failed to confirm invite to family group: {e}") from e
+        return await self._family(
+            "ConfirmInviteToFamilyGroup",
+            "confirm invite to family group",
+            {"family_groupid": family_groupid, "invite_id": invite_id, "nonce": nonce},
+        )
 
     async def confirm_join_family_group(
         self,
-        family_groupid: int | None = None,
-        invite_id: int | None = None,
-        nonce: int | None = None,
-    ):
-        """Confirm join of user to family group.
+        family_groupid: FamilyID | None = None,
+        invite_id: FamilyID | None = None,
+        nonce: FamilyID | None = None,
+    ) -> dict[str, Any]:
+        """Confirm joining a family group (after *join_family_group*).
 
         Args:
             family_groupid: Family group id
             invite_id: Invitation id
-            nonce:
+            nonce: Nonce from the confirmation
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-        if invite_id:
-            params["invite_id"] = str(invite_id)
-        if nonce:
-            params["nonce"] = str(nonce)
+        return await self._family(
+            "ConfirmJoinFamilyGroup",
+            "confirm join family group",
+            {"family_groupid": family_groupid, "invite_id": invite_id, "nonce": nonce},
+        )
 
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ConfirmJoinFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to confirm join family group: %s", e)
-            raise SteamAPIError(f"Failed to confirm join family group: {e}") from e
-
-    async def create_family_group(self, name: str, steamid: int | None = None):
-        """Creates a new family group.
+    async def create_family_group(
+        self, name: str, steamid: SteamIDLike | None = None
+    ) -> dict[str, Any]:
+        """Create a new family group.
 
         Args:
-            name: Name of new family group
+            name: Name of the new family group
             steamid: (Steam Support only) User to create this family group for
-             and add to the group.
+                and add to the group
 
         Returns:
-
+            The raw response body (``family_groupid``,
+            ``cooldown_skip_granted``)
         """
-        params = {}
-        if name:
-            params["name"] = name
-        if steamid:
-            params["steamid"] = str(steamid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="CreateFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to create family group: %s", e)
-            raise SteamAPIError(f"Failed to create family group: {e}") from e
+        return await self._family(
+            "CreateFamilyGroup",
+            "create family group",
+            {"name": name, "steamid": _steamid(steamid)},
+        )
 
     async def delete_family_group(
-        self,
-        family_groupid: int | None = None,
-    ):
+        self, family_groupid: FamilyID | None = None
+    ) -> dict[str, Any]:
         """Delete the specified family group.
 
         Args:
             family_groupid: Family group id
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="DeleteFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to delete family group: %s", e)
-            raise SteamAPIError(f"Failed to delete family group: {e}") from e
+        return await self._family(
+            "DeleteFamilyGroup",
+            "delete family group",
+            {"family_groupid": family_groupid},
+        )
 
     async def force_accept_invite(
         self,
-        family_groupid: int | None = None,
-        steamid: int | None = None,
-    ):
-        """Accepts invite for family group.
+        family_groupid: FamilyID | None = None,
+        steamid: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
+        """Accept a family group invite on behalf of a user.
 
         **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
             family_groupid: Family group id
-            steamid: Steamid of user to accept invite
+            steamid: Steam ID of the user whose invite is accepted
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-        if steamid:
-            params["steamid"] = str(steamid)
+        return await self._family(
+            "ForceAcceptInvite",
+            "force accept invite",
+            {"family_groupid": family_groupid, "steamid": _steamid(steamid)},
+        )
 
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ForceAcceptInvite",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to force accept invite: %s", e)
-            raise SteamAPIError(f"Failed to force accept invite: {e}") from e
-
-    async def get_change_log(self, family_groupid: int | None = None):
+    async def get_change_log(
+        self, family_groupid: FamilyID | None = None
+    ) -> dict[str, Any]:
         """Return a log of changes made to this family group.
 
         Args:
             family_groupid: Family group id
 
         Returns:
-            The raw response body
-
+            The raw response body (``changes``)
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetChangeLog",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get change log: %s", e)
-            raise SteamAPIError(f"Failed to get change log: {e}") from e
+        return await self._family(
+            "GetChangeLog", "get change log", {"family_groupid": family_groupid}
+        )
 
     async def get_family_group(
-        self,
-        family_groupid: int,
-        send_running_apps: bool = False,
-    ):
+        self, family_groupid: FamilyID, send_running_apps: bool = False
+    ) -> dict[str, Any]:
         """Get family group information.
 
-        Use *get_family_group_for_user* to get info about user's current family group
+        Use *get_family_group_for_user* to get the current user's family group.
 
         Args:
             family_groupid: Family group id
             send_running_apps: Whether to include running app information
 
         Returns:
-            Family group data
+            The raw response body
 
         Raises:
             AuthenticationError: If access token is not provided
             SteamAPIError: On API errors
         """
-        params = {}
-        if family_groupid:
-            params["family_groupid"] = str(family_groupid)
-        if send_running_apps:
-            params["send_running_apps"] = "1"
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get family group: %s", e)
-            raise SteamAPIError(f"Failed to get family group: {e}") from e
+        return await self._family(
+            "GetFamilyGroup",
+            "get family group",
+            {
+                "family_groupid": family_groupid,
+                "send_running_apps": send_running_apps or None,
+            },
+            http_method="GET",
+        )
 
     async def get_family_group_for_user(
         self,
-        steamid: int | None = None,
+        steamid: SteamIDLike | None = None,
         include_family_group_response: bool = False,
     ) -> FamilyGroupStatusResponse:
-        """Gets the family group of user.
+        """Get the family group of a user.
 
         **Only SUPPORT/ADMIN accounts can specify steamid.**
-        By default, the method receives the family group of the currently
+        By default, the method returns the family group of the currently
         authorized user.
 
         Args:
@@ -367,71 +259,47 @@ class FamilyAPI(BaseAPI):
 
         Raises:
             AuthenticationError: If access token is not provided
+            ResponseParsingError: If the response has an unexpected shape
             SteamAPIError: On API errors
         """
-        params = {}
-        if steamid is not None:
-            params["steamid"] = str(steamid)
-        if include_family_group_response:
-            params["include_family_group_response"] = "1"
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetFamilyGroupForUser",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return FamilyGroupStatusResponse.model_validate(response_data)
-        except SteamAPIError:
-            raise
-        except ValidationError as e:
-            raise ResponseParsingError(
-                f"Unexpected response to get family group for user: {e}"
-            ) from e
-        except Exception as e:
-            logger.error("Failed to get family group for user: %s", e)
-            raise SteamAPIError(f"Failed to get family group for user: {e}") from e
+        return await self._call_service(
+            _INTERFACE,
+            "GetFamilyGroupForUser",
+            "get family group for user",
+            {
+                "steamid": _steamid(steamid),
+                "include_family_group_response": include_family_group_response or None,
+            },
+            model=FamilyGroupStatusResponse,
+            auth_type="access_token",
+        )
 
     async def get_invite_check_results(
-        self, family_groupid: int | None = None, steamid: int | None = None
-    ):
-        """
+        self,
+        family_groupid: FamilyID | None = None,
+        steamid: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
+        """Get the results of Steam's checks on an invitation.
 
         Args:
             family_groupid: Requester's family group id
-            steamid:
+            steamid: Steam ID of the invited user
 
         Returns:
-
+            The raw response body (e.g. ``wallet_country_matches``,
+            ``ip_match``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if steamid is not None:
-            params["steamid"] = str(steamid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetInviteCheckResults",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get invite check results: %s", e)
-            raise SteamAPIError(f"Failed to get invite check results: {e}") from e
+        return await self._family(
+            "GetInviteCheckResults",
+            "get invite check results",
+            {"family_groupid": family_groupid, "steamid": _steamid(steamid)},
+            http_method="GET",
+        )
 
     async def get_playtime_summary(
-        self, family_groupid: int
+        self, family_groupid: FamilyID
     ) -> PlaytimeSummaryResponse:
-        """Get the playtimes in all apps from the shared library
-         for the whole family group.
+        """Get the playtime in every shared-library app for the whole family.
 
         Args:
             family_groupid: Family group id
@@ -441,67 +309,44 @@ class FamilyAPI(BaseAPI):
 
         Raises:
             AuthenticationError: If access token is not provided
+            ResponseParsingError: If the response has an unexpected shape
             SteamAPIError: On API errors
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = family_groupid
+        return await self._call_service(
+            _INTERFACE,
+            "GetPlaytimeSummary",
+            "get playtime summary",
+            {"family_groupid": family_groupid},
+            model=PlaytimeSummaryResponse,
+            http_method="POST",
+            auth_type="access_token",
+        )
 
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetPlaytimeSummary",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return PlaytimeSummaryResponse.model_validate(response_data)
-        except SteamAPIError:
-            raise
-        except ValidationError as e:
-            raise ResponseParsingError(
-                f"Unexpected response to get playtime summary: {e}"
-            ) from e
-        except Exception as e:
-            logger.error("Failed to get playtime summary: %s", e)
-            raise SteamAPIError(f"Failed to get playtime summary: {e}") from e
-
-    async def get_preferred_lenders(self, family_groupid: int | None = None):
-        """
+    async def get_preferred_lenders(
+        self, family_groupid: FamilyID | None = None
+    ) -> dict[str, Any]:
+        """Get the members' preferred lenders, per app.
 
         Args:
             family_groupid: Family group id
 
         Returns:
-
+            The raw response body (``members``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetPreferredLenders",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get preferred lenders: %s", e)
-            raise SteamAPIError(f"Failed to get preferred lenders: {e}") from e
+        return await self._family(
+            "GetPreferredLenders",
+            "get preferred lenders",
+            {"family_groupid": family_groupid},
+            http_method="GET",
+        )
 
     async def get_purchase_requests(
         self,
-        request_ids: list[int] | None = None,
-        family_groupid: int | None = None,
+        request_ids: list[FamilyID] | None = None,
+        family_groupid: FamilyID | None = None,
         include_completed: bool = False,
         rt_include_completed_since: int | None = None,
-    ):
+    ) -> dict[str, Any]:
         """Get pending purchase requests for the family.
 
         Args:
@@ -513,43 +358,30 @@ class FamilyAPI(BaseAPI):
                 Unix time
 
         Returns:
-
+            The raw response body (``requests``)
         """
-        params = {}
-        if request_ids is not None:
-            params.update(self._indexed("request_ids", request_ids))
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if include_completed is not None:
-            params["include_completed"] = int(include_completed)
-        if rt_include_completed_since is not None:
-            params["rt_include_completed_since"] = str(rt_include_completed_since)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetPurchaseRequests",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get purchase requests: %s", e)
-            raise SteamAPIError(f"Failed to get purchase requests: {e}") from e
+        return await self._family(
+            "GetPurchaseRequests",
+            "get purchase requests",
+            {
+                "request_ids": request_ids,
+                "family_groupid": family_groupid,
+                "include_completed": include_completed,
+                "rt_include_completed_since": rt_include_completed_since,
+            },
+            http_method="GET",
+        )
 
     async def get_shared_library_apps(
         self,
-        family_groupid: int,
+        family_groupid: FamilyID,
         include_own: bool = False,
         include_excluded: bool = False,
         include_free: bool = False,
         include_non_games: bool = False,
         language: str = "english",
         max_apps: int | None = None,
-        steamid: int | None = None,
+        steamid: SteamIDLike | None = None,
     ) -> SharedLibraryAppsResponse:
         """Return a list of apps available from other members.
 
@@ -568,232 +400,147 @@ class FamilyAPI(BaseAPI):
 
         Raises:
             AuthenticationError: If access token is not provided
+            ResponseParsingError: If the response has an unexpected shape
             SteamAPIError: On API errors
         """
-        values = {
-            "family_groupid": family_groupid,
-            "include_own": include_own,
-            "include_excluded": include_excluded,
-            "include_free": include_free,
-            "include_non_games": include_non_games,
-            "language": language,
-            "max_apps": max_apps,
-            "steamid": steamid,
-        }
-        params = {
-            name: int(value) if isinstance(value, bool) else str(value)
-            for name, value in values.items()
-            if value is not None
-        }
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetSharedLibraryApps",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return SharedLibraryAppsResponse.model_validate(response_data)
-        except SteamAPIError:
-            raise
-        except ValidationError as e:
-            raise ResponseParsingError(
-                f"Unexpected response to get shared library apps: {e}"
-            ) from e
-        except Exception as e:
-            logger.error("Failed to get shared library apps: %s", e)
-            raise SteamAPIError(f"Failed to get shared library apps: {e}") from e
+        return await self._call_service(
+            _INTERFACE,
+            "GetSharedLibraryApps",
+            "get shared library apps",
+            {
+                "family_groupid": family_groupid,
+                "include_own": include_own,
+                "include_excluded": include_excluded,
+                "include_free": include_free,
+                "include_non_games": include_non_games,
+                "language": language,
+                "max_apps": max_apps,
+                "steamid": _steamid(steamid),
+            },
+            model=SharedLibraryAppsResponse,
+            auth_type="access_token",
+        )
 
     async def get_users_sharing_device(
         self,
-        family_groupid: int | None = None,
+        family_groupid: FamilyID | None = None,
         client_session_id: int | None = None,
         client_instance_id: int | None = None,
-    ):
-        """Get lenders or borrowers sharing device with.
+    ) -> dict[str, Any]:
+        """Get the lenders or borrowers sharing a device with the user.
 
         Args:
             family_groupid: Requester's family group id
-            client_session_id:
-            client_instance_id:
+            client_session_id: Session id of the Steam client
+            client_instance_id: Instance id of the Steam client
 
         Returns:
-
+            The raw response body (``users``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if client_session_id is not None:
-            params["client_session_id"] = str(client_session_id)
-        if client_instance_id is not None:
-            params["client_instance_id"] = str(client_instance_id)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="GetUsersSharingDevice",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to get users sharing device: %s", e)
-            raise SteamAPIError(f"Failed to get users sharing device: {e}") from e
+        return await self._family(
+            "GetUsersSharingDevice",
+            "get users sharing device",
+            {
+                "family_groupid": family_groupid,
+                "client_session_id": client_session_id,
+                "client_instance_id": client_instance_id,
+            },
+            http_method="GET",
+        )
 
     async def invite_to_family_group(
         self,
-        family_groupid: int | None = None,
-        receiver_steamid: int | None = None,
+        family_groupid: FamilyID | None = None,
+        receiver_steamid: SteamIDLike | None = None,
         receiver_role: int | None = None,
-    ):
-        """Invites an account to a family group.
+    ) -> dict[str, Any]:
+        """Invite an account to a family group.
 
         Args:
             family_groupid: Requester's family group id
-            receiver_steamid:
-            receiver_role: 0 - None, 1 - Adult, 2 - Child, 3 - MAX
+            receiver_steamid: Steam ID of the account to invite
+            receiver_role: An ``EFamilyGroupRole``: 1 Adult, 2 Child
 
         Returns:
-
+            The raw response body (``invite_id``, ``two_factor_method``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if receiver_steamid is not None:
-            params["receiver_steamid"] = str(receiver_steamid)
-        if receiver_role is not None:
-            params["receiver_role"] = str(receiver_role)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="InviteToFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to invite to family group: %s", e)
-            raise SteamAPIError(f"Failed to invite to family group: {e}") from e
+        return await self._family(
+            "InviteToFamilyGroup",
+            "invite to family group",
+            {
+                "family_groupid": family_groupid,
+                "receiver_steamid": _steamid(receiver_steamid),
+                "receiver_role": receiver_role,
+            },
+        )
 
     async def join_family_group(
-        self, family_groupid: int | None = None, nonce: int | None = None
-    ):
+        self, family_groupid: FamilyID | None = None, nonce: FamilyID | None = None
+    ) -> dict[str, Any]:
         """Join the specified family group.
 
         Args:
-            family_groupid: Requester's family group id
-            nonce:
+            family_groupid: Family group id
+            nonce: Nonce from the invitation
 
         Returns:
-
+            The raw response body (``two_factor_method``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if nonce is not None:
-            params["nonce"] = str(nonce)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="JoinFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to join family group: %s", e)
-            raise SteamAPIError(f"Failed to join family group: {e}") from e
+        return await self._family(
+            "JoinFamilyGroup",
+            "join family group",
+            {"family_groupid": family_groupid, "nonce": nonce},
+        )
 
     async def modify_family_group_details(
-        self, family_groupid: int | None = None, name: str | None = None
-    ):
+        self, family_groupid: FamilyID | None = None, name: str | None = None
+    ) -> dict[str, Any]:
         """Modify the details of the specified family group.
 
         Args:
             family_groupid: Requester's family group id
-            name: If present, set the family name to the current value
+            name: New family group name (unchanged when None)
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if name is not None:
-            params["name"] = name
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ModifyFamilyGroupDetails",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to modify family group details: %s", e)
-            raise SteamAPIError(f"Failed to modify family group details: {e}") from e
+        return await self._family(
+            "ModifyFamilyGroupDetails",
+            "modify family group details",
+            {"family_groupid": family_groupid, "name": name},
+        )
 
     async def remove_from_family_group(
-        self, family_groupid: int | None = None, steamid_to_remove: int | None = None
-    ):
+        self,
+        family_groupid: FamilyID | None = None,
+        steamid_to_remove: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
         """Remove the specified account from the specified family group.
 
         Args:
             family_groupid: Requester's family group id
-            steamid_to_remove:
+            steamid_to_remove: Steam ID of the member to remove
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if steamid_to_remove is not None:
-            params["steamid_to_remove"] = str(steamid_to_remove)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="RemoveFromFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to remove from family group: %s", e)
-            raise SteamAPIError(f"Failed to remove from family group: {e}") from e
+        return await self._family(
+            "RemoveFromFamilyGroup",
+            "remove from family group",
+            {
+                "family_groupid": family_groupid,
+                "steamid_to_remove": _steamid(steamid_to_remove),
+            },
+        )
 
     async def request_purchase(
         self,
-        family_groupid: int | None = None,
-        gid_shopping_cart: int | None = None,
+        family_groupid: FamilyID | None = None,
+        gid_shopping_cart: FamilyID | None = None,
         store_country_code: str | None = None,
         use_account_cart: bool = False,
-    ):
-        """Request purchase of the specified cart.
+    ) -> dict[str, Any]:
+        """Ask the family's adults to buy the specified cart.
 
         Args:
             family_groupid: Requester's family group id
@@ -802,39 +549,24 @@ class FamilyAPI(BaseAPI):
             use_account_cart: Request the account's cart instead
 
         Returns:
-
+            The raw response body (``gidshoppingcart``, ``request_id``)
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if gid_shopping_cart is not None:
-            params["gidshoppingcart"] = str(gid_shopping_cart)
-        if store_country_code is not None:
-            params["store_country_code"] = store_country_code
-        if use_account_cart:
-            params["use_account_cart"] = int(use_account_cart)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="RequestPurchase",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to request purchase: %s", e)
-            raise SteamAPIError(f"Failed to request purchase: {e}") from e
+        return await self._family(
+            "RequestPurchase",
+            "request purchase",
+            {
+                "family_groupid": family_groupid,
+                "gidshoppingcart": gid_shopping_cart,
+                "store_country_code": store_country_code,
+                "use_account_cart": use_account_cart or None,
+            },
+        )
 
     async def resend_invitation_to_family_group(
         self,
-        family_groupid: int | None = None,
-        steamid: int | None = None,
-    ):
+        family_groupid: FamilyID | None = None,
+        steamid: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
         """Resend a pending invitation to the specified family group.
 
         Args:
@@ -843,39 +575,20 @@ class FamilyAPI(BaseAPI):
 
         Returns:
             The raw response body
-
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if steamid is not None:
-            params["steamid"] = str(steamid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="ResendInvitationToFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to resend invitation to family group: %s", e)
-            raise SteamAPIError(
-                f"Failed to resend invitation to family group: {e}"
-            ) from e
+        return await self._family(
+            "ResendInvitationToFamilyGroup",
+            "resend invitation to family group",
+            {"family_groupid": family_groupid, "steamid": _steamid(steamid)},
+        )
 
     async def respond_to_requested_purchase(
         self,
-        family_groupid: int | None = None,
-        purchase_requester_steamid: int | None = None,
+        family_groupid: FamilyID | None = None,
+        purchase_requester_steamid: SteamIDLike | None = None,
         action: int | None = None,
-        request_id: int | None = None,
-    ):
+        request_id: FamilyID | None = None,
+    ) -> dict[str, Any]:
         """Respond to a purchase request from a family member.
 
         Args:
@@ -886,37 +599,22 @@ class FamilyAPI(BaseAPI):
             request_id: Purchase request id
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if purchase_requester_steamid is not None:
-            params["purchase_requester_steamid"] = str(purchase_requester_steamid)
-        if action is not None:
-            params["action"] = str(action)
-        if request_id is not None:
-            params["request_id"] = request_id
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="RespondToRequestedPurchase",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to respond to requested purchase: %s", e)
-            raise SteamAPIError(f"Failed to respond to requested purchase: {e}") from e
+        return await self._family(
+            "RespondToRequestedPurchase",
+            "respond to requested purchase",
+            {
+                "family_groupid": family_groupid,
+                "purchase_requester_steamid": _steamid(purchase_requester_steamid),
+                "action": action,
+                "request_id": request_id,
+            },
+        )
 
     async def rollback_family_group(
-        self, family_groupid: int | None = None, rtime32_target: int | None = None
-    ):
+        self, family_groupid: FamilyID | None = None, rtime32_target: int | None = None
+    ) -> dict[str, Any]:
         """Roll the family group back to its state at a point in time.
 
         **Steam Support only:** Steam rejects ordinary user access tokens.
@@ -927,108 +625,62 @@ class FamilyAPI(BaseAPI):
 
         Returns:
             The raw response body
-
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if rtime32_target is not None:
-            params["rtime32_target"] = str(rtime32_target)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="RollbackFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to rollback family group: %s", e)
-            raise SteamAPIError(f"Failed to rollback family group: {e}") from e
+        return await self._family(
+            "RollbackFamilyGroup",
+            "rollback family group",
+            {"family_groupid": family_groupid, "rtime32_target": rtime32_target},
+        )
 
     async def set_family_cooldown_overrides(
-        self, family_groupid: int | None = None, cooldown_count: int | None = None
-    ):
-        """Set the number of times a family group's cooldown time
-         should be ignored for joins.
+        self, family_groupid: FamilyID | None = None, cooldown_count: int | None = None
+    ) -> dict[str, Any]:
+        """Set how many times the family's join cooldown is skipped.
 
         **Steam Support only:** Steam rejects ordinary user access tokens.
 
         Args:
             family_groupid: Requester's family group id
-            cooldown_count:
+            cooldown_count: Number of joins that skip the cooldown
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if cooldown_count is not None:
-            params["cooldown_count"] = str(cooldown_count)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="SetFamilyCooldownOverrides",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to set family cooldown overrides: %s", e)
-            raise SteamAPIError(f"Failed to set family cooldown overrides: {e}") from e
+        return await self._family(
+            "SetFamilyCooldownOverrides",
+            "set family cooldown overrides",
+            {"family_groupid": family_groupid, "cooldown_count": cooldown_count},
+        )
 
     async def set_preferred_lender(
         self,
-        family_groupid: int | None = None,
+        family_groupid: FamilyID | None = None,
         appid: int | None = None,
-        lender_steamid: int | None = None,
-    ):
-        """
+        lender_steamid: SteamIDLike | None = None,
+    ) -> dict[str, Any]:
+        """Choose which member's copy of an app the user borrows.
 
         Args:
             family_groupid: Requester's family group id
-            appid:
-            lender_steamid:
+            appid: App id
+            lender_steamid: Steam ID of the member to borrow the app from
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-        if appid is not None:
-            params["appid"] = str(appid)
-        if lender_steamid is not None:
-            params["lender_steamid"] = str(lender_steamid)
+        return await self._family(
+            "SetPreferredLender",
+            "set preferred lender",
+            {
+                "family_groupid": family_groupid,
+                "appid": appid,
+                "lender_steamid": _steamid(lender_steamid),
+            },
+        )
 
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="SetPreferredLender",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to set preferred lender: %s", e)
-            raise SteamAPIError(f"Failed to set preferred lender: {e}") from e
-
-    async def undelete_family_group(self, family_groupid: int | None = None):
+    async def undelete_family_group(
+        self, family_groupid: FamilyID | None = None
+    ) -> dict[str, Any]:
         """Restore a deleted family group.
 
         **Steam Support only:** Steam rejects ordinary user access tokens.
@@ -1037,24 +689,10 @@ class FamilyAPI(BaseAPI):
             family_groupid: Family group id
 
         Returns:
-
+            The raw response body
         """
-        params = {}
-        if family_groupid is not None:
-            params["family_groupid"] = str(family_groupid)
-
-        try:
-            response_data = await self._request(
-                interface="IFamilyGroupsService",
-                method="UndeleteFamilyGroup",
-                version="v1",
-                params=params,
-                auth_type="access_token",
-                http_method="POST",
-            )
-            return response_data
-        except SteamAPIError:
-            raise
-        except Exception as e:
-            logger.error("Failed to undelete family group: %s", e)
-            raise SteamAPIError(f"Failed to undelete family group: {e}") from e
+        return await self._family(
+            "UndeleteFamilyGroup",
+            "undelete family group",
+            {"family_groupid": family_groupid},
+        )

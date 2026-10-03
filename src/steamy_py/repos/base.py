@@ -2,11 +2,22 @@
 
 import json
 import logging
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
+from typing import Any, TypeVar, overload
+
+from pydantic import BaseModel, ValidationError
 
 from ..client import Client
-from ..exceptions import GameNotFoundError, PrivateProfileError, SteamAPIError
+from ..exceptions import (
+    GameNotFoundError,
+    PrivateProfileError,
+    ResponseParsingError,
+    SteamAPIError,
+)
+from ..steamid import SteamID
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +32,121 @@ class BaseAPI:
             client: Authenticated Steam API client
         """
         self.client = client
+
+    @staticmethod
+    @contextmanager
+    def _errors(operation: str) -> Iterator[None]:
+        """Raise only library exceptions from the block.
+
+        Library exceptions pass through unchanged, a response that does not
+        fit its model raises ``ResponseParsingError``, and anything else
+        ``SteamAPIError``; the message starts with "Failed to <operation>".
+        """
+        try:
+            yield
+        except SteamAPIError:
+            raise
+        except ValidationError as e:
+            logger.debug("Failed to %s: %s", operation, e)
+            raise ResponseParsingError(
+                f"Failed to {operation}: unexpected response: {e}"
+            ) from e
+        except Exception as e:
+            logger.debug("Failed to %s: %s", operation, e)
+            raise SteamAPIError(f"Failed to {operation}: {e}") from e
+
+    @classmethod
+    def _service_inputs(cls, inputs: Mapping[str, Any]) -> dict[str, Any]:
+        """Encode service-method inputs; ``None`` means "leave it out".
+
+        Booleans become "1"/"0", lists become ``name[0]``, ``name[1]``, ...,
+        and everything else (ints, 64-bit ids, ``SteamID``) its string form.
+        """
+        encoded: dict[str, Any] = {}
+        for name, value in inputs.items():
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                encoded[name] = "1" if value else "0"
+            elif isinstance(value, list | tuple):
+                encoded.update(cls._indexed(name, value))
+            elif isinstance(value, int | SteamID):
+                encoded[name] = str(value)
+            else:
+                encoded[name] = value
+        return encoded
+
+    @overload
+    async def _call_service(
+        self,
+        interface: str,
+        method: str,
+        operation: str,
+        inputs: Mapping[str, Any] | None = ...,
+        *,
+        model: type[ModelT],
+        version: str = ...,
+        http_method: str = ...,
+        auth_type: str = ...,
+    ) -> ModelT: ...
+
+    @overload
+    async def _call_service(
+        self,
+        interface: str,
+        method: str,
+        operation: str,
+        inputs: Mapping[str, Any] | None = ...,
+        *,
+        model: None = ...,
+        version: str = ...,
+        http_method: str = ...,
+        auth_type: str = ...,
+    ) -> dict[str, Any]: ...
+
+    async def _call_service(
+        self,
+        interface: str,
+        method: str,
+        operation: str,
+        inputs: Mapping[str, Any] | None = None,
+        *,
+        model: type[BaseModel] | None = None,
+        version: str = "v1",
+        http_method: str = "GET",
+        auth_type: str = "api_key",
+    ) -> Any:
+        """Call a service method and parse its response.
+
+        Args:
+            interface: Service interface, e.g. "IFamilyGroupsService"
+            method: Method name, e.g. "GetFamilyGroup"
+            operation: What the call does, for error messages
+                ("get family group")
+            inputs: Method inputs, encoded by ``_service_inputs``
+            model: Model for the response body; the raw body is returned
+                when None
+            version: Method version
+            http_method: "GET" or "POST"
+            auth_type: Credential to send ("api_key", "access_token", "none")
+
+        Returns:
+            The parsed model, or the raw JSON body
+
+        Raises:
+            ResponseParsingError: If the response does not fit ``model``
+            SteamAPIError: On any other failure; see ``Client.request``
+        """
+        with self._errors(operation):
+            data = await self._request(
+                interface,
+                method,
+                version,
+                params=self._service_inputs(inputs or {}),
+                auth_type=auth_type,
+                http_method=http_method,
+            )
+            return data if model is None else model.model_validate(data)
 
     @staticmethod
     def _indexed(name: str, values: Iterable[Any]) -> dict[str, str]:
@@ -186,61 +312,4 @@ class BaseAPI:
 
         return await self.client.request(
             http_method, url, params=params, auth_type=auth_type, **kwargs
-        )
-
-    # Convenience methods for common HTTP operations
-    async def _get_request(
-        self,
-        interface: str,
-        method: str,
-        version: str = "v1",
-        params: dict[str, Any] | None = None,
-        auth_type: str = "api_key",
-        **kwargs,
-    ) -> dict[str, Any]:
-        """Convenience method for GET requests."""
-        return await self._request(
-            interface, method, version, params, auth_type, "GET", **kwargs
-        )
-
-    async def _post_request(
-        self,
-        interface: str,
-        method: str,
-        version: str = "v1",
-        params: dict[str, Any] | None = None,
-        auth_type: str = "api_key",
-        **kwargs,
-    ) -> dict[str, Any]:
-        """Convenience method for POST requests."""
-        return await self._request(
-            interface, method, version, params, auth_type, "POST", **kwargs
-        )
-
-    async def _put_request(
-        self,
-        interface: str,
-        method: str,
-        version: str = "v1",
-        params: dict[str, Any] | None = None,
-        auth_type: str = "api_key",
-        **kwargs,
-    ) -> dict[str, Any]:
-        """Convenience method for PUT requests."""
-        return await self._request(
-            interface, method, version, params, auth_type, "PUT", **kwargs
-        )
-
-    async def _delete_request(
-        self,
-        interface: str,
-        method: str,
-        version: str = "v1",
-        params: dict[str, Any] | None = None,
-        auth_type: str = "api_key",
-        **kwargs,
-    ) -> dict[str, Any]:
-        """Convenience method for DELETE requests."""
-        return await self._request(
-            interface, method, version, params, auth_type, "DELETE", **kwargs
         )

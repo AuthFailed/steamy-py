@@ -13,6 +13,7 @@ from steamy_py import (
     PlayerBan,
     PlayerSummary,
     PrivateProfileError,
+    ResponseParsingError,
     Settings,
     Steam,
     SteamAPIError,
@@ -269,7 +270,7 @@ INVALID_STRUCTURE = "Invalid response structure from Steam API"
         ),
     ],
 )
-async def test_unexpected_body_is_raised_as_steam_api_error(
+async def test_unexpected_body_is_raised_as_response_parsing_error(
     steam: Steam,
     fake_steam: FakeSteam,
     call: Call,
@@ -282,8 +283,8 @@ async def test_unexpected_body_is_raised_as_steam_api_error(
     with pytest.raises(SteamAPIError, match=message) as excinfo:
         await call(steam)
 
-    # The plain wrapper, not a more specific subclass such as PrivateProfileError.
-    assert type(excinfo.value) is SteamAPIError
+    # Not a more specific error such as PrivateProfileError.
+    assert type(excinfo.value) is ResponseParsingError
     assert excinfo.value.status_code is None
     assert len(fake_steam.requests) == 1
 

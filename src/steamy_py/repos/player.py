@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from ..exceptions import (
     AuthenticationError,
     PrivateProfileError,
-    SteamAPIError,
+    ResponseParsingError,
 )
 from ..models.player import (
     Friend,
@@ -43,7 +43,7 @@ class PlayerAPI(BaseAPI):
         """
         steamids_param = ",".join(self._validate_steam_ids(steam_ids))
 
-        try:
+        with self._errors("get player summaries"):
             response_data = await self._request(
                 interface="ISteamUser",
                 method="GetPlayerSummaries",
@@ -53,16 +53,10 @@ class PlayerAPI(BaseAPI):
 
             # Parse the nested response structure
             if "response" not in response_data:
-                raise SteamAPIError("Invalid response structure from Steam API")
+                raise ResponseParsingError("Invalid response structure from Steam API")
 
             response_obj = PlayerSummariesResponse(**response_data["response"])
             return response_obj.players
-
-        except Exception as e:
-            logger.error("Error getting player summaries: %s", e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get player summaries: {e}") from e
 
     async def get_friends_list(
         self, steamid: SteamIDLike, relationship: str = "friend"
@@ -91,7 +85,14 @@ class PlayerAPI(BaseAPI):
                 version="v1",
                 params={"steamid": steamid, "relationship": relationship},
             )
+        except AuthenticationError as e:
+            # GetFriendList answers HTTP 401 for a friends list that is not
+            # public; an invalid key is HTTP 403.
+            if e.status_code == 401:
+                raise PrivateProfileError(steamid) from e
+            raise
 
+        with self._errors("get friends list"):
             if "friendslist" not in response_data:
                 # This usually means the profile is private
                 raise PrivateProfileError(steamid)
@@ -100,20 +101,6 @@ class PlayerAPI(BaseAPI):
                 friends=response_data["friendslist"].get("friends", [])
             )
             return response_obj.friends
-
-        except PrivateProfileError:
-            raise
-        except AuthenticationError as e:
-            # GetFriendList answers HTTP 401 for a friends list that is not
-            # public; an invalid key is HTTP 403.
-            if e.status_code == 401:
-                raise PrivateProfileError(steamid) from e
-            raise
-        except Exception as e:
-            logger.error("Error getting friends list for %s: %s", steamid, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get friends list: {e}") from e
 
     async def get_player_bans(
         self, steam_ids: SteamIDLike | Iterable[SteamIDLike]
@@ -132,7 +119,7 @@ class PlayerAPI(BaseAPI):
         """
         steamids_param = ",".join(self._validate_steam_ids(steam_ids))
 
-        try:
+        with self._errors("get player bans"):
             response_data = await self._request(
                 interface="ISteamUser",
                 method="GetPlayerBans",
@@ -141,16 +128,10 @@ class PlayerAPI(BaseAPI):
             )
 
             if "players" not in response_data:
-                raise SteamAPIError("Invalid response structure from Steam API")
+                raise ResponseParsingError("Invalid response structure from Steam API")
 
             response_obj = PlayerBansResponse(players=response_data["players"])
             return response_obj.players
-
-        except Exception as e:
-            logger.error("Error getting player bans: %s", e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get player bans: {e}") from e
 
     async def resolve_vanity_url(
         self, vanity_url: str, url_type: int = 1
@@ -181,7 +162,7 @@ class PlayerAPI(BaseAPI):
                 return parts[-1]
             vanity_url = parts[-1] if parts else ""
 
-        try:
+        with self._errors("resolve vanity URL"):
             response_data = await self._request(
                 interface="ISteamUser",
                 method="ResolveVanityURL",
@@ -190,7 +171,7 @@ class PlayerAPI(BaseAPI):
             )
 
             if "response" not in response_data:
-                raise SteamAPIError("Invalid response structure from Steam API")
+                raise ResponseParsingError("Invalid response structure from Steam API")
 
             response_obj = ResolveVanityURLResponse(response=response_data["response"])
 
@@ -198,12 +179,6 @@ class PlayerAPI(BaseAPI):
                 return response_obj.response.steamid
             else:
                 return None
-
-        except Exception as e:
-            logger.error("Error resolving vanity URL '%s': %s", vanity_url, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to resolve vanity URL: {e}") from e
 
     async def get_player_summary(self, steamid: SteamIDLike) -> PlayerSummary | None:
         """Get single player summary (convenience method).

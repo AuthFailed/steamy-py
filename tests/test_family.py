@@ -16,11 +16,13 @@ from multidict import MultiDict
 
 from steamy_py import (
     AuthenticationError,
+    InvalidSteamIDError,
     RateLimitError,
     ResponseParsingError,
     Settings,
     Steam,
     SteamAPIError,
+    SteamID,
 )
 from steamy_py.models.family import (
     FamilyGroupStatusResponse,
@@ -1062,3 +1064,64 @@ async def test_get_purchase_requests_sends_no_request_ids_by_default(
     await steam.family.get_purchase_requests(family_groupid=FAMILY_GROUPID)
 
     assert not any(name.startswith("request_ids") for name in fake_steam.last.params)
+
+
+# -- input encoding ------------------------------------------------------------------
+
+
+async def test_zero_inputs_are_sent_not_dropped(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", rpc_path("JoinFamilyGroup"), json=EMPTY)
+
+    await steam.family.join_family_group(family_groupid=0, nonce=0)
+
+    assert inputs_without_credential(fake_steam.last) == [
+        ("family_groupid", "0"),
+        ("nonce", "0"),
+    ]
+
+
+async def test_64_bit_ids_are_accepted_as_strings(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("POST", rpc_path("ConfirmJoinFamilyGroup"), json=EMPTY)
+
+    await steam.family.confirm_join_family_group(
+        family_groupid=GROUP, invite_id=str(INVITE_ID), nonce=str(NONCE)
+    )
+
+    assert inputs_without_credential(fake_steam.last) == sorted(
+        {
+            "family_groupid": GROUP,
+            "invite_id": str(INVITE_ID),
+            "nonce": str(NONCE),
+        }.items()
+    )
+
+
+@pytest.mark.parametrize("steamid", [INVITEE, int(INVITEE), SteamID(INVITEE)])
+async def test_steamid_inputs_accept_int_str_and_steamid(
+    steam: Steam, fake_steam: FakeSteam, steamid: Any
+) -> None:
+    fake_steam.api("POST", rpc_path("InviteToFamilyGroup"), json=EMPTY)
+
+    await steam.family.invite_to_family_group(
+        family_groupid=FAMILY_GROUPID, receiver_steamid=steamid, receiver_role=1
+    )
+
+    assert sent_inputs(fake_steam.last)["receiver_steamid"] == INVITEE
+
+
+@pytest.mark.parametrize("bad_id", ["robinwalker", "103582791429521412", True])
+async def test_invalid_steamid_input_is_rejected_before_any_request(
+    steam: Steam, fake_steam: FakeSteam, bad_id: Any
+) -> None:
+    serve_every_rpc(fake_steam, json=EMPTY)
+
+    with pytest.raises(InvalidSteamIDError):
+        await steam.family.remove_from_family_group(
+            family_groupid=FAMILY_GROUPID, steamid_to_remove=bad_id
+        )
+
+    assert fake_steam.requests == []

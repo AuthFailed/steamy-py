@@ -94,7 +94,15 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   without a request ([#20]); an invalid ID in such a URL raises
   `InvalidSteamIDError` ([#23]).
 - Methods that take a Steam ID accept an `int`, a string or a `SteamID`
-  ([#23]).
+  ([#23]); Family methods validate them before sending ([#15]).
+- Family methods accept 64-bit ids (family group, invite, nonce, cart,
+  request) as `int` or `str`, send `0` instead of silently dropping it, and
+  are annotated with their return types ([#15]).
+- A response that does not match its model raises `ResponseParsingError`
+  (a `SteamAPIError` subclass) from every method, not only Family methods;
+  so does a response missing its top-level object ([#15]).
+- Repository methods no longer log every failure at ERROR level; the client
+  still logs failed requests ([#15]).
 - `aiohttp[speedups]` is now optional: install `steamy-py[speedups]` to get
   it ([#6]).
 - `__version__` and the `User-Agent` header now report the installed package
@@ -163,6 +171,13 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Removed
 
+- **Breaking:** Unused models `LeaderboardEntry`, `LeaderboardResponse`,
+  `MarketSearch`, `PaginatedResponse`, `ErrorResponse`, `GameStat` and
+  `GetUserStatsResponse`. `steamy_py.models.UserStatsResponse` is now the
+  model `StatsAPI.get_user_stats_for_game()` returns; the
+  `StatsUserStatsResponse` alias is gone ([#15]).
+- `BaseAPI._get_request`, `_post_request`, `_put_request` and
+  `_delete_request` ([#15]).
 - **Breaking:** The `LOG_LEVEL` and `LOG_FORMAT` settings. An application
   with `LOG_LEVEL=info` in its environment crashed `Steam()` ([#12]).
 - **Breaking:** `MarketAPI.get_recent_items()`. It sorted search results by
@@ -226,6 +241,7 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#12]: https://github.com/AuthFailed/steamy-py/issues/12
 [#13]: https://github.com/AuthFailed/steamy-py/issues/13
 [#14]: https://github.com/AuthFailed/steamy-py/issues/14
+[#15]: https://github.com/AuthFailed/steamy-py/issues/15
 [#17]: https://github.com/AuthFailed/steamy-py/issues/17
 [#18]: https://github.com/AuthFailed/steamy-py/issues/18
 [#19]: https://github.com/AuthFailed/steamy-py/issues/19

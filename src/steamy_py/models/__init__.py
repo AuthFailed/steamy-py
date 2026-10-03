@@ -1,7 +1,7 @@
 """Data models for Steam API."""
 
 # Base models
-from .base import ErrorResponse, PaginatedResponse, SteamModel, SteamResponse
+from .base import SteamModel, SteamResponse
 
 # Family models
 from .family import (
@@ -30,19 +30,16 @@ from .game import (
     AppListResponse,
     GameSchema,
     GameSchemaResponse,
-    GameStat,
     GetAppListResponse,
     GetOwnedGamesResponse,
     GetPlayerAchievementsResponse,
     GetSchemaResponse,
-    GetUserStatsResponse,
     OwnedGame,
     OwnedGamesResponse,
     PlayerAchievementsResponse,
     SchemaAchievement,
     SchemaStat,
     SteamApp,
-    UserStatsResponse,
 )
 
 # Market models
@@ -56,7 +53,6 @@ from .market import (
     MarketItem,
     MarketListing,
     MarketListingsResponse,
-    MarketSearch,
     MarketSearchResponse,
     PriceInfo,
 )
@@ -86,17 +82,13 @@ from .stats import (
     GlobalAchievementStat,
     GlobalStat,
     GlobalStatsResponse,
-    LeaderboardEntry,
-    LeaderboardResponse,
     NewsItem,
     NewsResponse,
     PlayerCount,
     PlayerCountResponse,
     UserAchievement,
     UserStat,
-)
-from .stats import (
-    UserStatsResponse as StatsUserStatsResponse,
+    UserStatsResponse,
 )
 
 __all__ = [
@@ -106,7 +98,6 @@ __all__ = [
     "CommunityVisibilityState",
     "EFamilyGroupRole",
     "EPurchaseRequestAction",
-    "ErrorResponse",
     "FamilyGroup",
     "FamilyGroupFormerMember",
     "FamilyGroupMember",
@@ -118,7 +109,6 @@ __all__ = [
     "FriendsListResponse",
     "GameSchema",
     "GameSchemaResponse",
-    "GameStat",
     "GetAppListResponse",
     "GetGlobalAchievementResponse",
     "GetGlobalStatsResponse",
@@ -128,7 +118,6 @@ __all__ = [
     "GetPlayerCountResponse",
     "GetSchemaResponse",
     "GetUserStatsGameResponse",
-    "GetUserStatsResponse",
     "GlobalAchievementResponse",
     "GlobalAchievementStat",
     "GlobalStat",
@@ -137,21 +126,17 @@ __all__ = [
     "InventoryResponse",
     "ItemDescription",
     "ItemPriceResponse",
-    "LeaderboardEntry",
-    "LeaderboardResponse",
     "MarketHistoryEntry",
     "MarketHistoryResponse",
     "MarketItem",
     "MarketListing",
     "MarketListingsResponse",
-    "MarketSearch",
     "MarketSearchResponse",
     "MembershipHistoryEntry",
     "NewsItem",
     "NewsResponse",
     "OwnedGame",
     "OwnedGamesResponse",
-    "PaginatedResponse",
     "PersonaState",
     "PlayerAchievementsResponse",
     "PlayerBan",
@@ -170,7 +155,6 @@ __all__ = [
     "SharedLibraryApp",
     "SharedLibraryAppsData",
     "SharedLibraryAppsResponse",
-    "StatsUserStatsResponse",
     "SteamApp",
     "SteamModel",
     "SteamResponse",

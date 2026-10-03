@@ -847,7 +847,7 @@ async def test_connection_refused_raises_network_error(
     api = BaseAPI(make_client(STEAM_API_BASE_URL=UNREACHABLE))
 
     with pytest.raises(NetworkError) as excinfo:
-        await api._get_request(
+        await api._request(
             "ISteamUser", "GetPlayerSummaries", "v2", params={"steamids": STEAMID}
         )
 
@@ -1062,7 +1062,7 @@ async def fail_summaries_request(
     api = BaseAPI(make_client(MAX_RETRIES=1, **overrides))
 
     with pytest.raises(error) as excinfo:
-        await api._get_request(
+        await api._request(
             "ISteamUser",
             "GetPlayerSummaries",
             "v2",
@@ -1145,7 +1145,7 @@ async def test_network_error_is_not_chained_under_pure_python_task(
     make_client: ClientFactory,
 ) -> None:
     api = BaseAPI(make_client(STEAM_API_BASE_URL=UNREACHABLE))
-    request = api._get_request(
+    request = api._request(
         "ISteamUser", "GetPlayerSummaries", "v2", params={"steamids": STEAMID}
     )
     loop = asyncio.get_running_loop()
@@ -1165,10 +1165,10 @@ async def test_successful_request_logs_do_not_contain_credentials(
     fake_steam.api("GET", FAMILY_PATH, json=FAMILY)
     api = BaseAPI(client)
 
-    await api._get_request(
+    await api._request(
         "ISteamUser", "GetPlayerSummaries", "v2", params={"steamids": STEAMID}
     )
-    await api._get_request(
+    await api._request(
         "IFamilyGroupsService",
         "GetFamilyGroupForUser",
         params={"steamid": STEAMID},
@@ -1389,23 +1389,19 @@ async def test_store_request_sends_no_credential_by_default(
     assert sent.params == params
 
 
-# GetSteamLevel is GET-only on Steam; the other verbs just exercise the helpers.
-@pytest.mark.parametrize(
-    ("helper", "http_method"),
-    [
-        ("_get_request", "GET"),
-        ("_post_request", "POST"),
-        ("_put_request", "PUT"),
-        ("_delete_request", "DELETE"),
-    ],
-)
-async def test_http_method_helpers_use_their_verb(
-    client: Client, fake_steam: FakeSteam, helper: str, http_method: str
+# GetSteamLevel is GET-only on Steam; the other verbs just exercise _request.
+@pytest.mark.parametrize("http_method", ["GET", "POST", "PUT", "DELETE"])
+async def test_request_uses_the_given_verb(
+    client: Client, fake_steam: FakeSteam, http_method: str
 ) -> None:
     fake_steam.api(http_method, STEAM_LEVEL_PATH, json=STEAM_LEVEL)
-    call = getattr(BaseAPI(client), helper)
 
-    data = await call("IPlayerService", "GetSteamLevel", params={"steamid": STEAMID})
+    data = await BaseAPI(client)._request(
+        "IPlayerService",
+        "GetSteamLevel",
+        params={"steamid": STEAMID},
+        http_method=http_method,
+    )
 
     assert data == STEAM_LEVEL
     sent = fake_steam.last

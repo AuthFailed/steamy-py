@@ -79,7 +79,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get item price"):
             url = self._build_market_url("priceoverview/")
 
             params = {
@@ -95,12 +95,6 @@ class MarketAPI(BaseAPI):
 
             response_obj = ItemPriceResponse(**response_data)
             return response_obj.to_price_info()
-
-        except Exception as e:
-            logger.error("Error getting price for '%s': %s", market_hash_name, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get item price: {e}") from e
 
     async def get_market_listings(
         self,
@@ -125,7 +119,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get market listings"):
             url = self._build_market_url(
                 f"listings/{app_id}/{quote(market_hash_name, safe='')}/render/"
             )
@@ -140,12 +134,6 @@ class MarketAPI(BaseAPI):
             response_data = await self._request_community(url, params)
 
             return MarketListingsResponse(**response_data)
-
-        except Exception as e:
-            logger.error("Error getting listings for '%s': %s", market_hash_name, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get market listings: {e}") from e
 
     async def get_price_history(
         self, market_hash_name: str, app_id: int = 730
@@ -162,7 +150,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("get price history"):
             url = self._build_market_url("pricehistory/")
 
             params = {"appid": str(app_id), "market_hash_name": market_hash_name}
@@ -174,14 +162,6 @@ class MarketAPI(BaseAPI):
 
             response_obj = MarketHistoryResponse(**response_data)
             return response_obj.to_history_entries()
-
-        except Exception as e:
-            logger.error(
-                "Error getting price history for '%s': %s", market_hash_name, e
-            )
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get price history: {e}") from e
 
     async def get_inventory(
         self,
@@ -212,7 +192,7 @@ class MarketAPI(BaseAPI):
         """
         steamid = validate_steam_id(steamid)
 
-        try:
+        with self._errors("get inventory"):
             url = f"{self.community_base_url}/inventory/{steamid}/{app_id}/{context_id}"
 
             params = {"l": language, "count": str(count)}
@@ -240,14 +220,6 @@ class MarketAPI(BaseAPI):
 
             return InventoryResponse(**response_data)
 
-        except (PrivateProfileError, PlayerNotFoundError):
-            raise
-        except Exception as e:
-            logger.error("Error getting inventory for %s: %s", steamid, e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to get inventory: {e}") from e
-
     async def search_market(
         self,
         query: str = "",
@@ -273,7 +245,7 @@ class MarketAPI(BaseAPI):
         Raises:
             SteamAPIError: On API errors
         """
-        try:
+        with self._errors("search market"):
             url = self._build_market_url("search/render/")
 
             params = {
@@ -291,12 +263,6 @@ class MarketAPI(BaseAPI):
             response_data = await self._request_community(url, params)
 
             return MarketSearchResponse(**response_data)
-
-        except Exception as e:
-            logger.error("Error searching market: %s", e)
-            if isinstance(e, SteamAPIError):
-                raise
-            raise SteamAPIError(f"Failed to search market: {e}") from e
 
     async def get_popular_items(
         self, app_id: int | None = None, count: int = 100
