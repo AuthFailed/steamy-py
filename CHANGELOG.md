@@ -91,7 +91,10 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `achievements`, and `GlobalStatsResponse.globalstats` maps each stat to
   `GlobalStatTotal` ([#20]).
 - `resolve_vanity_url()` returns the Steam ID of a `/profiles/<id>` URL
-  without a request ([#20]).
+  without a request ([#20]); an invalid ID in such a URL raises
+  `InvalidSteamIDError` ([#23]).
+- Methods that take a Steam ID accept an `int`, a string or a `SteamID`
+  ([#23]).
 - `aiohttp[speedups]` is now optional: install `steamy-py[speedups]` to get
   it ([#6]).
 - `__version__` and the `User-Agent` header now report the installed package
@@ -123,6 +126,9 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   session (never closed by the library), and `Settings.CONNECTION_LIMIT`
   ([#10]).
 - `SteamAPIError.eresult` ([#18]).
+- `SteamID` type: parses SteamID64, Steam2 (`STEAM_1:0:84901`), Steam3
+  (`[U:1:169802]`) and `/profiles/<id>` URLs, and converts between them
+  ([#23]).
 - `GameAPI.get_app_list_page()` and `GameAPI.iter_app_list()`; `SteamApp`
   carries `last_modified` and `price_change_number` ([#13]).
 - `include_family_group_response` parameter for
@@ -168,6 +174,11 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Fixed
 
+- Steam ID validation accepts every individual account
+  (`76561197960265729`–`76561202255233023`; IDs from `76561200000000000` up
+  were rejected) and rejects IDs outside that range, group IDs and non-ASCII
+  digits. App ID validation rejects `True`/`False`, which were sent as
+  `appid=True` ([#23]).
 - `MarketAPI.get_market_listings()` requested an HTML page; it now uses the
   `/market/listings/{appid}/{hash}/render/` JSON endpoint ([#22]).
 - `MarketAPI.get_inventory()` failed on every non-empty inventory (`pos` is
@@ -221,3 +232,4 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#20]: https://github.com/AuthFailed/steamy-py/issues/20
 [#21]: https://github.com/AuthFailed/steamy-py/issues/21
 [#22]: https://github.com/AuthFailed/steamy-py/issues/22
+[#23]: https://github.com/AuthFailed/steamy-py/issues/23

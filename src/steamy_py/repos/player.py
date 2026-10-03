@@ -1,10 +1,10 @@
 """Player/User API endpoints for Steam API."""
 
 import logging
+from collections.abc import Iterable
 
 from ..exceptions import (
     AuthenticationError,
-    InvalidSteamIDError,
     PrivateProfileError,
     SteamAPIError,
 )
@@ -17,6 +17,7 @@ from ..models.player import (
     PlayerSummary,
     ResolveVanityURLResponse,
 )
+from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,12 @@ class PlayerAPI(BaseAPI):
     """Steam Player/User API endpoints."""
 
     async def get_player_summaries(
-        self, steam_ids: str | list[str]
+        self, steam_ids: SteamIDLike | Iterable[SteamIDLike]
     ) -> list[PlayerSummary]:
         """Get player summary information for one or more Steam IDs.
 
         Args:
-            steam_ids: Single Steam ID or list of Steam IDs (max 100)
+            steam_ids: One Steam ID or up to 100 (int, str or SteamID)
 
         Returns:
             List of player summaries
@@ -40,17 +41,7 @@ class PlayerAPI(BaseAPI):
             InvalidSteamIDError: If Steam ID format is invalid
             SteamAPIError: On API errors
         """
-        if isinstance(steam_ids, str):
-            steam_ids = [steam_ids]
-
-        if len(steam_ids) > 100:
-            raise ValueError("Maximum 100 Steam IDs allowed per request")
-
-        # Validate Steam IDs
-        for steamid in steam_ids:
-            self._validate_steam_id(steamid)
-
-        steamids_param = ",".join(steam_ids)
+        steamids_param = ",".join(self._validate_steam_ids(steam_ids))
 
         try:
             response_data = await self._request(
@@ -74,7 +65,7 @@ class PlayerAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get player summaries: {e}") from e
 
     async def get_friends_list(
-        self, steamid: str, relationship: str = "friend"
+        self, steamid: SteamIDLike, relationship: str = "friend"
     ) -> list[Friend]:
         """Get friends list for a Steam user.
 
@@ -91,7 +82,7 @@ class PlayerAPI(BaseAPI):
             PlayerNotFoundError: If player not found
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
+        steamid = validate_steam_id(steamid)
 
         try:
             response_data = await self._request(
@@ -124,11 +115,13 @@ class PlayerAPI(BaseAPI):
                 raise
             raise SteamAPIError(f"Failed to get friends list: {e}") from e
 
-    async def get_player_bans(self, steam_ids: str | list[str]) -> list[PlayerBan]:
+    async def get_player_bans(
+        self, steam_ids: SteamIDLike | Iterable[SteamIDLike]
+    ) -> list[PlayerBan]:
         """Get ban information for one or more Steam users.
 
         Args:
-            steam_ids: Single Steam ID or list of Steam IDs (max 100)
+            steam_ids: One Steam ID or up to 100 (int, str or SteamID)
 
         Returns:
             List of player ban information
@@ -137,17 +130,7 @@ class PlayerAPI(BaseAPI):
             InvalidSteamIDError: If Steam ID format is invalid
             SteamAPIError: On API errors
         """
-        if isinstance(steam_ids, str):
-            steam_ids = [steam_ids]
-
-        if len(steam_ids) > 100:
-            raise ValueError("Maximum 100 Steam IDs allowed per request")
-
-        # Validate Steam IDs
-        for steamid in steam_ids:
-            self._validate_steam_id(steamid)
-
-        steamids_param = ",".join(steam_ids)
+        steamids_param = ",".join(self._validate_steam_ids(steam_ids))
 
         try:
             response_data = await self._request(
@@ -186,12 +169,15 @@ class PlayerAPI(BaseAPI):
             Steam ID if successful, None if not found
 
         Raises:
+            InvalidSteamIDError: If a ``/profiles/`` URL holds an invalid ID
             SteamAPIError: On API errors
         """
         # Accept a full profile URL as well as the bare vanity name.
         if "/" in vanity_url:
             parts = [part for part in vanity_url.split("/") if part]
-            if len(parts) >= 2 and parts[-2] in ("profiles", "gid"):
+            if len(parts) >= 2 and parts[-2] == "profiles":
+                return validate_steam_id(parts[-1])
+            if len(parts) >= 2 and parts[-2] == "gid":
                 return parts[-1]
             vanity_url = parts[-1] if parts else ""
 
@@ -219,29 +205,7 @@ class PlayerAPI(BaseAPI):
                 raise
             raise SteamAPIError(f"Failed to resolve vanity URL: {e}") from e
 
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        # Steam ID should be a 17-digit number starting with 7656119
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
-
-    async def get_player_summary(self, steamid: str) -> PlayerSummary | None:
+    async def get_player_summary(self, steamid: SteamIDLike) -> PlayerSummary | None:
         """Get single player summary (convenience method).
 
         Args:
@@ -256,3 +220,20 @@ class PlayerAPI(BaseAPI):
         """
         summaries = await self.get_player_summaries(steamid)
         return summaries[0] if summaries else None
+
+    @staticmethod
+    def _validate_steam_ids(
+        steam_ids: SteamIDLike | Iterable[SteamIDLike],
+    ) -> list[str]:
+        """Validate one Steam ID or a batch of up to 100.
+
+        Raises:
+            InvalidSteamIDError: If a Steam ID is invalid
+            ValueError: If more than 100 Steam IDs are given
+        """
+        if isinstance(steam_ids, str) or not isinstance(steam_ids, Iterable):
+            steam_ids = [steam_ids]
+        steamids = [validate_steam_id(steamid) for steamid in steam_ids]
+        if len(steamids) > 100:
+            raise ValueError("Maximum 100 Steam IDs allowed per request")
+        return steamids

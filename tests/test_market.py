@@ -662,10 +662,6 @@ async def test_get_inventory_rejects_invalid_steamid_before_any_request(
     assert fake_steam.requests == []
 
 
-@pytest.mark.xfail(
-    raises=InvalidSteamIDError,
-    reason="#23: ids above 76561199999999999 fail the '7656119' prefix check",
-)
 async def test_get_inventory_accepts_high_account_id(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:

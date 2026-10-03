@@ -10,7 +10,6 @@ from typing import Any
 from urllib.parse import quote
 
 from ..exceptions import (
-    InvalidSteamIDError,
     PlayerNotFoundError,
     PrivateProfileError,
     SteamAPIError,
@@ -24,6 +23,7 @@ from ..models.market import (
     MarketSearchResponse,
     PriceInfo,
 )
+from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
@@ -185,7 +185,7 @@ class MarketAPI(BaseAPI):
 
     async def get_inventory(
         self,
-        steamid: str,
+        steamid: SteamIDLike,
         app_id: int,
         context_id: str = "2",
         start_assetid: str | None = None,
@@ -210,7 +210,7 @@ class MarketAPI(BaseAPI):
             PrivateProfileError: If inventory is private
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
+        steamid = validate_steam_id(steamid)
 
         try:
             url = f"{self.community_base_url}/inventory/{steamid}/{app_id}/{context_id}"
@@ -316,24 +316,3 @@ class MarketAPI(BaseAPI):
         return await self.search_market(
             query="", app_id=app_id, count=count, sort_column="popular", sort_dir="desc"
         )
-
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")

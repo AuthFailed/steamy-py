@@ -41,6 +41,7 @@ from .models import (
 # API classes (for advanced users who want direct access)
 from .repos import FamilyAPI, GameAPI, MarketAPI, PlayerAPI, StatsAPI
 from .steam import Steam
+from .steamid import SteamID
 
 __all__ = [
     "Achievement",
@@ -75,6 +76,7 @@ __all__ = [
     "Steam",
     "SteamAPIError",
     "SteamApp",
+    "SteamID",
     "UserStat",
     "__version__",
 ]

@@ -272,10 +272,6 @@ async def test_invalid_app_id_is_rejected_before_any_request(
     assert fake_steam.requests == []
 
 
-@pytest.mark.xfail(
-    reason="#23: bool passes the app id check and is sent as appid=True",
-    raises=pytest.fail.Exception,
-)
 async def test_bool_app_id_is_rejected_before_any_request(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:

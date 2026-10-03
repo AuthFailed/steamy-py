@@ -4,8 +4,6 @@ import logging
 
 from ..exceptions import (
     GameNotFoundError,
-    InvalidAppIDError,
-    InvalidSteamIDError,
     PrivateProfileError,
     SteamAPIError,
 )
@@ -23,6 +21,7 @@ from ..models.stats import (
     UserStat,
     UserStatsResponse,
 )
+from ..steamid import SteamIDLike, validate_app_id, validate_steam_id
 from .base import BaseAPI
 from .game import GameAPI
 
@@ -55,7 +54,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found or has no stats
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         if not stat_names:
             raise ValueError("At least one stat name must be provided")
@@ -101,7 +100,7 @@ class StatsAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get global stats: {e}") from e
 
     async def get_user_stats_for_game(
-        self, steamid: str, app_id: int
+        self, steamid: SteamIDLike, app_id: int
     ) -> UserStatsResponse:
         """Get user statistics for a specific game.
 
@@ -119,8 +118,8 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
-        self._validate_app_id(app_id)
+        steamid = validate_steam_id(steamid)
+        validate_app_id(app_id)
 
         try:
             try:
@@ -173,7 +172,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found or has no achievements
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         try:
             response_data = await self._request(
@@ -215,7 +214,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         try:
             response_data = await self._request(
@@ -273,7 +272,7 @@ class StatsAPI(BaseAPI):
             InvalidAppIDError: If App ID is invalid
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         params = {
             "appid": str(app_id),
@@ -308,7 +307,7 @@ class StatsAPI(BaseAPI):
             raise SteamAPIError(f"Failed to get news: {e}") from e
 
     async def get_user_achievements_only(
-        self, steamid: str, app_id: int
+        self, steamid: SteamIDLike, app_id: int
     ) -> list[UserAchievement]:
         """Get a user's achievements for a game, locked and unlocked.
 
@@ -341,7 +340,9 @@ class StatsAPI(BaseAPI):
             for achievement in achievements
         ]
 
-    async def get_user_stats_only(self, steamid: str, app_id: int) -> list[UserStat]:
+    async def get_user_stats_only(
+        self, steamid: SteamIDLike, app_id: int
+    ) -> list[UserStat]:
         """Get only user statistics (convenience method).
 
         Args:
@@ -360,36 +361,3 @@ class StatsAPI(BaseAPI):
         """
         user_stats = await self.get_user_stats_for_game(steamid, app_id)
         return user_stats.stats
-
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
-
-    def _validate_app_id(self, app_id: int) -> None:
-        """Validate App ID format.
-
-        Args:
-            app_id: App ID to validate
-
-        Raises:
-            InvalidAppIDError: If App ID is invalid
-        """
-        if not isinstance(app_id, int) or app_id <= 0:
-            raise InvalidAppIDError(str(app_id), "App ID must be a positive integer")

@@ -16,6 +16,7 @@ from steamy_py import (
     Settings,
     Steam,
     SteamAPIError,
+    SteamID,
 )
 from steamy_py.models.player import CommunityVisibilityState, PersonaState
 from tests.fakesteam import (
@@ -52,11 +53,6 @@ UNAUTHORIZED_HTML = (
 
 DEFAULT_AVATAR = (
     "https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb"
-)
-
-XFAIL_HIGH_ACCOUNT_IDS = pytest.mark.xfail(
-    raises=InvalidSteamIDError,
-    reason="#23: ids above 76561199999999999 fail the '7656119' prefix check",
 )
 
 Call = Callable[[Steam], Awaitable[object]]
@@ -180,6 +176,11 @@ INVALID_STEAMIDS = [
     pytest.param(f" {STEAMID}", id="leading-space"),
     pytest.param(f"{STEAMID}\n", id="trailing-newline"),
     pytest.param("-" + STEAMID[1:], id="negative"),
+    pytest.param(str(INDIVIDUAL_BASE), id="account-id-0"),
+    pytest.param("76561190000000000", id="7656119-prefix-below-base"),
+    pytest.param(str(INDIVIDUAL_BASE + 2**32), id="account-id-overflow"),
+    pytest.param(str(INDIVIDUAL_BASE - 2**32 + 169802), id="instance-0"),
+    pytest.param(str(INDIVIDUAL_BASE + (1 << 56) + 169802), id="universe-2"),
 ]
 
 
@@ -349,12 +350,8 @@ async def test_invalid_steamid_is_rejected_before_any_request(
         pytest.param(STEAMID, id="robin"),
         pytest.param(account(1), id="lowest-account-id"),
         pytest.param("76561199999999999", id="76561199999999999"),
-        pytest.param(
-            "76561200000000000", id="76561200000000000", marks=XFAIL_HIGH_ACCOUNT_IDS
-        ),
-        pytest.param(
-            account(2**32 - 1), id="highest-account-id", marks=XFAIL_HIGH_ACCOUNT_IDS
-        ),
+        pytest.param("76561200000000000", id="76561200000000000"),
+        pytest.param(account(2**32 - 1), id="highest-account-id"),
     ],
 )
 async def test_valid_individual_steamid_is_sent(
@@ -371,10 +368,37 @@ async def test_valid_individual_steamid_is_sent(
     assert fake_steam.last.params["steamids"] == steamid
 
 
-@pytest.mark.xfail(
-    raises=pytest.fail.Exception,
-    reason="#23: str.isdigit() accepts non-ASCII digits",
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param(int(STEAMID), id="int"),
+        pytest.param(SteamID(STEAMID), id="SteamID"),
+    ],
 )
+async def test_steamid_accepts_int_and_steamid(
+    steam: Steam, fake_steam: FakeSteam, steamid: int | SteamID
+) -> None:
+    fake_steam.api("GET", SUMMARIES_PATH, json=NO_PLAYERS)
+    fake_steam.api("GET", FRIENDS_PATH, json=NO_FRIENDS)
+
+    await steam.player.get_player_summaries([steamid, STEAMID])
+    assert fake_steam.last.params["steamids"] == f"{STEAMID},{STEAMID}"
+
+    await steam.player.get_friends_list(steamid)
+    assert fake_steam.last.params["steamid"] == STEAMID
+
+
+@pytest.mark.parametrize("bad_id", [True, int(STEAMID) + 2**32, 7.6e16, None])
+async def test_non_steamid_values_are_rejected(
+    steam: Steam, fake_steam: FakeSteam, bad_id: Any
+) -> None:
+    with pytest.raises(InvalidSteamIDError) as excinfo:
+        await steam.player.get_player_summary(bad_id)
+
+    assert excinfo.value.steamid == str(bad_id)
+    assert fake_steam.requests == []
+
+
 async def test_steamid_with_non_ascii_digit_is_rejected(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -837,6 +861,17 @@ async def test_resolve_vanity_url_accepts_profile_url(
 
     assert fake_steam.last.params["vanityurl"] == "robinwalker"
     assert steamid == STEAMID
+
+
+async def test_resolve_vanity_url_rejects_invalid_profiles_url(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    with pytest.raises(InvalidSteamIDError):
+        await steam.player.resolve_vanity_url(
+            "https://steamcommunity.com/profiles/12345/"
+        )
+
+    assert fake_steam.requests == []
 
 
 @pytest.mark.parametrize(

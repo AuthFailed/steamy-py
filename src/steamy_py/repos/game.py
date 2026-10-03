@@ -6,8 +6,6 @@ from typing import Any
 
 from ..exceptions import (
     GameNotFoundError,
-    InvalidAppIDError,
-    InvalidSteamIDError,
     PrivateProfileError,
     SteamAPIError,
 )
@@ -23,6 +21,7 @@ from ..models.game import (
     OwnedGame,
     SteamApp,
 )
+from ..steamid import SteamIDLike, validate_app_id, validate_steam_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class GameAPI(BaseAPI):
 
     async def get_owned_games(
         self,
-        steamid: str,
+        steamid: SteamIDLike,
         include_appinfo: bool = True,
         include_played_free_games: bool = False,
         appids_filter: list[int] | None = None,
@@ -66,7 +65,7 @@ class GameAPI(BaseAPI):
             PrivateProfileError: If the game details are not public
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
+        steamid = validate_steam_id(steamid)
 
         params = {
             "steamid": steamid,
@@ -227,7 +226,7 @@ class GameAPI(BaseAPI):
         return [app async for app in self.iter_app_list(max_results, **filters)]
 
     async def get_player_achievements(
-        self, steamid: str, app_id: int, language: str = "english"
+        self, steamid: SteamIDLike, app_id: int, language: str = "english"
     ) -> list[Achievement]:
         """Get player achievements for a specific game.
 
@@ -246,8 +245,8 @@ class GameAPI(BaseAPI):
             PrivateProfileError: If profile is private
             SteamAPIError: On API errors
         """
-        self._validate_steam_id(steamid)
-        self._validate_app_id(app_id)
+        steamid = validate_steam_id(steamid)
+        validate_app_id(app_id)
 
         try:
             try:
@@ -300,7 +299,7 @@ class GameAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         try:
             response_data = await self._request(
@@ -344,7 +343,7 @@ class GameAPI(BaseAPI):
             InvalidAppIDError: If App ID is invalid
             SteamAPIError: On API errors
         """
-        self._validate_app_id(app_id)
+        validate_app_id(app_id)
 
         try:
             response_data = await self._request_store(
@@ -400,36 +399,3 @@ class GameAPI(BaseAPI):
             # Search full app list (this can be slow)
             all_apps = await self.get_app_list()
             return [app for app in all_apps if search_term in app.name.lower()]
-
-    def _validate_steam_id(self, steamid: str) -> None:
-        """Validate Steam ID format.
-
-        Args:
-            steamid: Steam ID to validate
-
-        Raises:
-            InvalidSteamIDError: If Steam ID format is invalid
-        """
-        if not steamid:
-            raise InvalidSteamIDError(steamid, "Steam ID cannot be empty")
-
-        if not steamid.isdigit():
-            raise InvalidSteamIDError(steamid, "Steam ID must be numeric")
-
-        if len(steamid) != 17:
-            raise InvalidSteamIDError(steamid, "Steam ID must be 17 digits long")
-
-        if not steamid.startswith("7656119"):
-            raise InvalidSteamIDError(steamid, "Invalid Steam ID format")
-
-    def _validate_app_id(self, app_id: int) -> None:
-        """Validate App ID format.
-
-        Args:
-            app_id: App ID to validate
-
-        Raises:
-            InvalidAppIDError: If App ID is invalid
-        """
-        if not isinstance(app_id, int) or app_id <= 0:
-            raise InvalidAppIDError(str(app_id), "App ID must be a positive integer")
