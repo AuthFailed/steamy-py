@@ -10,34 +10,48 @@ class SteamAPIError(Exception):
         self,
         message: str,
         status_code: int | None = None,
-        response_data: dict[str, Any] | None = None,
+        response_data: Any = None,
+        eresult: int | None = None,
     ):
         """Initialize Steam API error.
 
         Args:
             message: Error message
             status_code: HTTP status code if applicable
-            response_data: API response data if applicable
+            response_data: Response body (parsed JSON, or text) if applicable
+            eresult: Steam ``EResult`` code from the ``x-eresult`` header, if any
         """
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data
+        self.eresult = eresult
 
 
 class AuthenticationError(SteamAPIError):
-    """Invalid or missing API key."""
+    """Missing, invalid or insufficient credentials."""
 
-    def __init__(self, message: str = "Invalid or missing Steam API key"):
-        super().__init__(message, status_code=401)
+    def __init__(
+        self,
+        message: str = "Invalid or missing Steam API key",
+        status_code: int | None = 401,
+        response_data: Any = None,
+        eresult: int | None = None,
+    ):
+        super().__init__(message, status_code, response_data, eresult)
 
 
 class RateLimitError(SteamAPIError):
     """Rate limit exceeded."""
 
     def __init__(
-        self, message: str = "Rate limit exceeded", retry_after: int | None = None
+        self,
+        message: str = "Rate limit exceeded",
+        retry_after: float | None = None,
+        status_code: int | None = 429,
+        response_data: Any = None,
+        eresult: int | None = None,
     ):
-        super().__init__(message, status_code=429)
+        super().__init__(message, status_code, response_data, eresult)
         self.retry_after = retry_after
 
 
@@ -92,10 +106,16 @@ class PrivateProfileError(SteamAPIError):
 
 
 class ServiceUnavailableError(SteamAPIError):
-    """Steam API service is temporarily unavailable."""
+    """Steam API service is temporarily unavailable (HTTP 5xx or EResult Busy)."""
 
-    def __init__(self, message: str = "Steam API service is temporarily unavailable"):
-        super().__init__(message, status_code=503)
+    def __init__(
+        self,
+        message: str = "Steam API service is temporarily unavailable",
+        status_code: int | None = 503,
+        response_data: Any = None,
+        eresult: int | None = None,
+    ):
+        super().__init__(message, status_code, response_data, eresult)
 
 
 class ConfigurationError(SteamAPIError):

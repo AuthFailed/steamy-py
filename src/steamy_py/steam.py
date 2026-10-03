@@ -2,6 +2,8 @@
 
 import logging
 
+from aiohttp import ClientSession
+
 from .client import Client
 from .config import Settings
 from .exceptions import ConfigurationError
@@ -51,6 +53,7 @@ class Steam:
         api_key: str | None = None,
         access_token: str | None = None,
         settings: Settings | None = None,
+        session: ClientSession | None = None,
         **kwargs,
     ):
         """Initialize the Steam API client.
@@ -61,6 +64,8 @@ class Steam:
             access_token: Steam access token for user-specific endpoints. Falls
                 back to the STEAM_ACCESS_TOKEN environment variable.
             settings: Optional settings configuration
+            session: Optional aiohttp session to reuse; it is never closed by
+                this client
             **kwargs: Additional arguments passed to Settings
 
         Raises:
@@ -98,7 +103,10 @@ class Steam:
 
         # Initialize HTTP client
         self.client = Client(
-            api_key=api_key, access_token=access_token, settings=settings
+            api_key=api_key,
+            access_token=access_token,
+            settings=settings,
+            session=session,
         )
 
         # Initialize API repositories

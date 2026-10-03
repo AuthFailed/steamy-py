@@ -61,7 +61,7 @@ class GameAPI(BaseAPI):
         }
 
         if appids_filter:
-            params["appids_filter"] = ",".join(map(str, appids_filter))
+            params.update(self._indexed("appids_filter", appids_filter))
 
         try:
             response_data = await self._request(

@@ -1,6 +1,8 @@
 """Base repository class for Steam API endpoints."""
 
+import json
 import logging
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from ..client import Client
@@ -18,6 +20,16 @@ class BaseAPI:
             client: Authenticated Steam API client
         """
         self.client = client
+
+    @staticmethod
+    def _indexed(name: str, values: Iterable[Any]) -> dict[str, str]:
+        """Encode a repeated field the way the Web API expects it.
+
+        Example:
+            _indexed("appids_filter", [440, 620])
+            -> {"appids_filter[0]": "440", "appids_filter[1]": "620"}
+        """
+        return {f"{name}[{index}]": str(value) for index, value in enumerate(values)}
 
     def _build_url(self, interface: str, method: str, version: str = "v1") -> str:
         """Build Steam API URL.
@@ -62,6 +74,7 @@ class BaseAPI:
         params: dict[str, Any] | None = None,
         auth_type: str = "api_key",
         http_method: str = "GET",
+        input_json: Mapping[str, Any] | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Make authenticated request to Steam API.
@@ -70,21 +83,27 @@ class BaseAPI:
             interface: Steam API interface name
             method: Method name
             version: API version
-            params: Query parameters
+            params: Request parameters (query string for GET, form body for POST)
             auth_type: Authentication type ("api_key", "access_token", or "none")
             http_method: HTTP method ("GET", "POST", "PUT", "DELETE")
+            input_json: Service-method input sent as a single ``input_json``
+                parameter, for nested or repeated fields
             **kwargs: Additional request parameters
 
         Returns:
             JSON response data
 
         Raises:
-            SteamAPIError: On HTTP errors (``status_code`` is set), with the
-                RateLimitError, NetworkError and ResponseParsingError subclasses
-                for rate limiting, connection errors and invalid JSON
-            ValueError: If the credential for ``auth_type`` is missing
+            SteamAPIError: On any failure; see ``Client.request`` for the
+                subclasses (AuthenticationError, RateLimitError,
+                ServiceUnavailableError, NetworkError, ResponseParsingError)
         """
         url = self._build_url(interface, method, version)
+        if input_json is not None:
+            params = {
+                **(params or {}),
+                "input_json": json.dumps(input_json, separators=(",", ":")),
+            }
 
         logger.debug(
             "Making %s request to %s/%s/%s with auth: %s",
@@ -120,10 +139,9 @@ class BaseAPI:
             JSON response data
 
         Raises:
-            SteamAPIError: On HTTP errors (``status_code`` is set), with the
-                RateLimitError, NetworkError and ResponseParsingError subclasses
-                for rate limiting, connection errors and invalid JSON
-            ValueError: If the credential for ``auth_type`` is missing
+            SteamAPIError: On any failure; see ``Client.request`` for the
+                subclasses (AuthenticationError, RateLimitError,
+                ServiceUnavailableError, NetworkError, ResponseParsingError)
         """
         url = self._build_store_url(endpoint)
 

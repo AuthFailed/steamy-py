@@ -554,11 +554,6 @@ async def test_get_user_stats_for_game_unrecognised_error_raises_steam_api_error
         ),
     ],
 )
-@pytest.mark.xfail(
-    reason="#10: GetUserStatsForGame 4xx error bodies never reach the "
-    "private/not-found mapping",
-    raises=SteamAPIError,
-)
 async def test_get_user_stats_for_game_maps_steam_errors(
     steam: Steam,
     fake_steam: FakeSteam,

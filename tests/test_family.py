@@ -13,7 +13,6 @@ from typing import Any
 
 import pytest
 from multidict import MultiDict
-from pydantic import ValidationError
 
 from steamy_py import (
     AuthenticationError,
@@ -544,10 +543,6 @@ async def test_untyped_call_returns_response_body(
     assert await endpoint.call(steam) == endpoint.reply
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="#18: POST inputs are sent in the query string, not the form body",
-)
 async def test_post_inputs_are_sent_in_form_body(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -651,11 +646,6 @@ async def test_non_json_reply_is_raised_as_steam_api_error(
     assert ACCESS_TOKEN not in str(excinfo.value)
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="#15: FamilyAPI re-wraps client errors in a bare SteamAPIError, "
-    "dropping status_code and the exception type",
-)
 @pytest.mark.parametrize(
     ("status", "error"),
     [
@@ -681,11 +671,6 @@ async def test_http_error_keeps_status_code_and_exception_type(
     assert excinfo.value.status_code == status
 
 
-@pytest.mark.xfail(
-    raises=ValidationError,
-    reason="#14: pydantic ValidationError escapes the except-ValueError branch "
-    "unwrapped instead of SteamAPIError",
-)
 @pytest.mark.parametrize(
     ("endpoint", "body"),
     [
@@ -715,10 +700,6 @@ async def test_malformed_response_raises_steam_api_error(
         await endpoint.call(steam)
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="#19: copy-pasted FamilyAPI error messages name another operation",
-)
 @pytest.mark.parametrize(
     ("endpoint", "other_operation"),
     [
@@ -749,10 +730,6 @@ async def test_error_message_does_not_name_another_operation(
     assert other_operation not in str(excinfo.value)
 
 
-@pytest.mark.xfail(
-    raises=pytest.fail.Exception,
-    reason="#18: x-eresult failure header is ignored on HTTP 200",
-)
 @pytest.mark.parametrize(
     "endpoint",
     [
@@ -825,7 +802,7 @@ async def test_get_family_group_for_user_parses_member_response(
 
 
 @pytest.mark.xfail(
-    raises=ValidationError,
+    raises=SteamAPIError,
     reason="#14: FamilyGroupStatus requires fields Steam omits for non-members",
 )
 async def test_get_family_group_for_user_parses_non_member_response(
@@ -842,7 +819,7 @@ async def test_get_family_group_for_user_parses_non_member_response(
 
 
 @pytest.mark.xfail(
-    raises=ValidationError,
+    raises=SteamAPIError,
     reason="#14: FamilyGroupStatus requires fields Steam omits at default values",
 )
 async def test_get_family_group_for_user_parses_response_with_defaults_omitted(
@@ -982,7 +959,7 @@ async def test_get_shared_library_apps_parses_apps(
 
 
 @pytest.mark.xfail(
-    raises=ValidationError,
+    raises=SteamAPIError,
     reason="#14: SharedLibraryAppsData requires 'apps', omitted when empty",
 )
 async def test_get_shared_library_apps_parses_empty_library(
@@ -996,7 +973,7 @@ async def test_get_shared_library_apps_parses_empty_library(
 
 
 @pytest.mark.xfail(
-    raises=ValidationError,
+    raises=SteamAPIError,
     reason="#14: SharedLibraryApp requires name/capsule/icon/playtime fields "
     "Steam omits",
 )
@@ -1070,7 +1047,7 @@ async def test_get_playtime_summary_parses_entries(
 
 
 @pytest.mark.xfail(
-    raises=ValidationError,
+    raises=SteamAPIError,
     reason="#14: playtime summary requires 'entries', omitted when empty",
 )
 async def test_get_playtime_summary_parses_empty_summary(
@@ -1117,10 +1094,6 @@ async def test_get_purchase_requests_sends_family_and_completion_filters(
     assert params["rt_include_completed_since"] == str(JOINED)
 
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="#19: request_ids is comma-joined instead of request_ids[N]",
-)
 async def test_get_purchase_requests_sends_indexed_request_ids(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
