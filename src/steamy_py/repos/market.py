@@ -6,9 +6,11 @@ them much more aggressively than api.steampowered.com.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import quote
 
+from ..client import _is_unsuccessful
 from ..exceptions import (
     PlayerNotFoundError,
     PrivateProfileError,
@@ -27,6 +29,9 @@ from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
+
+# Largest page Steam serves from /inventory/.
+INVENTORY_PAGE_SIZE = 2000
 
 
 class MarketAPI(BaseAPI):
@@ -88,7 +93,13 @@ class MarketAPI(BaseAPI):
                 "currency": str(currency),
             }
 
-            response_data = await self._request_community(url, params)
+            try:
+                response_data = await self._request_community(url, params)
+            except SteamAPIError as e:
+                # Steam answers an unknown item with HTTP 500 {"success": false}.
+                if e.status_code == 500 and _is_unsuccessful(e.response_data):
+                    return None
+                raise
 
             if not response_data.get("success"):
                 return None
@@ -176,21 +187,24 @@ class MarketAPI(BaseAPI):
         app_id: int,
         context_id: str = "2",
         start_assetid: str | None = None,
-        count: int = 5000,
+        count: int = INVENTORY_PAGE_SIZE,
         language: str = "english",
     ) -> InventoryResponse:
-        """Get Steam inventory for a user.
+        """Get one page of a user's Steam inventory.
+
+        Use ``get_full_inventory`` or ``iter_inventory_pages`` for every page.
 
         Args:
             steamid: Steam ID of the user
             app_id: Steam App ID
             context_id: Inventory context ID (usually "2")
-            start_assetid: Starting asset ID for pagination
-            count: Maximum items to return
+            start_assetid: Return items after this asset id (a previous
+                page's ``last_assetid``)
+            count: Maximum items to return; Steam allows up to 2000
             language: Language for item descriptions
 
         Returns:
-            Inventory response
+            Inventory page; ``has_more_items`` tells whether more follow
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
@@ -226,6 +240,88 @@ class MarketAPI(BaseAPI):
                     raise SteamAPIError(f"Inventory error: {error_msg}")
 
             return InventoryResponse(**response_data)
+
+    async def iter_inventory_pages(
+        self,
+        steamid: SteamIDLike,
+        app_id: int,
+        context_id: str = "2",
+        count: int = INVENTORY_PAGE_SIZE,
+        language: str = "english",
+    ) -> AsyncIterator[InventoryResponse]:
+        """Iterate over every page of a user's inventory.
+
+        Args:
+            steamid: Steam ID of the user
+            app_id: Steam App ID
+            context_id: Inventory context ID (usually "2")
+            count: Page size; Steam allows up to 2000
+            language: Language for item descriptions
+
+        Yields:
+            Inventory pages, one request each
+
+        Raises:
+            InvalidSteamIDError: If Steam ID format is invalid
+            PrivateProfileError: If inventory is private
+            SteamAPIError: On API errors
+        """
+        start_assetid: str | None = None
+        while True:
+            page = await self.get_inventory(
+                steamid, app_id, context_id, start_assetid, count, language
+            )
+            yield page
+            if not page.has_more_items or not page.last_assetid:
+                return
+            if page.last_assetid == start_assetid:
+                raise SteamAPIError("Steam returned the same inventory page twice")
+            start_assetid = page.last_assetid
+
+    async def get_full_inventory(
+        self,
+        steamid: SteamIDLike,
+        app_id: int,
+        context_id: str = "2",
+        count: int = INVENTORY_PAGE_SIZE,
+        language: str = "english",
+    ) -> InventoryResponse:
+        """Get a user's whole inventory, merging every page.
+
+        Args:
+            steamid: Steam ID of the user
+            app_id: Steam App ID
+            context_id: Inventory context ID (usually "2")
+            count: Page size; Steam allows up to 2000
+            language: Language for item descriptions
+
+        Returns:
+            One inventory with every asset, each description once, and
+            ``more_items`` unset
+
+        Raises:
+            InvalidSteamIDError: If Steam ID format is invalid
+            PrivateProfileError: If inventory is private
+            SteamAPIError: On API errors
+        """
+        merged: InventoryResponse | None = None
+        seen: set[tuple[str, str]] = set()
+        async for page in self.iter_inventory_pages(
+            steamid, app_id, context_id, count, language
+        ):
+            if merged is None:
+                merged = page.model_copy(
+                    update={"assets": [], "descriptions": [], "asset_properties": []}
+                )
+            merged.assets.extend(page.assets)
+            merged.asset_properties.extend(page.asset_properties)
+            for description in page.descriptions:
+                key = (description.classid, description.instanceid)
+                if key not in seen:
+                    seen.add(key)
+                    merged.descriptions.append(description)
+        assert merged is not None
+        return merged.model_copy(update={"more_items": None, "last_assetid": None})
 
     async def search_market(
         self,

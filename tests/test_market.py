@@ -562,7 +562,7 @@ async def test_get_inventory_sends_default_language_and_count(
     await steam.market.get_inventory(STEAMID, 730)
 
     assert fake_steam.last.path == COMMUNITY_PREFIX + inventory_path()
-    assert fake_steam.last.params == {"l": "english", "count": "5000"}
+    assert fake_steam.last.params == {"l": "english", "count": "2000"}
 
 
 async def test_get_inventory_sends_context_language_count_and_start_assetid(
@@ -830,3 +830,93 @@ async def test_get_popular_items_without_app_id_searches_all_apps(
     await steam.market.get_popular_items()
 
     assert fake_steam.last.params == SEARCH_DEFAULT_PARAMS
+
+
+# -- inventory paging ----------------------------------------------------------
+
+
+def second_inventory_page() -> dict[str, Any]:
+    """The last page after ``market_inventory_730.json``: one new asset whose
+    description repeats one from the first page."""
+    first = load_fixture("market_inventory_730.json")
+    asset = {**first["assets"][0], "assetid": "38212365999"}
+    return {
+        "assets": [asset],
+        "descriptions": [first["descriptions"][0]],
+        "total_inventory_count": 3,
+        "success": 1,
+        "rwgrsn": -2,
+    }
+
+
+async def test_iter_inventory_pages_follows_last_assetid(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    first = load_fixture("market_inventory_730.json")
+    fake_steam.community("GET", inventory_path(), json=first)
+    fake_steam.community("GET", inventory_path(), json=second_inventory_page())
+
+    pages = [page async for page in steam.market.iter_inventory_pages(STEAMID, 730)]
+
+    assert len(pages) == 2
+    first_request, second_request = fake_steam.requests
+    assert "start_assetid" not in first_request.params
+    assert second_request.params["start_assetid"] == first["last_assetid"]
+    assert second_request.params["count"] == "2000"
+
+
+async def test_get_full_inventory_merges_pages(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    first = load_fixture("market_inventory_730.json")
+    fake_steam.community("GET", inventory_path(), json=first)
+    fake_steam.community("GET", inventory_path(), json=second_inventory_page())
+
+    inventory = await steam.market.get_full_inventory(STEAMID, 730)
+
+    assert [asset.assetid for asset in inventory.assets] == [
+        *(asset["assetid"] for asset in first["assets"]),
+        "38212365999",
+    ]
+    assert len(inventory.descriptions) == len(first["descriptions"])
+    assert not inventory.has_more_items
+    assert inventory.last_assetid is None
+
+
+async def test_iter_inventory_pages_stops_when_steam_repeats_a_page(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community(
+        "GET", inventory_path(), json=load_fixture("market_inventory_730.json")
+    )
+
+    with pytest.raises(SteamAPIError, match="same inventory page"):
+        async for _ in steam.market.iter_inventory_pages(STEAMID, 730):
+            pass
+
+    assert len(fake_steam.requests) == 2
+
+
+# -- priceoverview for an unknown item -------------------------------------------
+
+
+async def test_get_item_price_unknown_item_returns_none_without_retrying(
+    fake_steam: FakeSteam,
+) -> None:
+    fake_steam.community("GET", PRICE_PATH, status=500, json=NOT_SUCCESSFUL)
+
+    async with Steam(settings=make_settings(fake_steam, MAX_RETRIES=3)) as steam:
+        assert await steam.market.get_item_price("No Such Item") is None
+
+    assert len(fake_steam.requests) == 1
+
+
+async def test_get_item_price_server_error_is_still_raised(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.community("GET", PRICE_PATH, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await steam.market.get_item_price(REDLINE)
+
+    assert excinfo.value.status_code == 500

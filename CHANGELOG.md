@@ -155,6 +155,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   variable) and `auth_type="cookie"` for steamcommunity.com endpoints that
   need a login, and `auth_type="any"` (API key if set, else access token)
   ([#24]).
+- `MarketAPI.iter_inventory_pages()` and `MarketAPI.get_full_inventory()`
+  page through an inventory with `start_assetid` ([#22]).
 - `Settings.API_KEY_DAILY_LIMIT`: stop sending requests with the API key
   after this many per UTC day (`RateLimitError`, not sent);
   `Client.api_key_requests_today` ([#24]).
@@ -227,6 +229,11 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   every currency format, not only `$` ([#22]).
 - `MarketAPI.get_price_history()` no longer crashes on a non-object reply
   ([#22]).
+- `MarketAPI.get_inventory()` asks for 2000 items by default (was 5000,
+  above Steam's page size) ([#22]).
+- `MarketAPI.get_item_price()` returns None for an unknown item (HTTP 500
+  `{"success": false}`), and the client no longer retries a 5xx reply with
+  a `{"success": false}` body ([#22]).
 - `PlayerAPI.get_player_bans()` failed on every response: `PlayerBan` now
   reads Steam's PascalCase keys ([#20]).
 - `get_global_achievement_percentages()` and `get_global_stats_for_game()`

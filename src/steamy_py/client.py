@@ -360,9 +360,11 @@ class Client:
 
         if not 200 <= status < 300:
             body = await self._read_body_safely(response)
+            # A ``{"success": false}`` body is Steam's answer (e.g. an unknown
+            # market item), not an outage, so it is not retried.
             raise _AttemptFailedError(
                 self._http_error(response, url, credential_sent, body),
-                retryable=status >= 500 and idempotent,
+                retryable=status >= 500 and idempotent and not _is_unsuccessful(body),
             )
 
         eresult = _parse_eresult(response.headers.get("x-eresult"))
@@ -585,6 +587,11 @@ class _AttemptFailedError(Exception):
         self.error = error
         self.retryable = retryable
         self.retry_after = retry_after
+
+
+def _is_unsuccessful(body: Any) -> bool:
+    """Whether ``body`` is Steam's ``{"success": false}`` reply."""
+    return isinstance(body, dict) and body.get("success") in (False, 0)
 
 
 def _form_value(value: Any) -> str:
