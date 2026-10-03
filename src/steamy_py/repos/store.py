@@ -1,7 +1,7 @@
 """Store endpoints (steam.store): app details, the app list, search and news."""
 
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable, Mapping
 from typing import Any
 
 from ..exceptions import (
@@ -16,10 +16,44 @@ from ..models.game import (
     SteamApp,
 )
 from ..models.stats import GetNewsResponse, NewsItem
+from ..models.store import (
+    SearchSuggestions,
+    SearchSuggestionsResponse,
+    StoreItems,
+    StoreItemsResponse,
+    StoreSearchResult,
+)
 from ..steamid import validate_app_id
 from .base import BaseAPI
 
 logger = logging.getLogger(__name__)
+
+# ``steam_realm`` of the global Steam store (as opposed to Steam China).
+_GLOBAL_REALM = 1
+
+
+def _store_context(language: str, country_code: str) -> dict[str, Any]:
+    """A StoreBrowseContext: the language and country to answer for."""
+    return {
+        "language": language,
+        "country_code": country_code,
+        "steam_realm": _GLOBAL_REALM,
+    }
+
+
+def _validate_app_ids(appids: Any) -> list[int]:
+    """Validate one App ID or several; a str or bytes counts as one (invalid) id."""
+    if isinstance(appids, str | bytes | bytearray) or not isinstance(appids, Iterable):
+        appids = [appids]
+    return [validate_app_id(appid) for appid in appids]
+
+
+def _data_request(include_tag_count: int | None, **flags: bool) -> dict[str, Any]:
+    """A StoreBrowseItemDataRequest asking for the parts whose flag is set."""
+    request: dict[str, Any] = {name: True for name, wanted in flags.items() if wanted}
+    if include_tag_count:
+        request["include_tag_count"] = include_tag_count
+    return request
 
 
 class StoreAPI(BaseAPI):
@@ -257,3 +291,203 @@ class StoreAPI(BaseAPI):
 
             response_obj = GetNewsResponse.model_validate(response_data)
             return response_obj.to_news_items()
+
+    async def get_items(
+        self,
+        appids: int | Iterable[int],
+        *,
+        language: str = "english",
+        country_code: str = "US",
+        include_basic_info: bool = True,
+        include_assets: bool = False,
+        include_release: bool = False,
+        include_platforms: bool = False,
+        include_ratings: bool = False,
+        include_tag_count: int | None = None,
+        include_reviews: bool = False,
+        include_all_purchase_options: bool = False,
+        include_screenshots: bool = False,
+        include_trailers: bool = False,
+        include_supported_languages: bool = False,
+        include_full_description: bool = False,
+        include_links: bool = False,
+    ) -> StoreItems:
+        """Get store data for apps (IStoreBrowseService/GetItems).
+
+        Needs no credential. The ``include_*`` flags choose which optional
+        parts Steam fills in; parts not asked for, or that Steam has no
+        data for, keep their defaults. Check each item's ``success`` (1)
+        and ``visible`` before using it.
+
+        Args:
+            appids: One App ID or several
+            language: Language of names and descriptions, e.g. "german"
+            country_code: Country for prices and availability, e.g. "DE"
+            include_basic_info: Short description, publishers, developers
+                and franchises (``basic_info``)
+            include_assets: Capsule, header and background image names
+                (``assets``)
+            include_release: Release dates (``release``)
+            include_platforms: Supported OSes, VR and Steam Deck rating
+                (``platforms``)
+            include_ratings: Age rating (``game_rating``)
+            include_tag_count: Return up to this many weighted tags (``tags``)
+            include_reviews: Review summaries (``reviews``)
+            include_all_purchase_options: Every package and bundle that
+                grants the app (``purchase_options``)
+            include_screenshots: Screenshots (``screenshots``)
+            include_trailers: Trailers (``trailers``, raw JSON)
+            include_supported_languages: Languages and their audio and
+                subtitle support (``supported_languages``)
+            include_full_description: The store page text
+                (``full_description``)
+            include_links: Social media links (``links``)
+
+        Returns:
+            The items, in ``store_items``
+
+        Raises:
+            InvalidAppIDError: If an App ID is invalid
+            ValueError: If no App ID is given
+            ResponseParsingError: If the response has an unexpected shape
+            SteamAPIError: On API errors
+        """
+        ids = [{"appid": appid} for appid in _validate_app_ids(appids)]
+        if not ids:
+            raise ValueError("At least one App ID must be provided")
+
+        data_request = _data_request(
+            include_tag_count,
+            include_basic_info=include_basic_info,
+            include_assets=include_assets,
+            include_release=include_release,
+            include_platforms=include_platforms,
+            include_ratings=include_ratings,
+            include_reviews=include_reviews,
+            include_all_purchase_options=include_all_purchase_options,
+            include_screenshots=include_screenshots,
+            include_trailers=include_trailers,
+            include_supported_languages=include_supported_languages,
+            include_full_description=include_full_description,
+            include_links=include_links,
+        )
+        with self._errors("get store items"):
+            data = await self._request(
+                "IStoreBrowseService",
+                "GetItems",
+                "v1",
+                auth_type="none",
+                input_json={
+                    "ids": ids,
+                    "context": _store_context(language, country_code),
+                    "data_request": data_request,
+                },
+            )
+            return StoreItemsResponse.model_validate(data).response
+
+    async def search_suggestions(
+        self,
+        search_term: str,
+        *,
+        max_results: int = 10,
+        language: str = "english",
+        country_code: str = "US",
+        use_spellcheck: bool = False,
+        search_tags: bool = False,
+        search_creators: bool = False,
+        filters: Mapping[str, Any] | None = None,
+        include_basic_info: bool = True,
+        include_assets: bool = False,
+        include_release: bool = False,
+        include_platforms: bool = False,
+        include_reviews: bool = False,
+        include_tag_count: int | None = None,
+    ) -> SearchSuggestions:
+        """Get the store search box's suggestions for a term.
+
+        Calls IStoreQueryService/SearchSuggestions; needs no credential.
+
+        Args:
+            search_term: What the user typed, e.g. "portal"
+            max_results: Maximum number of suggestions
+            language: Language of names and descriptions, e.g. "german"
+            country_code: Country for prices and availability, e.g. "DE"
+            use_spellcheck: Also match likely misspellings of the term
+            search_tags: Also suggest store tags
+            search_creators: Also suggest publishers, developers and
+                franchises
+            filters: A ``CStoreQueryFilters`` message, sent as given, e.g.
+                ``{"released_only": True, "type_filters": {"include_games":
+                True}}``
+            include_basic_info: Short description, publishers, developers
+                and franchises (``basic_info``)
+            include_assets: Capsule and header image names (``assets``)
+            include_release: Release dates (``release``)
+            include_platforms: Supported OSes, VR and Steam Deck rating
+                (``platforms``)
+            include_reviews: Review summaries (``reviews``)
+            include_tag_count: Return up to this many weighted tags (``tags``)
+
+        Returns:
+            The matches in ``ids``, their data in ``store_items``
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
+            SteamAPIError: On API errors
+        """
+        inputs: dict[str, Any] = {
+            "context": _store_context(language, country_code),
+            "search_term": search_term,
+            "max_results": max_results,
+            "data_request": _data_request(
+                include_tag_count,
+                include_basic_info=include_basic_info,
+                include_assets=include_assets,
+                include_release=include_release,
+                include_platforms=include_platforms,
+                include_reviews=include_reviews,
+            ),
+            "use_spellcheck": use_spellcheck,
+            "search_tags": search_tags,
+            "search_creators": search_creators,
+        }
+        if filters is not None:
+            inputs["filters"] = dict(filters)
+
+        with self._errors("get search suggestions"):
+            data = await self._request(
+                "IStoreQueryService",
+                "SearchSuggestions",
+                "v1",
+                auth_type="none",
+                input_json=inputs,
+            )
+            return SearchSuggestionsResponse.model_validate(data).response
+
+    async def store_search(
+        self, term: str, *, language: str = "english", country_code: str = "US"
+    ) -> StoreSearchResult:
+        """Search the store by name (store.steampowered.com/api/storesearch).
+
+        Needs no credential. Prices are for the given country; free apps
+        have none.
+
+        Args:
+            term: Search term, e.g. "portal"
+            language: Language of the results, e.g. "german"
+            country_code: Country for prices, e.g. "DE"
+
+        Returns:
+            The matching apps
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
+            SteamAPIError: On API errors
+        """
+        with self._errors("search the store"):
+            data = await self._request_store(
+                "storesearch/",
+                params={"term": term, "l": language, "cc": country_code},
+                auth_type="none",
+            )
+            return StoreSearchResult.model_validate(data)
