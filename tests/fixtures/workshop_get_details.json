@@ -1,0 +1,89 @@
+{
+  "response": {
+    "publishedfiledetails": [
+      {
+        "result": 1,
+        "publishedfileid": "2780180614",
+        "creator": "76561198092064326",
+        "creator_appid": 281990,
+        "consumer_appid": 281990,
+        "consumer_shortcutid": 0,
+        "filename": "",
+        "file_size": "261157",
+        "preview_file_size": "240408",
+        "preview_url": "https://images.steamusercontent.com/ugc/1829030636939815754/E189BC5113F5DBD26024BCC723BCD8D39C042702/",
+        "url": "",
+        "hcontent_file": "9215042440569310672",
+        "hcontent_preview": "1829030636939815754",
+        "title": "OUTDATED Cross Border Trade",
+        "file_description": "This mod will not be updated for Stellaris 4.0. Trade is fundamentally different now, and this mod no longer fits the game well. If you disagree, you are free ...",
+        "time_created": 1647486579,
+        "time_updated": 1730223116,
+        "visibility": 3,
+        "flags": 5632,
+        "workshop_file": false,
+        "workshop_accepted": false,
+        "show_subscribe_all": false,
+        "num_comments_public": 170,
+        "banned": false,
+        "ban_reason": "",
+        "banner": "76561197960265728",
+        "can_be_deleted": true,
+        "app_name": "Stellaris",
+        "file_type": 0,
+        "can_subscribe": true,
+        "subscriptions": 25839,
+        "favorited": 2473,
+        "followers": 0,
+        "lifetime_subscriptions": 78565,
+        "lifetime_favorited": 3167,
+        "lifetime_followers": 0,
+        "lifetime_playtime": "0",
+        "lifetime_playtime_sessions": "0",
+        "views": 84577,
+        "num_children": 0,
+        "num_reports": 0,
+        "previews": [
+          {
+            "previewid": "28788377",
+            "sortorder": 1,
+            "url": "https://images.steamusercontent.com/ugc/1750232228707132374/2F299F5896E5A551151A166B6C7251FF8639503A/",
+            "size": 149495,
+            "filename": "Screenshot from 2022-08-26 11-13-02.png",
+            "preview_type": 0
+          }
+        ],
+        "tags": [
+          {
+            "tag": "Diplomacy",
+            "display_name": "Diplomacy"
+          },
+          {
+            "tag": "Economy",
+            "display_name": "Economy"
+          },
+          {
+            "tag": "Gameplay",
+            "display_name": "Gameplay"
+          }
+        ],
+        "vote_data": {
+          "score": 0.9382199048995972,
+          "votes_up": 846,
+          "votes_down": 9
+        },
+        "language": 0,
+        "maybe_inappropriate_sex": false,
+        "maybe_inappropriate_violence": false,
+        "revision_change_number": "31",
+        "revision": 1,
+        "ban_text_check_result": 5
+      },
+      {
+        "result": 9,
+        "publishedfileid": "2047414260",
+        "language": 0
+      }
+    ]
+  }
+}

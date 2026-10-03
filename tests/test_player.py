@@ -1,4 +1,4 @@
-"""Tests for ``PlayerAPI``: ISteamUser summaries, friends, bans and vanity URLs."""
+"""Tests for ``steam.users``: ISteamUser summaries, friends, bans and vanity URLs."""
 
 from __future__ import annotations
 
@@ -94,31 +94,31 @@ def assert_sent_with_api_key(request: RecordedRequest, path: str) -> None:
 # Every public method with a reply that parses, for the cross-cutting checks.
 ENDPOINTS = [
     pytest.param(
-        lambda steam: steam.player.get_player_summaries([STEAMID]),
+        lambda steam: steam.users.get_player_summaries([STEAMID]),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summaries",
     ),
     pytest.param(
-        lambda steam: steam.player.get_player_summary(STEAMID),
+        lambda steam: steam.users.get_player_summary(STEAMID),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summary",
     ),
     pytest.param(
-        lambda steam: steam.player.get_friends_list(STEAMID),
+        lambda steam: steam.users.get_friends_list(STEAMID),
         FRIENDS_PATH,
         NO_FRIENDS,
         id="get_friends_list",
     ),
     pytest.param(
-        lambda steam: steam.player.get_player_bans(STEAMID),
+        lambda steam: steam.users.get_player_bans(STEAMID),
         BANS_PATH,
         NO_BANS,
         id="get_player_bans",
     ),
     pytest.param(
-        lambda steam: steam.player.resolve_vanity_url("robinwalker"),
+        lambda steam: steam.users.resolve_vanity_url("robinwalker"),
         VANITY_PATH,
         NO_MATCH,
         id="resolve_vanity_url",
@@ -128,37 +128,37 @@ ENDPOINTS = [
 # Every method that takes Steam IDs, called with ``steamid`` in the batch.
 STEAMID_CALLS = [
     pytest.param(
-        lambda steam, steamid: steam.player.get_player_summaries(steamid),
+        lambda steam, steamid: steam.users.get_player_summaries(steamid),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summaries",
     ),
     pytest.param(
-        lambda steam, steamid: steam.player.get_player_summaries([STEAMID, steamid]),
+        lambda steam, steamid: steam.users.get_player_summaries([STEAMID, steamid]),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summaries-list",
     ),
     pytest.param(
-        lambda steam, steamid: steam.player.get_player_summary(steamid),
+        lambda steam, steamid: steam.users.get_player_summary(steamid),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summary",
     ),
     pytest.param(
-        lambda steam, steamid: steam.player.get_friends_list(steamid),
+        lambda steam, steamid: steam.users.get_friends_list(steamid),
         FRIENDS_PATH,
         NO_FRIENDS,
         id="get_friends_list",
     ),
     pytest.param(
-        lambda steam, steamid: steam.player.get_player_bans(steamid),
+        lambda steam, steamid: steam.users.get_player_bans(steamid),
         BANS_PATH,
         NO_BANS,
         id="get_player_bans",
     ),
     pytest.param(
-        lambda steam, steamid: steam.player.get_player_bans([steamid, STEAMID]),
+        lambda steam, steamid: steam.users.get_player_bans([steamid, STEAMID]),
         BANS_PATH,
         NO_BANS,
         id="get_player_bans-list",
@@ -220,49 +220,49 @@ INVALID_STRUCTURE = "Invalid response structure from Steam API"
     ("call", "path", "body", "message"),
     [
         pytest.param(
-            lambda steam: steam.player.get_player_summaries(STEAMID),
+            lambda steam: steam.users.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {},
             INVALID_STRUCTURE,
             id="summaries-no-response",
         ),
         pytest.param(
-            lambda steam: steam.player.get_player_summaries(STEAMID),
+            lambda steam: steam.users.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {"response": {}},
             "Failed to get player summaries",
             id="summaries-no-players",
         ),
         pytest.param(
-            lambda steam: steam.player.get_player_summaries(STEAMID),
+            lambda steam: steam.users.get_player_summaries(STEAMID),
             SUMMARIES_PATH,
             {"response": {"players": [{"steamid": STEAMID}]}},
             "Failed to get player summaries",
             id="summaries-truncated-player",
         ),
         pytest.param(
-            lambda steam: steam.player.get_friends_list(STEAMID),
+            lambda steam: steam.users.get_friends_list(STEAMID),
             FRIENDS_PATH,
             {"friendslist": {"friends": [{"relationship": "friend"}]}},
             "Failed to get friends list",
             id="friends-entry-without-steamid",
         ),
         pytest.param(
-            lambda steam: steam.player.get_player_bans(STEAMID),
+            lambda steam: steam.users.get_player_bans(STEAMID),
             BANS_PATH,
             {},
             INVALID_STRUCTURE,
             id="bans-no-players",
         ),
         pytest.param(
-            lambda steam: steam.player.resolve_vanity_url("robinwalker"),
+            lambda steam: steam.users.resolve_vanity_url("robinwalker"),
             VANITY_PATH,
             {},
             INVALID_STRUCTURE,
             id="vanity-no-response",
         ),
         pytest.param(
-            lambda steam: steam.player.resolve_vanity_url("robinwalker"),
+            lambda steam: steam.users.resolve_vanity_url("robinwalker"),
             VANITY_PATH,
             {"response": {"steamid": STEAMID}},
             "Failed to resolve vanity URL",
@@ -362,7 +362,7 @@ async def test_valid_individual_steamid_is_sent(
         "GET", SUMMARIES_PATH, json={"response": {"players": [player(steamid)]}}
     )
 
-    summary = await steam.player.get_player_summary(steamid)
+    summary = await steam.users.get_player_summary(steamid)
 
     assert summary is not None
     assert summary.steamid == steamid
@@ -382,10 +382,10 @@ async def test_steamid_accepts_int_and_steamid(
     fake_steam.api("GET", SUMMARIES_PATH, json=NO_PLAYERS)
     fake_steam.api("GET", FRIENDS_PATH, json=NO_FRIENDS)
 
-    await steam.player.get_player_summaries([steamid, STEAMID])
+    await steam.users.get_player_summaries([steamid, STEAMID])
     assert fake_steam.last.params["steamids"] == f"{STEAMID},{STEAMID}"
 
-    await steam.player.get_friends_list(steamid)
+    await steam.users.get_friends_list(steamid)
     assert fake_steam.last.params["steamid"] == STEAMID
 
 
@@ -394,7 +394,7 @@ async def test_non_steamid_values_are_rejected(
     steam: Steam, fake_steam: FakeSteam, bad_id: Any
 ) -> None:
     with pytest.raises(InvalidSteamIDError) as excinfo:
-        await steam.player.get_player_summary(bad_id)
+        await steam.users.get_player_summary(bad_id)
 
     assert excinfo.value.steamid == str(bad_id)
     assert fake_steam.requests == []
@@ -407,7 +407,7 @@ async def test_steamid_with_non_ascii_digit_is_rejected(
     fake_steam.api("GET", SUMMARIES_PATH, json=NO_PLAYERS)
 
     with pytest.raises(InvalidSteamIDError):
-        await steam.player.get_player_summary(STEAMID[:-1] + fullwidth_zero)
+        await steam.users.get_player_summary(STEAMID[:-1] + fullwidth_zero)
 
     assert fake_steam.requests == []
 
@@ -417,13 +417,13 @@ async def test_steamid_with_non_ascii_digit_is_rejected(
 
 BATCH_CALLS = [
     pytest.param(
-        lambda steam, ids: steam.player.get_player_summaries(ids),
+        lambda steam, ids: steam.users.get_player_summaries(ids),
         SUMMARIES_PATH,
         NO_PLAYERS,
         id="get_player_summaries",
     ),
     pytest.param(
-        lambda steam, ids: steam.player.get_player_bans(ids),
+        lambda steam, ids: steam.users.get_player_bans(ids),
         BANS_PATH,
         NO_BANS,
         id="get_player_bans",
@@ -472,7 +472,7 @@ async def test_get_player_summaries_sends_single_id(
 ) -> None:
     fake_steam.api("GET", SUMMARIES_PATH, json=NO_PLAYERS)
 
-    await steam.player.get_player_summaries(STEAMID)
+    await steam.users.get_player_summaries(STEAMID)
 
     assert_sent_with_api_key(fake_steam.last, SUMMARIES_PATH)
     assert fake_steam.last.params == {"steamids": STEAMID, "key": API_KEY}
@@ -483,7 +483,7 @@ async def test_get_player_summaries_comma_joins_ids_in_order(
 ) -> None:
     fake_steam.api("GET", SUMMARIES_PATH, json=load_fixture("player_summaries.json"))
 
-    summaries = await steam.player.get_player_summaries(
+    summaries = await steam.users.get_player_summaries(
         [STEAMID, FRAG_MASTER, QUIET_ONE]
     )
 
@@ -499,9 +499,9 @@ async def test_get_player_summaries_parses_public_profile(
 ) -> None:
     fake_steam.api("GET", SUMMARIES_PATH, json=load_fixture("player_summaries.json"))
 
-    robin = (
-        await steam.player.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE])
-    )[0]
+    robin = (await steam.users.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE]))[
+        0
+    ]
 
     assert robin.steamid == STEAMID
     assert robin.personaname == "Robin"
@@ -534,7 +534,7 @@ async def test_get_player_summaries_parses_player_in_game(
     fake_steam.api("GET", SUMMARIES_PATH, json=load_fixture("player_summaries.json"))
 
     in_game = (
-        await steam.player.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE])
+        await steam.users.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE])
     )[1]
 
     assert in_game.steamid == FRAG_MASTER
@@ -553,7 +553,7 @@ async def test_get_player_summaries_private_profile_leaves_optional_fields_none(
     fake_steam.api("GET", SUMMARIES_PATH, json=load_fixture("player_summaries.json"))
 
     private = (
-        await steam.player.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE])
+        await steam.users.get_player_summaries([STEAMID, FRAG_MASTER, QUIET_ONE])
     )[2]
 
     assert private.steamid == QUIET_ONE
@@ -584,7 +584,7 @@ async def test_get_player_summaries_without_profilestate(
     del entry["profilestate"]
     fake_steam.api("GET", SUMMARIES_PATH, json={"response": {"players": [entry]}})
 
-    [summary] = await steam.player.get_player_summaries(STEAMID)
+    [summary] = await steam.users.get_player_summaries(STEAMID)
 
     assert summary.profilestate is None
 
@@ -610,7 +610,7 @@ async def test_get_player_summaries_parses_persona_state(
         json={"response": {"players": [player(personastate=value)]}},
     )
 
-    [summary] = await steam.player.get_player_summaries(STEAMID)
+    [summary] = await steam.users.get_player_summaries(STEAMID)
 
     assert summary.personastate == state
     assert summary.is_online is online
@@ -637,7 +637,7 @@ async def test_get_player_summaries_parses_visibility(
         json={"response": {"players": [player(communityvisibilitystate=value)]}},
     )
 
-    [summary] = await steam.player.get_player_summaries(STEAMID)
+    [summary] = await steam.users.get_player_summaries(STEAMID)
 
     assert summary.communityvisibilitystate == visibility
     assert summary.is_public is public
@@ -652,7 +652,7 @@ async def test_get_player_summary_returns_the_player(
         json={"response": {"players": [player(personaname="Robin")]}},
     )
 
-    summary = await steam.player.get_player_summary(STEAMID)
+    summary = await steam.users.get_player_summary(STEAMID)
 
     assert isinstance(summary, PlayerSummary)
     assert summary.steamid == STEAMID
@@ -666,7 +666,7 @@ async def test_get_player_summary_returns_none_for_unknown_account(
 ) -> None:
     fake_steam.api("GET", SUMMARIES_PATH, json=NO_PLAYERS)
 
-    assert await steam.player.get_player_summary(account(1_999_999_999)) is None
+    assert await steam.users.get_player_summary(account(1_999_999_999)) is None
 
 
 # -- GetFriendList -------------------------------------------------------------
@@ -677,7 +677,7 @@ async def test_get_friends_list_requests_friend_relationship_by_default(
 ) -> None:
     fake_steam.api("GET", FRIENDS_PATH, json=NO_FRIENDS)
 
-    await steam.player.get_friends_list(STEAMID)
+    await steam.users.get_friends_list(STEAMID)
 
     assert_sent_with_api_key(fake_steam.last, FRIENDS_PATH)
     assert fake_steam.last.params == {
@@ -692,7 +692,7 @@ async def test_get_friends_list_passes_relationship(
 ) -> None:
     fake_steam.api("GET", FRIENDS_PATH, json=NO_FRIENDS)
 
-    await steam.player.get_friends_list(STEAMID, relationship="all")
+    await steam.users.get_friends_list(STEAMID, relationship="all")
 
     assert fake_steam.last.params["relationship"] == "all"
 
@@ -702,7 +702,7 @@ async def test_get_friends_list_parses_friends(
 ) -> None:
     fake_steam.api("GET", FRIENDS_PATH, json=load_fixture("player_friends.json"))
 
-    friends = await steam.player.get_friends_list(STEAMID)
+    friends = await steam.users.get_friends_list(STEAMID)
 
     assert all(isinstance(f, Friend) for f in friends)
     assert [(f.steamid, f.relationship, f.friend_since) for f in friends] == [
@@ -717,7 +717,7 @@ async def test_friend_since_datetime(steam: Steam, fake_steam: FakeSteam) -> Non
     """Steam reports 0 for friendships older than the field (pre-2009)."""
     fake_steam.api("GET", FRIENDS_PATH, json=load_fixture("player_friends.json"))
 
-    friends = await steam.player.get_friends_list(STEAMID)
+    friends = await steam.users.get_friends_list(STEAMID)
 
     assert friends[0].friend_since_datetime is None
     since = friends[2].friend_since_datetime
@@ -730,7 +730,7 @@ async def test_get_friends_list_with_no_friends(
 ) -> None:
     fake_steam.api("GET", FRIENDS_PATH, json=NO_FRIENDS)
 
-    assert await steam.player.get_friends_list(STEAMID) == []
+    assert await steam.users.get_friends_list(STEAMID) == []
 
 
 async def test_get_friends_list_without_friendslist_raises_private_profile_error(
@@ -739,7 +739,7 @@ async def test_get_friends_list_without_friendslist_raises_private_profile_error
     fake_steam.api("GET", FRIENDS_PATH, json={})
 
     with pytest.raises(PrivateProfileError) as excinfo:
-        await steam.player.get_friends_list(STEAMID)
+        await steam.users.get_friends_list(STEAMID)
 
     assert excinfo.value.steamid == STEAMID
     assert_sent_with_api_key(fake_steam.last, FRIENDS_PATH)
@@ -757,7 +757,7 @@ async def test_get_friends_list_private_profile_401_raises_private_profile_error
     )
 
     with pytest.raises(PrivateProfileError) as excinfo:
-        await steam.player.get_friends_list(STEAMID)
+        await steam.users.get_friends_list(STEAMID)
 
     assert excinfo.value.steamid == STEAMID
 
@@ -770,7 +770,7 @@ async def test_get_player_bans_sends_comma_joined_ids(
 ) -> None:
     fake_steam.api("GET", BANS_PATH, json=NO_BANS)
 
-    assert await steam.player.get_player_bans([STEAMID, FRAG_MASTER]) == []
+    assert await steam.users.get_player_bans([STEAMID, FRAG_MASTER]) == []
 
     assert_sent_with_api_key(fake_steam.last, BANS_PATH)
     assert fake_steam.last.params == {
@@ -784,7 +784,7 @@ async def test_get_player_bans_parses_real_response(
 ) -> None:
     fake_steam.api("GET", BANS_PATH, json=load_fixture("player_bans.json"))
 
-    clean, banned = await steam.player.get_player_bans([STEAMID, FRAG_MASTER])
+    clean, banned = await steam.users.get_player_bans([STEAMID, FRAG_MASTER])
 
     assert isinstance(clean, PlayerBan)
     assert clean.steamid == STEAMID
@@ -812,7 +812,7 @@ async def test_resolve_vanity_url_returns_steamid(
 ) -> None:
     fake_steam.api("GET", VANITY_PATH, json=ROBIN_RESOLVED)
 
-    assert await steam.player.resolve_vanity_url("robinwalker") == STEAMID
+    assert await steam.users.resolve_vanity_url("robinwalker") == STEAMID
 
     assert_sent_with_api_key(fake_steam.last, VANITY_PATH)
     assert fake_steam.last.params == {
@@ -827,7 +827,7 @@ async def test_resolve_vanity_url_returns_none_when_no_match(
 ) -> None:
     fake_steam.api("GET", VANITY_PATH, json=NO_MATCH)
 
-    assert await steam.player.resolve_vanity_url("no-such-profile-here") is None
+    assert await steam.users.resolve_vanity_url("no-such-profile-here") is None
 
 
 async def test_resolve_vanity_url_passes_url_type(
@@ -837,7 +837,7 @@ async def test_resolve_vanity_url_passes_url_type(
         "GET", VANITY_PATH, json={"response": {"steamid": VALVE_GROUP, "success": 1}}
     )
 
-    assert await steam.player.resolve_vanity_url("valve", url_type=2) == VALVE_GROUP
+    assert await steam.users.resolve_vanity_url("valve", url_type=2) == VALVE_GROUP
 
     assert fake_steam.last.params["url_type"] == "2"
 
@@ -858,7 +858,7 @@ async def test_resolve_vanity_url_accepts_profile_url(
 ) -> None:
     fake_steam.api("GET", VANITY_PATH, json=ROBIN_RESOLVED)
 
-    steamid = await steam.player.resolve_vanity_url(url)
+    steamid = await steam.users.resolve_vanity_url(url)
 
     assert fake_steam.last.params["vanityurl"] == "robinwalker"
     assert steamid == STEAMID
@@ -868,7 +868,7 @@ async def test_resolve_vanity_url_rejects_invalid_profiles_url(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
     with pytest.raises(InvalidSteamIDError):
-        await steam.player.resolve_vanity_url(
+        await steam.users.resolve_vanity_url(
             "https://steamcommunity.com/profiles/12345/"
         )
 
@@ -885,5 +885,270 @@ async def test_resolve_vanity_url_rejects_invalid_profiles_url(
 async def test_resolve_vanity_url_returns_id_from_profiles_url_without_request(
     steam: Steam, fake_steam: FakeSteam, url: str
 ) -> None:
-    assert await steam.player.resolve_vanity_url(url) == STEAMID
+    assert await steam.users.resolve_vanity_url(url) == STEAMID
     assert fake_steam.requests == []
+
+
+# -- IPlayerService/GetBadges and GetSteamLevel ----------------------------------
+
+BADGES_PATH = "/IPlayerService/GetBadges/v1/"
+LEVEL_PATH = "/IPlayerService/GetSteamLevel/v1/"
+ROBIN_BADGES: dict[str, Any] = load_fixture("users_badges.json")
+ROBIN_LEVEL: dict[str, Any] = {"response": {"player_level": 32}}
+EMPTY_RESPONSE: dict[str, Any] = {"response": {}}
+
+# Both take a Steam ID and send the API key, or the access token without one.
+PLAYER_SERVICE_CALLS = [
+    pytest.param(
+        lambda steam, steamid: steam.users.get_badges(steamid),
+        BADGES_PATH,
+        ROBIN_BADGES,
+        id="get_badges",
+    ),
+    pytest.param(
+        lambda steam, steamid: steam.users.get_steam_level(steamid),
+        LEVEL_PATH,
+        ROBIN_LEVEL,
+        id="get_steam_level",
+    ),
+]
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_sends_steamid_and_api_key_over_get_v1(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam, STEAMID)
+
+    assert len(fake_steam.requests) == 1
+    assert_sent_with_api_key(fake_steam.last, path)
+    assert fake_steam.last.params == {"steamid": STEAMID, "key": API_KEY}
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_sends_access_token_without_api_key(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(access_token=ACCESS_TOKEN, settings=settings) as steam:
+        await call(steam, STEAMID)
+
+    assert (fake_steam.last.method, fake_steam.last.path) == ("GET", path)
+    assert fake_steam.last.params == {"steamid": STEAMID, "access_token": ACCESS_TOKEN}
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_without_credentials_raises_before_any_request(
+    settings: Settings,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    async with Steam(settings=settings) as steam:
+        with pytest.raises(
+            SteamAPIError, match="An API key or access token is required"
+        ) as excinfo:
+            await call(steam, STEAMID)
+
+    assert type(excinfo.value).__name__ == "AuthenticationError"
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize("bad_id", INVALID_STEAMIDS)
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_rejects_invalid_steamid_before_any_request(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+    bad_id: str,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    with pytest.raises(InvalidSteamIDError) as excinfo:
+        await call(steam, bad_id)
+
+    assert excinfo.value.steamid == bad_id
+    assert fake_steam.requests == []
+
+
+@pytest.mark.parametrize(
+    "steamid",
+    [
+        pytest.param(int(STEAMID), id="int"),
+        pytest.param(SteamID(STEAMID), id="SteamID"),
+    ],
+)
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_call_accepts_int_and_steamid(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Callable[[Steam, Any], Awaitable[object]],
+    path: str,
+    reply: dict[str, Any],
+    steamid: int | SteamID,
+) -> None:
+    fake_steam.api("GET", path, json=reply)
+
+    await call(steam, steamid)
+
+    assert fake_steam.last.params["steamid"] == STEAMID
+
+
+@pytest.mark.parametrize(("call", "path", "reply"), PLAYER_SERVICE_CALLS)
+async def test_player_service_http_error_is_raised_as_steam_api_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: SteamIDCall,
+    path: str,
+    reply: dict[str, Any],
+) -> None:
+    fake_steam.api("GET", path, status=500, text="Internal Server Error")
+
+    with pytest.raises(SteamAPIError) as excinfo:
+        await call(steam, STEAMID)
+
+    assert excinfo.value.status_code == 500
+    assert API_KEY not in str(excinfo.value)
+    assert len(fake_steam.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("call", "path", "body", "message"),
+    [
+        pytest.param(
+            lambda steam: steam.users.get_badges(STEAMID),
+            BADGES_PATH,
+            {"response": {"badges": [{"badgeid": 13, "level": "max"}]}},
+            "Failed to get badges",
+            id="badges-non-numeric-level",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_badges(STEAMID),
+            BADGES_PATH,
+            {"response": {"badges": {"badgeid": 13}}},
+            "Failed to get badges",
+            id="badges-not-a-list",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level(STEAMID),
+            LEVEL_PATH,
+            {"response": {"player_level": "high"}},
+            "Failed to get Steam level",
+            id="level-non-numeric",
+        ),
+        pytest.param(
+            lambda steam: steam.users.get_steam_level(STEAMID),
+            LEVEL_PATH,
+            {"response": [32]},
+            "Failed to get Steam level",
+            id="level-response-not-an-object",
+        ),
+    ],
+)
+async def test_player_service_malformed_body_raises_response_parsing_error(
+    steam: Steam,
+    fake_steam: FakeSteam,
+    call: Call,
+    path: str,
+    body: dict[str, Any],
+    message: str,
+) -> None:
+    fake_steam.api("GET", path, json=body)
+
+    with pytest.raises(ResponseParsingError, match=message):
+        await call(steam)
+
+
+async def test_get_badges_parses_badges_and_level_progress(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json=ROBIN_BADGES)
+
+    badges = await steam.users.get_badges(STEAMID)
+
+    assert (
+        badges.player_xp,
+        badges.player_level,
+        badges.player_xp_needed_to_level_up,
+        badges.player_xp_needed_current_level,
+    ) == (6950, 32, 250, 6800)
+    assert [(b.badgeid, b.appid, b.level, b.xp) for b in badges.badges] == [
+        (13, 0, 527, 777),
+        (1, 0, 21, 1050),
+        (1, 620, 5, 500),
+        (1, 440, 1, 100),
+    ]
+    games_owned, _, portal2, tf2_foil = badges.badges
+    assert games_owned.completion_time == 1727740800
+    assert games_owned.scarcity == 1157430
+    # Community badges have no community item or border.
+    assert (games_owned.communityitemid, games_owned.border_color) == ("", 0)
+    assert (portal2.communityitemid, portal2.border_color) == ("3917402871", 0)
+    assert (tf2_foil.communityitemid, tf2_foil.border_color) == ("28376251827", 1)
+
+
+async def test_get_badges_empty_response_gives_defaults(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json=EMPTY_RESPONSE)
+
+    badges = await steam.users.get_badges(STEAMID)
+
+    assert badges.badges == []
+    assert (
+        badges.player_xp,
+        badges.player_level,
+        badges.player_xp_needed_to_level_up,
+        badges.player_xp_needed_current_level,
+    ) == (0, 0, 0, 0)
+
+
+async def test_get_badges_badge_with_only_an_id_gives_defaults(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", BADGES_PATH, json={"response": {"badges": [{"badgeid": 2}]}})
+
+    [badge] = (await steam.users.get_badges(STEAMID)).badges
+
+    assert badge.model_dump() == {
+        "badgeid": 2,
+        "level": 0,
+        "completion_time": 0,
+        "xp": 0,
+        "scarcity": 0,
+        "appid": 0,
+        "communityitemid": "",
+        "border_color": 0,
+    }
+
+
+async def test_get_steam_level_returns_player_level(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_PATH, json=ROBIN_LEVEL)
+
+    assert await steam.users.get_steam_level(STEAMID) == 32
+
+
+async def test_get_steam_level_is_0_when_steam_leaves_it_out(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", LEVEL_PATH, json=EMPTY_RESPONSE)
+
+    assert await steam.users.get_steam_level(STEAMID) == 0

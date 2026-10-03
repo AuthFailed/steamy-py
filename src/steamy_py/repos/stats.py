@@ -4,12 +4,18 @@ import logging
 
 from ..exceptions import (
     GameNotFoundError,
+    ResponseParsingError,
     SteamAPIError,
+)
+from ..models.game import (
+    Achievement,
+    GameSchema,
+    GetPlayerAchievementsResponse,
+    GetSchemaResponse,
 )
 from ..models.stats import (
     GetGlobalAchievementResponse,
     GetGlobalStatsResponse,
-    GetNewsResponse,
     GetPlayerCountResponse,
     GetUserStatsGameResponse,
     GlobalAchievementStat,
@@ -22,13 +28,12 @@ from ..models.stats import (
 )
 from ..steamid import SteamIDLike, validate_app_id, validate_steam_id
 from .base import BaseAPI
-from .game import GameAPI
 
 logger = logging.getLogger(__name__)
 
 
 class StatsAPI(BaseAPI):
-    """Steam Statistics API endpoints."""
+    """Achievements and stats: per player, global, schemas and player counts."""
 
     async def get_global_stats_for_game(
         self,
@@ -210,62 +215,88 @@ class StatsAPI(BaseAPI):
 
             return response_obj.response
 
-    async def get_news_for_app(
-        self,
-        app_id: int,
-        count: int = 20,
-        max_length: int = 300,
-        end_date: int | None = None,
-        feeds: list[str] | None = None,
-        tags: list[str] | None = None,
-    ) -> list[NewsItem]:
-        """Get news items for a game.
+    async def get_player_achievements(
+        self, steamid: SteamIDLike, app_id: int, language: str = "english"
+    ) -> list[Achievement]:
+        """Get player achievements for a specific game.
 
         Args:
-            app_id: Steam App ID
-            count: Number of news items to return (Steam's default is 20)
-            max_length: Maximum length of each item's contents; longer
-                contents are truncated. 0 returns the full contents.
-            end_date: Only return items published before this Unix
-                timestamp (use the last item's ``date`` to page)
-            feeds: Only return items from these feed names
-            tags: Only return items with these tags
+            steamid: Steam ID of the player
+            app_id: Steam App ID of the game
+            language: Language for achievement names
 
         Returns:
-            List of news items
+            List of achievements
+
+        Raises:
+            InvalidSteamIDError: If Steam ID format is invalid
+            InvalidAppIDError: If App ID is invalid
+            GameNotFoundError: If game not found
+            PrivateProfileError: If profile is private
+            SteamAPIError: On API errors
+        """
+        steamid = validate_steam_id(steamid)
+        validate_app_id(app_id)
+
+        with self._errors("get player achievements"):
+            try:
+                response_data = await self._request(
+                    interface="ISteamUserStats",
+                    method="GetPlayerAchievements",
+                    version="v1",
+                    params={"steamid": steamid, "appid": str(app_id), "l": language},
+                )
+            except SteamAPIError as e:
+                response_data = self._playerstats_body(e)
+
+            if "playerstats" not in response_data:
+                raise ResponseParsingError("Invalid response structure from Steam API")
+
+            playerstats = response_data["playerstats"]
+
+            if not playerstats.get("success", False):
+                self._raise_playerstats_error(
+                    str(playerstats.get("error", "Unknown error")), steamid, app_id
+                )
+
+            response_obj = GetPlayerAchievementsResponse.model_validate(response_data)
+            return response_obj.playerstats.achievements
+
+    async def get_schema_for_game(
+        self, app_id: int, language: str = "english"
+    ) -> GameSchema:
+        """Get achievements and stats schema for a game.
+
+        Args:
+            app_id: Steam App ID of the game
+            language: Language for schema information
+
+        Returns:
+            Game schema information
 
         Raises:
             InvalidAppIDError: If App ID is invalid
+            GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
         validate_app_id(app_id)
 
-        params = {
-            "appid": str(app_id),
-            "count": str(count),
-            "maxlength": str(max_length),
-        }
-        if end_date is not None:
-            params["enddate"] = str(end_date)
-        if feeds:
-            params["feeds"] = ",".join(feeds)
-        if tags:
-            params["tags"] = ",".join(tags)
-
-        with self._errors("get news"):
+        with self._errors("get game schema"):
             response_data = await self._request(
-                interface="ISteamNews",
-                method="GetNewsForApp",
+                interface="ISteamUserStats",
+                method="GetSchemaForGame",
                 version="v2",
-                auth_type="none",
-                params=params,
+                params={"appid": str(app_id), "l": language},
             )
 
-            if "appnews" not in response_data:
-                return []
+            if not response_data.get("game"):
+                # No such app, or an app without stats: Steam sends {"game": {}}
+                raise GameNotFoundError(
+                    str(app_id), "Game not found or has no statistics"
+                )
 
-            response_obj = GetNewsResponse.model_validate(response_data)
-            return response_obj.to_news_items()
+            response_obj = GetSchemaResponse.model_validate(response_data)
+            return response_obj.game
 
     async def get_user_achievements_only(
         self, steamid: SteamIDLike, app_id: int
@@ -289,9 +320,7 @@ class StatsAPI(BaseAPI):
             GameNotFoundError: If game not found
             SteamAPIError: On API errors
         """
-        achievements = await GameAPI(self.client).get_player_achievements(
-            steamid, app_id
-        )
+        achievements = await self.get_player_achievements(steamid, app_id)
         return [
             UserAchievement(
                 name=achievement.apiname,
@@ -322,3 +351,20 @@ class StatsAPI(BaseAPI):
         """
         user_stats = await self.get_user_stats_for_game(steamid, app_id)
         return user_stats.stats
+
+    async def get_news_for_app(
+        self,
+        app_id: int,
+        count: int = 20,
+        max_length: int = 300,
+        end_date: int | None = None,
+        feeds: list[str] | None = None,
+        tags: list[str] | None = None,
+    ) -> list[NewsItem]:
+        """Deprecated: use ``Steam.store.get_news_for_app``."""
+        from .store import StoreAPI
+
+        self._deprecated("StatsAPI.get_news_for_app", "Steam.store.get_news_for_app")
+        return await StoreAPI(self.client).get_news_for_app(
+            app_id, count, max_length, end_date, feeds, tags
+        )

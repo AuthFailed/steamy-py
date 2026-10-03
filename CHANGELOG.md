@@ -26,6 +26,17 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Changed
 
+- The API is grouped into the namespaces planned in [#25]: `Steam.users`
+  (was `player`), `Steam.library` (owned games), `Steam.store` (app
+  details, the app list, game search and news), `Steam.stats` (now also
+  achievements and schemas), `Steam.economy` (inventories), `Steam.market`,
+  `Steam.family`, and the new `Steam.friends`, `Steam.wishlist`,
+  `Steam.workshop` and `Steam.util` ([#15], [#25]).
+- **Deprecated:** `Steam.player` (use `Steam.users`; `PlayerAPI` is now an
+  alias of `UsersAPI`), `Steam.games` / `GameAPI` (use `Steam.library`,
+  `Steam.store` and `Steam.stats`), `StatsAPI.get_news_for_app()` (use
+  `Steam.store`) and `MarketAPI`'s inventory methods (use `Steam.economy`).
+  They still work and raise `DeprecationWarning` ([#15], [#25]).
 - **Breaking:** A missing API key or access token raises `AuthenticationError`
   (previously `ValueError`) ([#10]).
 - **Breaking:** HTTP errors raise specific exceptions: `AuthenticationError`
@@ -156,6 +167,22 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 
 ### Added
 
+- Milestone 1 endpoints from [#25]:
+  - `Steam.users.get_badges()` and `get_steam_level()` (`IPlayerService`)
+  - `Steam.library.get_recently_played_games()` and
+    `get_last_played_times()` (`IPlayerService`; the latter with the access
+    token)
+  - `Steam.friends.get_friends_list()` (`IFriendsListService`, access token)
+  - `Steam.store.get_items()` (`IStoreBrowseService/GetItems`),
+    `search_suggestions()` (`IStoreQueryService/SearchSuggestions`) and
+    `store_search()` (`store.steampowered.com/api/storesearch`)
+  - `Steam.wishlist.get_wishlist()` and `get_wishlist_item_count()`
+    (`IWishlistService`, no credential)
+  - `Steam.workshop.get_details()`, `query_files()` and
+    `iter_query_files()` (`IPublishedFileService`), and
+    `get_published_file_details()` (`ISteamRemoteStorage`, no credential)
+  - `Steam.util.get_server_info()` and `get_supported_api_list()`
+    (`ISteamWebAPIUtil`, no credential)
 - `Client(session=...)` / `Steam(session=...)` to reuse an existing aiohttp
   session (never closed by the library), and `Settings.CONNECTION_LIMIT`
   ([#10]).
@@ -294,3 +321,4 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#22]: https://github.com/AuthFailed/steamy-py/issues/22
 [#23]: https://github.com/AuthFailed/steamy-py/issues/23
 [#24]: https://github.com/AuthFailed/steamy-py/issues/24
+[#25]: https://github.com/AuthFailed/steamy-py/issues/25

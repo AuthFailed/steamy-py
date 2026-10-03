@@ -1,4 +1,5 @@
-"""Tests for ``GameAPI``: owned games, achievements, schemas, store and app list."""
+"""Tests for owned games (``steam.library``), achievements and schemas
+(``steam.stats``), and app details and the app list (``steam.store``)."""
 
 from __future__ import annotations
 
@@ -112,31 +113,31 @@ def owned_game(appid: int, **fields: Any) -> dict[str, Any]:
 # Every method with a reply that parses, for the cross-cutting checks.
 ENDPOINTS = [
     pytest.param(
-        lambda steam: steam.games.get_owned_games(STEAMID),
+        lambda steam: steam.library.get_owned_games(STEAMID),
         OWNED_GAMES_PATH,
         NO_GAMES,
         id="get_owned_games",
     ),
     pytest.param(
-        lambda steam: steam.games.get_player_achievements(STEAMID, 220),
+        lambda steam: steam.stats.get_player_achievements(STEAMID, 220),
         ACHIEVEMENTS_PATH,
         NO_ACHIEVEMENTS,
         id="get_player_achievements",
     ),
     pytest.param(
-        lambda steam: steam.games.get_schema_for_game(440),
+        lambda steam: steam.stats.get_schema_for_game(440),
         SCHEMA_PATH,
         TF2_SCHEMA_STUB,
         id="get_schema_for_game",
     ),
     pytest.param(
-        lambda steam: steam.games.get_app_details(9999999),
+        lambda steam: steam.store.get_app_details(9999999),
         APP_DETAILS_PATH,
         UNKNOWN_APP_DETAILS,
         id="get_app_details",
     ),
     pytest.param(
-        lambda steam: steam.games.get_app_list(),
+        lambda steam: steam.store.get_app_list(),
         STORE_APP_LIST_PATH,
         STORE_APP_LIST,
         id="get_app_list",
@@ -152,13 +153,13 @@ KEYED_ENDPOINTS = [
 
 STEAMID_CALLS = [
     pytest.param(
-        lambda steam, steamid: steam.games.get_owned_games(steamid),
+        lambda steam, steamid: steam.library.get_owned_games(steamid),
         OWNED_GAMES_PATH,
         NO_GAMES,
         id="get_owned_games",
     ),
     pytest.param(
-        lambda steam, steamid: steam.games.get_player_achievements(steamid, 220),
+        lambda steam, steamid: steam.stats.get_player_achievements(steamid, 220),
         ACHIEVEMENTS_PATH,
         NO_ACHIEVEMENTS,
         id="get_player_achievements",
@@ -167,19 +168,19 @@ STEAMID_CALLS = [
 
 APP_ID_CALLS = [
     pytest.param(
-        lambda steam, app_id: steam.games.get_player_achievements(STEAMID, app_id),
+        lambda steam, app_id: steam.stats.get_player_achievements(STEAMID, app_id),
         ACHIEVEMENTS_PATH,
         NO_ACHIEVEMENTS,
         id="get_player_achievements",
     ),
     pytest.param(
-        lambda steam, app_id: steam.games.get_schema_for_game(app_id),
+        lambda steam, app_id: steam.stats.get_schema_for_game(app_id),
         SCHEMA_PATH,
         TF2_SCHEMA_STUB,
         id="get_schema_for_game",
     ),
     pytest.param(
-        lambda steam, app_id: steam.games.get_app_details(app_id),
+        lambda steam, app_id: steam.store.get_app_details(app_id),
         APP_DETAILS_PATH,
         UNKNOWN_APP_DETAILS,
         id="get_app_details",
@@ -278,7 +279,7 @@ async def test_bool_app_id_is_rejected_before_any_request(
     fake_steam.api("GET", SCHEMA_PATH, json=TF2_SCHEMA_STUB)
 
     with pytest.raises(InvalidAppIDError):
-        await steam.games.get_schema_for_game(True)
+        await steam.stats.get_schema_for_game(True)
 
     assert fake_steam.requests == []
 
@@ -291,7 +292,7 @@ async def test_get_owned_games_sends_steamid_and_default_flags(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
-    await steam.games.get_owned_games(STEAMID)
+    await steam.library.get_owned_games(STEAMID)
 
     assert_sent_with_api_key(fake_steam.last, OWNED_GAMES_PATH)
     assert fake_steam.last.params == {
@@ -319,7 +320,7 @@ async def test_get_owned_games_sends_flags_as_1_or_0(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
-    await steam.games.get_owned_games(
+    await steam.library.get_owned_games(
         STEAMID,
         include_appinfo=include_appinfo,
         include_played_free_games=include_played_free_games,
@@ -337,7 +338,7 @@ async def test_get_owned_games_omits_appids_filter_by_default(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
-    await steam.games.get_owned_games(STEAMID)
+    await steam.library.get_owned_games(STEAMID)
 
     assert not any(name.startswith("appids_filter") for name in fake_steam.last.query)
 
@@ -356,7 +357,7 @@ async def test_get_owned_games_sends_appids_filter_as_indexed_params(
         },
     )
 
-    await steam.games.get_owned_games(STEAMID, appids_filter=[440, 620])
+    await steam.library.get_owned_games(STEAMID, appids_filter=[440, 620])
 
     query = fake_steam.last.query
     assert query.getall("appids_filter[0]", []) == ["440"]
@@ -369,7 +370,7 @@ async def test_get_owned_games_parses_games_with_appinfo(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=load_fixture("game_owned_games.json"))
 
-    games = await steam.games.get_owned_games(STEAMID)
+    games = await steam.library.get_owned_games(STEAMID)
 
     assert all(isinstance(game, OwnedGame) for game in games)
     assert [(g.appid, g.name) for g in games] == [
@@ -391,7 +392,7 @@ async def test_get_owned_games_playtime_helpers(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=load_fixture("game_owned_games.json"))
 
-    hl2, tf2, portal2 = await steam.games.get_owned_games(STEAMID)
+    hl2, tf2, portal2 = await steam.library.get_owned_games(STEAMID)
 
     assert tf2.playtime_hours == 803.5
     assert tf2.playtime_2weeks_hours == 1.6
@@ -405,7 +406,7 @@ async def test_get_owned_games_builds_icon_url_from_appid_and_hash(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=load_fixture("game_owned_games.json"))
 
-    hl2 = (await steam.games.get_owned_games(STEAMID))[0]
+    hl2 = (await steam.library.get_owned_games(STEAMID))[0]
 
     assert hl2.icon_url is not None
     assert hl2.icon_url.endswith(
@@ -432,7 +433,7 @@ async def test_get_owned_games_parses_entries_without_appinfo(
         },
     )
 
-    games = await steam.games.get_owned_games(STEAMID, include_appinfo=False)
+    games = await steam.library.get_owned_games(STEAMID, include_appinfo=False)
 
     assert [(g.appid, g.name, g.playtime_forever) for g in games] == [
         (220, None, 1311),
@@ -446,7 +447,7 @@ async def test_get_owned_games_public_profile_without_games_returns_empty_list(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
-    assert await steam.games.get_owned_games(STEAMID) == []
+    assert await steam.library.get_owned_games(STEAMID) == []
 
 
 async def test_get_owned_games_empty_response_raises_private_profile_error(
@@ -456,7 +457,7 @@ async def test_get_owned_games_empty_response_raises_private_profile_error(
     fake_steam.api("GET", OWNED_GAMES_PATH, json={"response": {}})
 
     with pytest.raises(PrivateProfileError) as excinfo:
-        await steam.games.get_owned_games(STEAMID)
+        await steam.library.get_owned_games(STEAMID)
 
     assert excinfo.value.steamid == STEAMID
     assert excinfo.value.status_code == 403
@@ -479,7 +480,7 @@ async def test_get_owned_games_unexpected_body_raises_steam_api_error(
     fake_steam.api("GET", OWNED_GAMES_PATH, json=body)
 
     with pytest.raises(SteamAPIError, match=message) as excinfo:
-        await steam.games.get_owned_games(STEAMID)
+        await steam.library.get_owned_games(STEAMID)
 
     assert not isinstance(excinfo.value, PrivateProfileError)
 
@@ -492,7 +493,7 @@ async def test_get_player_achievements_sends_steamid_appid_and_language(
 ) -> None:
     fake_steam.api("GET", ACHIEVEMENTS_PATH, json=NO_ACHIEVEMENTS)
 
-    await steam.games.get_player_achievements(STEAMID, 220)
+    await steam.stats.get_player_achievements(STEAMID, 220)
 
     assert_sent_with_api_key(fake_steam.last, ACHIEVEMENTS_PATH)
     assert fake_steam.last.params == {
@@ -508,7 +509,7 @@ async def test_get_player_achievements_passes_language_through(
 ) -> None:
     fake_steam.api("GET", ACHIEVEMENTS_PATH, json=NO_ACHIEVEMENTS)
 
-    await steam.games.get_player_achievements(STEAMID, 220, language="german")
+    await steam.stats.get_player_achievements(STEAMID, 220, language="german")
 
     assert fake_steam.last.query.getall("l") == ["german"]
 
@@ -520,7 +521,7 @@ async def test_get_player_achievements_parses_achievements(
         "GET", ACHIEVEMENTS_PATH, json=load_fixture("game_player_achievements_440.json")
     )
 
-    achievements = await steam.games.get_player_achievements(STEAMID, 440)
+    achievements = await steam.stats.get_player_achievements(STEAMID, 440)
 
     assert [(a.apiname, a.achieved, a.unlocktime) for a in achievements] == [
         ("TF_PLAY_GAME_EVERYCLASS", 1, 1206047153),
@@ -538,7 +539,7 @@ async def test_get_player_achievements_unlock_helpers(
         "GET", ACHIEVEMENTS_PATH, json=load_fixture("game_player_achievements_440.json")
     )
 
-    unlocked, _, locked = await steam.games.get_player_achievements(STEAMID, 440)
+    unlocked, _, locked = await steam.stats.get_player_achievements(STEAMID, 440)
 
     assert unlocked.is_achieved is True
     assert unlocked.unlock_date == datetime.fromtimestamp(1206047153)
@@ -552,7 +553,7 @@ async def test_get_player_achievements_game_without_achievements_returns_empty_l
     # Steam leaves out "achievements" when the game has none.
     fake_steam.api("GET", ACHIEVEMENTS_PATH, json=NO_ACHIEVEMENTS)
 
-    assert await steam.games.get_player_achievements(STEAMID, 220) == []
+    assert await steam.stats.get_player_achievements(STEAMID, 220) == []
 
 
 async def test_get_player_achievements_unrecognised_error_raises_steam_api_error(
@@ -567,7 +568,7 @@ async def test_get_player_achievements_unrecognised_error_raises_steam_api_error
     )
 
     with pytest.raises(SteamAPIError, match="Internal error") as excinfo:
-        await steam.games.get_player_achievements(STEAMID, 220)
+        await steam.stats.get_player_achievements(STEAMID, 220)
 
     assert type(excinfo.value) is SteamAPIError
 
@@ -578,7 +579,7 @@ async def test_get_player_achievements_without_playerstats_raises_steam_api_erro
     fake_steam.api("GET", ACHIEVEMENTS_PATH, json={})
 
     with pytest.raises(SteamAPIError, match="Invalid response structure"):
-        await steam.games.get_player_achievements(STEAMID, 440)
+        await steam.stats.get_player_achievements(STEAMID, 440)
 
 
 @pytest.mark.parametrize(
@@ -605,7 +606,7 @@ async def test_get_player_achievements_private_profile_raises_private_profile_er
     )
 
     with pytest.raises(PrivateProfileError) as excinfo:
-        await steam.games.get_player_achievements(STEAMID, 440)
+        await steam.stats.get_player_achievements(STEAMID, 440)
 
     assert excinfo.value.steamid == STEAMID
 
@@ -622,7 +623,7 @@ async def test_get_player_achievements_app_without_stats_raises_game_not_found(
     )
 
     with pytest.raises(GameNotFoundError) as excinfo:
-        await steam.games.get_player_achievements(STEAMID, 999999)
+        await steam.stats.get_player_achievements(STEAMID, 999999)
 
     assert excinfo.value.app_id == "999999"
 
@@ -635,7 +636,7 @@ async def test_get_schema_for_game_sends_appid_and_language(
 ) -> None:
     fake_steam.api("GET", SCHEMA_PATH, json=TF2_SCHEMA_STUB)
 
-    await steam.games.get_schema_for_game(440, language="french")
+    await steam.stats.get_schema_for_game(440, language="french")
 
     assert_sent_with_api_key(fake_steam.last, SCHEMA_PATH)
     assert fake_steam.last.params == {"appid": "440", "l": "french", "key": API_KEY}
@@ -646,7 +647,7 @@ async def test_get_schema_for_game_parses_schema(
 ) -> None:
     fake_steam.api("GET", SCHEMA_PATH, json=load_fixture("game_schema_440.json"))
 
-    schema = await steam.games.get_schema_for_game(440)
+    schema = await steam.stats.get_schema_for_game(440)
 
     assert schema.gameName == "Team Fortress 2"
     assert schema.gameVersion == "142"
@@ -666,7 +667,7 @@ async def test_get_schema_for_game_without_stats_section(
 ) -> None:
     fake_steam.api("GET", SCHEMA_PATH, json=TF2_SCHEMA_STUB)
 
-    schema = await steam.games.get_schema_for_game(440)
+    schema = await steam.stats.get_schema_for_game(440)
 
     assert schema.availableGameStats is None
 
@@ -677,7 +678,7 @@ async def test_get_schema_for_game_without_game_raises_game_not_found(
     fake_steam.api("GET", SCHEMA_PATH, json={})
 
     with pytest.raises(GameNotFoundError) as excinfo:
-        await steam.games.get_schema_for_game(999999)
+        await steam.stats.get_schema_for_game(999999)
 
     assert excinfo.value.app_id == "999999"
     assert excinfo.value.status_code == 404
@@ -690,7 +691,7 @@ async def test_get_schema_for_game_empty_game_raises_game_not_found(
     fake_steam.api("GET", SCHEMA_PATH, json={"game": {}})
 
     with pytest.raises(GameNotFoundError) as excinfo:
-        await steam.games.get_schema_for_game(999999)
+        await steam.stats.get_schema_for_game(999999)
 
     assert excinfo.value.app_id == "999999"
 
@@ -705,7 +706,7 @@ async def test_get_app_details_calls_store_without_credentials(
         "GET", "/appdetails", json=load_fixture("game_appdetails_620.json")
     )
 
-    await steam.games.get_app_details(620)
+    await steam.store.get_app_details(620)
 
     request = fake_steam.last
     assert request.method == "GET"
@@ -722,7 +723,7 @@ async def test_get_app_details_needs_no_api_key(
     )
 
     async with Steam(access_token=ACCESS_TOKEN, settings=settings) as token_only:
-        details = await token_only.games.get_app_details(620)
+        details = await token_only.store.get_app_details(620)
 
     assert details is not None
     assert details.steam_appid == 620
@@ -736,7 +737,7 @@ async def test_get_app_details_passes_country_and_language_through(
         "GET", "/appdetails", json=load_fixture("game_appdetails_620.json")
     )
 
-    await steam.games.get_app_details(620, country="DE", language="german")
+    await steam.store.get_app_details(620, country="DE", language="german")
 
     assert fake_steam.last.params == {"appids": "620", "cc": "DE", "l": "german"}
 
@@ -748,7 +749,7 @@ async def test_get_app_details_parses_store_data(
         "GET", "/appdetails", json=load_fixture("game_appdetails_620.json")
     )
 
-    details = await steam.games.get_app_details(620)
+    details = await steam.store.get_app_details(620)
 
     assert details is not None
     assert details.steam_appid == 620
@@ -774,7 +775,7 @@ async def test_get_app_details_release_and_platform_helpers(
         "GET", "/appdetails", json=load_fixture("game_appdetails_620.json")
     )
 
-    details = await steam.games.get_app_details(620)
+    details = await steam.store.get_app_details(620)
 
     assert details is not None
     assert details.is_released is True
@@ -788,7 +789,7 @@ async def test_get_app_details_coming_soon_is_not_released(
     body["620"]["data"]["release_date"] = {"coming_soon": True, "date": "Coming soon"}
     fake_steam.store("GET", "/appdetails", json=body)
 
-    details = await steam.games.get_app_details(620)
+    details = await steam.store.get_app_details(620)
 
     assert details is not None
     assert details.is_released is False
@@ -806,7 +807,7 @@ async def test_get_app_details_unknown_app_returns_none(
 ) -> None:
     fake_steam.store("GET", "/appdetails", json=body)
 
-    assert await steam.games.get_app_details(9999999) is None
+    assert await steam.store.get_app_details(9999999) is None
 
 
 async def test_get_app_details_null_body_returns_none(
@@ -814,7 +815,7 @@ async def test_get_app_details_null_body_returns_none(
 ) -> None:
     fake_steam.store("GET", "/appdetails", text="null", content_type="application/json")
 
-    assert await steam.games.get_app_details(9999999) is None
+    assert await steam.store.get_app_details(9999999) is None
 
 
 async def test_get_app_details_invalid_data_raises_steam_api_error(
@@ -827,7 +828,7 @@ async def test_get_app_details_invalid_data_raises_steam_api_error(
     )
 
     with pytest.raises(SteamAPIError, match="Failed to get app details"):
-        await steam.games.get_app_details(620)
+        await steam.store.get_app_details(620)
 
 
 # -- IStoreService/GetAppList (#13) ---------------------------------------------
@@ -848,7 +849,7 @@ async def test_get_app_list_uses_store_service(
 ) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
-    apps = await steam.games.get_app_list()
+    apps = await steam.store.get_app_list()
 
     assert [r.path for r in fake_steam.requests] == [STORE_APP_LIST_PATH]
     assert_sent_with_api_key(fake_steam.last, STORE_APP_LIST_PATH)
@@ -858,7 +859,7 @@ async def test_get_app_list_uses_store_service(
 async def test_get_app_list_parses_apps(steam: Steam, fake_steam: FakeSteam) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
-    apps = await steam.games.get_app_list()
+    apps = await steam.store.get_app_list()
 
     assert all(isinstance(app, SteamApp) for app in apps)
     assert apps[-1] == SteamApp(
@@ -874,7 +875,7 @@ async def test_get_app_list_asks_for_every_app_type_by_default(
 ) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
-    await steam.games.get_app_list()
+    await steam.store.get_app_list()
 
     assert json.loads(fake_steam.last.params["input_json"]) == {
         "last_appid": 0,
@@ -892,7 +893,7 @@ async def test_get_app_list_follows_pages(steam: Steam, fake_steam: FakeSteam) -
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[:2], 400))
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[2:]))
 
-    result = await steam.games.get_app_list(max_results=2)
+    result = await steam.store.get_app_list(max_results=2)
 
     assert [(app.appid, app.name) for app in result] == EXPECTED_APPS
     sent = [json.loads(r.params["input_json"]) for r in fake_steam.requests]
@@ -906,7 +907,7 @@ async def test_get_app_list_stops_on_a_page_that_does_not_advance(
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps, 400))
 
     with pytest.raises(SteamAPIError, match="same app list page"):
-        await steam.games.get_app_list()
+        await steam.store.get_app_list()
 
     assert len(fake_steam.requests) == 2
 
@@ -916,7 +917,7 @@ async def test_get_app_list_page_passes_filters(
 ) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page([], None))
 
-    page = await steam.games.get_app_list_page(
+    page = await steam.store.get_app_list_page(
         last_appid=730,
         max_results=50_000,
         include_dlc=False,
@@ -943,7 +944,7 @@ async def test_iter_app_list_yields_apps_page_by_page(
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=app_list_page(apps[2:]))
 
     seen = []
-    async for app in steam.games.iter_app_list(max_results=2):
+    async for app in steam.store.iter_app_list(max_results=2):
         seen.append(app.appid)
         if app.appid == 400:
             assert len(fake_steam.requests) == 1
@@ -957,7 +958,7 @@ async def test_get_app_list_without_response_raises_steam_api_error(
     fake_steam.api("GET", STORE_APP_LIST_PATH, json={})
 
     with pytest.raises(SteamAPIError, match="Invalid response structure"):
-        await steam.games.get_app_list()
+        await steam.store.get_app_list()
 
 
 # -- search_games --------------------------------------------------------------
@@ -973,7 +974,7 @@ async def test_search_games_within_owned_games_makes_no_request(
         OwnedGame(appid=4000, playtime_forever=0),
     ]
 
-    results = await steam.games.search_games("  PORTAL ", owned_games=owned)
+    results = await steam.store.search_games("  PORTAL ", owned_games=owned)
 
     assert results == [
         SteamApp(appid=400, name="Portal"),
@@ -987,7 +988,7 @@ async def test_search_games_without_owned_games_searches_the_app_list(
 ) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
-    results = await steam.games.search_games("counter-strike")
+    results = await steam.store.search_games("counter-strike")
 
     assert [(app.appid, app.name) for app in results] == [
         (10, "Counter-Strike"),
@@ -1000,7 +1001,7 @@ async def test_search_games_with_empty_owned_games_makes_no_request(
 ) -> None:
     fake_steam.api("GET", STORE_APP_LIST_PATH, json=STORE_APP_LIST)
 
-    results = await steam.games.search_games("portal", owned_games=[])
+    results = await steam.store.search_games("portal", owned_games=[])
 
     assert results == []
     assert fake_steam.requests == []
@@ -1011,7 +1012,7 @@ async def test_get_owned_games_sends_optional_params_only_when_set(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
-    await steam.games.get_owned_games(
+    await steam.library.get_owned_games(
         STEAMID,
         include_extended_appinfo=True,
         include_free_sub=True,
@@ -1033,7 +1034,7 @@ async def test_get_owned_games_parses_extended_fields(
 ) -> None:
     fake_steam.api("GET", OWNED_GAMES_PATH, json=load_fixture("game_owned_games.json"))
 
-    hl2, tf2, _ = await steam.games.get_owned_games(STEAMID)
+    hl2, tf2, _ = await steam.library.get_owned_games(STEAMID)
 
     assert hl2.has_community_visible_stats is True
     assert hl2.content_descriptorids == [2, 5]
@@ -1050,7 +1051,7 @@ async def test_get_app_details_parses_optional_fields(
     body["620"]["data"]["linux_requirements"] = []
     fake_steam.store("GET", "/appdetails", json=body)
 
-    details = await steam.games.get_app_details(620)
+    details = await steam.store.get_app_details(620)
 
     assert details is not None
     assert details.dlc == [323180]
@@ -1084,7 +1085,7 @@ async def test_get_owned_games_falls_back_to_the_access_token(
     fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
 
     async with Steam(access_token=ACCESS_TOKEN, settings=settings) as token_only:
-        await token_only.games.get_owned_games(STEAMID)
+        await token_only.library.get_owned_games(STEAMID)
 
     assert fake_steam.last.query.getall("access_token") == [ACCESS_TOKEN]
     assert "key" not in fake_steam.last.query
@@ -1096,7 +1097,7 @@ async def test_get_app_list_page_falls_back_to_the_access_token(
     fake_steam.api("GET", STORE_APP_LIST_PATH, json={"response": {"apps": []}})
 
     async with Steam(access_token=ACCESS_TOKEN, settings=settings) as token_only:
-        await token_only.games.get_app_list_page()
+        await token_only.store.get_app_list_page()
 
     assert fake_steam.last.query.getall("access_token") == [ACCESS_TOKEN]
     assert "key" not in fake_steam.last.query

@@ -1,0 +1,180 @@
+{
+  "response": {
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 620,
+        "success": 1,
+        "visible": true,
+        "name": "Portal 2",
+        "store_url_path": "app/620/Portal_2/",
+        "appid": 620,
+        "type": 0,
+        "tagids": [1664, 1685, 3839, 3942, 1719, 4182, 21, 3843],
+        "categories": {
+          "supported_player_categoryids": [2, 9, 38, 39, 24],
+          "feature_categoryids": [22, 29, 13, 30, 23, 17, 14, 44],
+          "controller_categoryids": [28]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 443211,
+            "percent_positive": 98,
+            "review_score": 9,
+            "review_score_label": "Overwhelmingly Positive"
+          }
+        },
+        "basic_info": {
+          "short_description": "The &quot;Perpetual Testing Initiative&quot; has been expanded to allow you to design co-op puzzles for you and your friends!",
+          "publishers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "developers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "franchises": [{"name": "Portal"}]
+        },
+        "tags": [
+          {"tagid": 1664, "weight": 4810},
+          {"tagid": 1685, "weight": 3236},
+          {"tagid": 3839, "weight": 2900},
+          {"tagid": 3942, "weight": 2735},
+          {"tagid": 1719, "weight": 2486}
+        ],
+        "assets": {
+          "asset_url_format": "steam/apps/620/${FILENAME}?t=1745363004",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "page_background": "page_bg_generated_v6b.jpg",
+          "hero_capsule": "hero_capsule.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "library_hero.jpg",
+          "community_icon": "2e478fc6874d06ae5baf0d147f6f21203291aa02",
+          "page_background_path": "steam/apps/620/page_bg_generated_v6b.jpg?t=1745363004",
+          "raw_page_background": "page.bg.jpg"
+        },
+        "release": {
+          "steam_release_date": 1303171200
+        },
+        "platforms": {
+          "windows": true,
+          "mac": true,
+          "steamos_linux": true,
+          "vr_support": {},
+          "steam_deck_compat_category": 3
+        },
+        "game_rating": {
+          "type": "esrb",
+          "rating": "e10",
+          "descriptors": ["Fantasy Violence", "Mild Language"]
+        },
+        "best_purchase_option": {
+          "packageid": 7877,
+          "purchase_option_name": "Buy Portal 2",
+          "final_price_in_cents": "199",
+          "original_price_in_cents": "999",
+          "formatted_final_price": "$1.99",
+          "formatted_original_price": "$9.99",
+          "discount_pct": 80,
+          "active_discounts": [
+            {
+              "discount_amount": "800",
+              "discount_description": "SPECIAL PROMOTION! Offer ends October 9",
+              "discount_end_date": 1760029200
+            }
+          ],
+          "user_can_purchase_as_gift": true,
+          "included_game_count": 1,
+          "lowest_recent_price_in_cents": "199"
+        },
+        "purchase_options": [
+          {
+            "packageid": 7877,
+            "purchase_option_name": "Buy Portal 2",
+            "final_price_in_cents": "199",
+            "original_price_in_cents": "999",
+            "formatted_final_price": "$1.99",
+            "formatted_original_price": "$9.99",
+            "discount_pct": 80,
+            "user_can_purchase_as_gift": true,
+            "included_game_count": 1
+          },
+          {
+            "bundleid": 234,
+            "purchase_option_name": "Buy Portal Bundle",
+            "final_price_in_cents": "358",
+            "original_price_in_cents": "1998",
+            "formatted_final_price": "$3.58",
+            "formatted_original_price": "$19.98",
+            "discount_pct": 82,
+            "bundle_discount_pct": 10,
+            "price_before_bundle_discount": "398",
+            "formatted_price_before_bundle_discount": "$3.98",
+            "user_can_purchase_as_gift": true,
+            "included_game_count": 2
+          }
+        ]
+      },
+      {
+        "item_type": 0,
+        "id": 440,
+        "success": 1,
+        "visible": true,
+        "name": "Team Fortress 2",
+        "store_url_path": "app/440/Team_Fortress_2/",
+        "appid": 440,
+        "type": 0,
+        "is_free": true,
+        "tagids": [113, 1663, 3859, 1775, 3878],
+        "categories": {
+          "supported_player_categoryids": [1, 49, 36],
+          "feature_categoryids": [22, 29, 30, 8, 35],
+          "controller_categoryids": [18]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 1105312,
+            "percent_positive": 89,
+            "review_score": 8,
+            "review_score_label": "Very Positive"
+          }
+        },
+        "basic_info": {
+          "short_description": "Nine distinct classes provide a broad range of tactical abilities and personalities. Constantly updated with new game modes, maps, equipment and, most importantly, hats!",
+          "publishers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "developers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "franchises": [{"name": "Team Fortress"}]
+        },
+        "tags": [
+          {"tagid": 113, "weight": 5216},
+          {"tagid": 1663, "weight": 4207},
+          {"tagid": 3859, "weight": 3790},
+          {"tagid": 1775, "weight": 3409},
+          {"tagid": 3878, "weight": 2931}
+        ],
+        "assets": {
+          "asset_url_format": "steam/apps/440/${FILENAME}?t=1745368572",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_hero": "library_hero.jpg",
+          "community_icon": "e3f595a92552da3d664ad00277fad2107345f743"
+        },
+        "release": {
+          "steam_release_date": 1192003200
+        },
+        "platforms": {
+          "windows": true,
+          "steamos_linux": true,
+          "vr_support": {},
+          "steam_deck_compat_category": 2
+        },
+        "game_rating": {
+          "type": "esrb",
+          "rating": "m",
+          "descriptors": ["Blood", "Violence"],
+          "required_age": 17
+        }
+      }
+    ]
+  }
+}

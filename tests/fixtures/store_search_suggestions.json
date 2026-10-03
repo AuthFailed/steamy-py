@@ -1,0 +1,83 @@
+{
+  "response": {
+    "metadata": {
+      "total_matching_records": 214,
+      "start": 0,
+      "count": 3
+    },
+    "ids": [
+      {"appid": 620},
+      {"appid": 400},
+      {"appid": 1255980}
+    ],
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 620,
+        "success": 1,
+        "visible": true,
+        "name": "Portal 2",
+        "store_url_path": "app/620/Portal_2/",
+        "appid": 620,
+        "type": 0,
+        "basic_info": {
+          "short_description": "The &quot;Perpetual Testing Initiative&quot; has been expanded to allow you to design co-op puzzles for you and your friends!",
+          "publishers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "developers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "franchises": [{"name": "Portal"}]
+        },
+        "best_purchase_option": {
+          "packageid": 7877,
+          "purchase_option_name": "Buy Portal 2",
+          "final_price_in_cents": "999",
+          "formatted_final_price": "$9.99",
+          "user_can_purchase_as_gift": true,
+          "included_game_count": 1
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 400,
+        "success": 1,
+        "visible": true,
+        "name": "Portal",
+        "store_url_path": "app/400/Portal/",
+        "appid": 400,
+        "type": 0,
+        "basic_info": {
+          "short_description": "Portal&trade; is a new single player game from Valve. Set in the mysterious Aperture Science Laboratories, Portal has been called one of the most innovative new games on the horizon and will offer gamers hours of unique gameplay.",
+          "publishers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "developers": [{"name": "Valve", "creator_clan_account_id": 4}],
+          "franchises": [{"name": "Portal"}]
+        },
+        "best_purchase_option": {
+          "packageid": 469,
+          "purchase_option_name": "Buy Portal",
+          "final_price_in_cents": "999",
+          "formatted_final_price": "$9.99",
+          "user_can_purchase_as_gift": true,
+          "included_game_count": 1
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 1255980,
+        "success": 1,
+        "visible": true,
+        "name": "Portal Reloaded",
+        "store_url_path": "app/1255980/Portal_Reloaded/",
+        "appid": 1255980,
+        "type": 2,
+        "is_free": true,
+        "related_items": {
+          "parent_appid": 620
+        },
+        "basic_info": {
+          "short_description": "Portal Reloaded is a free, community-made mod for Portal 2 that adds a third portal: the time portal.",
+          "publishers": [{"name": "Jannis Brinkmann"}],
+          "developers": [{"name": "Jannis Brinkmann"}]
+        }
+      }
+    ]
+  }
+}

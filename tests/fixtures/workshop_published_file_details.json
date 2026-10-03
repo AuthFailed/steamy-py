@@ -1,0 +1,42 @@
+{
+  "response": {
+    "result": 1,
+    "resultcount": 2,
+    "publishedfiledetails": [
+      {
+        "publishedfileid": "450814997",
+        "result": 1,
+        "creator": "76561198198595822",
+        "creator_app_id": 107410,
+        "consumer_app_id": 107410,
+        "filename": "",
+        "file_size": "4840892",
+        "file_url": "",
+        "hcontent_file": "8288142167768285117",
+        "preview_url": "https://images.steamusercontent.com/ugc/1014940825593906790/E3A99D3EB1031126D7FFADCF6BBDA00FAA7FAFEC/",
+        "hcontent_preview": "1014940825593906790",
+        "title": "CBA_A3",
+        "description": "[h1][b]CBA: Community Based Addons for Arma 3[/b][/h1]\r\n\r\nWhat does the name Community Base Addons mean? It is a system that:\r\n[list]\r\n[*]Offers a range of ...",
+        "time_created": 1432827434,
+        "time_updated": 1775056591,
+        "visibility": 0,
+        "banned": 0,
+        "ban_reason": "",
+        "subscriptions": 3118457,
+        "favorited": 65432,
+        "lifetime_subscriptions": 4250143,
+        "lifetime_favorited": 71005,
+        "views": 2040262,
+        "tags": [
+          {
+            "tag": "Mod"
+          }
+        ]
+      },
+      {
+        "publishedfileid": "3325368063",
+        "result": 9
+      }
+    ]
+  }
+}

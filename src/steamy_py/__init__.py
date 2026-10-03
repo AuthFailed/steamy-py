@@ -39,7 +39,21 @@ from .models import (
 )
 
 # API classes (for advanced users who want direct access)
-from .repos import FamilyAPI, GameAPI, MarketAPI, PlayerAPI, StatsAPI
+from .repos import (
+    EconomyAPI,
+    FamilyAPI,
+    FriendsAPI,
+    GameAPI,
+    LibraryAPI,
+    MarketAPI,
+    PlayerAPI,
+    StatsAPI,
+    StoreAPI,
+    UsersAPI,
+    UtilAPI,
+    WishlistAPI,
+    WorkshopAPI,
+)
 from .steam import Steam
 from .steamid import SteamID
 
@@ -48,14 +62,17 @@ __all__ = [
     "AuthenticationError",
     "Client",
     "ConfigurationError",
+    "EconomyAPI",
     "FamilyAPI",
     "Friend",
+    "FriendsAPI",
     "GameAPI",
     "GameNotFoundError",
     "GlobalStat",
     "InvalidAppIDError",
     "InvalidSteamIDError",
     "InventoryItem",
+    "LibraryAPI",
     "MarketAPI",
     "MarketListing",
     "NetworkError",
@@ -77,7 +94,12 @@ __all__ = [
     "SteamAPIError",
     "SteamApp",
     "SteamID",
+    "StoreAPI",
     "UserStat",
+    "UsersAPI",
+    "UtilAPI",
+    "WishlistAPI",
+    "WorkshopAPI",
     "__version__",
 ]
 

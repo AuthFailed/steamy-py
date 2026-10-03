@@ -1,0 +1,51 @@
+{
+  "response": {
+    "games": [
+      {
+        "appid": 440,
+        "last_playtime": 1727910021,
+        "playtime_2weeks": 95,
+        "playtime_forever": 48213,
+        "first_playtime": 1191974400,
+        "playtime_windows_forever": 47025,
+        "playtime_linux_forever": 1093,
+        "playtime_deck_forever": 95,
+        "first_windows_playtime": 1357603200,
+        "first_linux_playtime": 1360195200,
+        "first_deck_playtime": 1727308800,
+        "last_windows_playtime": 1727481600,
+        "last_linux_playtime": 1500076800,
+        "last_deck_playtime": 1727910021
+      },
+      {
+        "appid": 730,
+        "last_playtime": 1727996400,
+        "playtime_2weeks": 1003,
+        "playtime_forever": 125643,
+        "first_playtime": 1345680000,
+        "playtime_windows_forever": 118011,
+        "playtime_mac_forever": 15,
+        "playtime_linux_forever": 7632,
+        "first_windows_playtime": 1357689600,
+        "first_mac_playtime": 1420156800,
+        "first_linux_playtime": 1420070400,
+        "last_windows_playtime": 1727996400,
+        "last_mac_playtime": 1420160400,
+        "last_linux_playtime": 1609459200,
+        "playtime_disconnected": 12
+      },
+      {
+        "appid": 220,
+        "last_playtime": 1726784163,
+        "playtime_forever": 1311,
+        "first_playtime": 1100736000,
+        "playtime_windows_forever": 1289,
+        "playtime_linux_forever": 22,
+        "first_windows_playtime": 1357776000,
+        "first_linux_playtime": 1420243200,
+        "last_windows_playtime": 1726784163,
+        "last_linux_playtime": 1420246800
+      }
+    ]
+  }
+}

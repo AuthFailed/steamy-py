@@ -33,7 +33,7 @@ async def live_steam() -> AsyncIterator[Steam]:
 
 
 async def test_get_player_summary(live_steam: Steam) -> None:
-    summary = await live_steam.player.get_player_summary(PUBLIC_STEAMID)
+    summary = await live_steam.users.get_player_summary(PUBLIC_STEAMID)
     assert summary is not None
     assert summary.steamid == PUBLIC_STEAMID
 
@@ -44,5 +44,5 @@ async def test_get_current_players(live_steam: Steam) -> None:
 
 
 async def test_get_news_for_app(live_steam: Steam) -> None:
-    news = await live_steam.stats.get_news_for_app(COUNTER_STRIKE_2, count=3)
+    news = await live_steam.store.get_news_for_app(COUNTER_STRIKE_2, count=3)
     assert len(news) <= 3

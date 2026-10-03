@@ -1,0 +1,35 @@
+{
+  "total": 3,
+  "items": [
+    {
+      "type": "app",
+      "name": "Portal 2",
+      "id": 620,
+      "price": {"currency": "USD", "initial": 999, "final": 199},
+      "tiny_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/capsule_231x87.jpg?t=1745363004",
+      "metascore": "95",
+      "platforms": {"windows": true, "mac": true, "linux": true},
+      "streamingvideo": false,
+      "controller_support": "full"
+    },
+    {
+      "type": "app",
+      "name": "Portal",
+      "id": 400,
+      "price": {"currency": "USD", "initial": 999, "final": 999},
+      "tiny_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/400/capsule_231x87.jpg?t=1745368554",
+      "metascore": "90",
+      "platforms": {"windows": true, "mac": true, "linux": true},
+      "streamingvideo": false
+    },
+    {
+      "type": "app",
+      "name": "Portal Reloaded",
+      "id": 1255980,
+      "tiny_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1255980/capsule_231x87.jpg?t=1729609587",
+      "metascore": "",
+      "platforms": {"windows": true, "mac": false, "linux": false},
+      "streamingvideo": false
+    }
+  ]
+}
