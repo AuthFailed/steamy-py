@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Steam API Configuration
     STEAM_API_BASE_URL: str = "https://api.steampowered.com"
     STEAM_STORE_BASE_URL: str = "https://store.steampowered.com/api"
+    STEAM_COMMUNITY_BASE_URL: str = "https://steamcommunity.com"
 
     # Request Configuration
     REQUEST_TIMEOUT: int = 30
