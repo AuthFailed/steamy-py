@@ -1,16 +1,26 @@
 """Steam Family API endpoints (IFamilyGroupsService)."""
 
-from typing import Any
+from typing import Any, TypeVar
+
+from pydantic import BaseModel
 
 from ..models.family import (
+    FamilyGroupChangeLogResponse,
+    FamilyGroupResponse,
     FamilyGroupStatusResponse,
+    InviteCheckResultsResponse,
     PlaytimeSummaryResponse,
+    PreferredLendersResponse,
+    PurchaseRequestsResponse,
     SharedLibraryAppsResponse,
+    UsersSharingDeviceResponse,
 )
 from ..steamid import SteamIDLike, validate_steam_id
 from .base import BaseAPI
 
 _INTERFACE = "IFamilyGroupsService"
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 # Family group ids, invite ids, nonces and cart ids are 64-bit; pass them as
 # int or as the string Steam returns.
@@ -25,8 +35,9 @@ def _steamid(value: SteamIDLike | None) -> str | None:
 class FamilyAPI(BaseAPI):
     """Steam Family API endpoints.
 
-    Every method calls IFamilyGroupsService with the user's access token. A
-    method returning a raw body returns Steam's JSON, ``{"response": {...}}``.
+    Every method calls IFamilyGroupsService with the user's access token.
+    Read methods return models; write methods return Steam's raw JSON,
+    ``{"response": {...}}``.
     """
 
     async def _family(
@@ -42,6 +53,25 @@ class FamilyAPI(BaseAPI):
             method,
             operation,
             inputs,
+            http_method=http_method,
+            auth_type="access_token",
+        )
+
+    async def _family_model(
+        self,
+        method: str,
+        operation: str,
+        inputs: dict[str, Any],
+        model: type[ModelT],
+        http_method: str = "GET",
+    ) -> ModelT:
+        """Call an IFamilyGroupsService method and parse the body into ``model``."""
+        return await self._call_service(
+            _INTERFACE,
+            method,
+            operation,
+            inputs,
+            model=model,
             http_method=http_method,
             auth_type="access_token",
         )
@@ -197,22 +227,29 @@ class FamilyAPI(BaseAPI):
 
     async def get_change_log(
         self, family_groupid: FamilyID | None = None
-    ) -> dict[str, Any]:
+    ) -> FamilyGroupChangeLogResponse:
         """Return a log of changes made to this family group.
 
         Args:
             family_groupid: Family group id
 
         Returns:
-            The raw response body (``changes``)
+            The change log
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
         """
-        return await self._family(
-            "GetChangeLog", "get change log", {"family_groupid": family_groupid}
+        return await self._family_model(
+            "GetChangeLog",
+            "get change log",
+            {"family_groupid": family_groupid},
+            FamilyGroupChangeLogResponse,
+            http_method="POST",
         )
 
     async def get_family_group(
         self, family_groupid: FamilyID, send_running_apps: bool = False
-    ) -> dict[str, Any]:
+    ) -> FamilyGroupResponse:
         """Get family group information.
 
         Use *get_family_group_for_user* to get the current user's family group.
@@ -222,20 +259,21 @@ class FamilyAPI(BaseAPI):
             send_running_apps: Whether to include running app information
 
         Returns:
-            The raw response body
+            The family group
 
         Raises:
             AuthenticationError: If access token is not provided
+            ResponseParsingError: If the response has an unexpected shape
             SteamAPIError: On API errors
         """
-        return await self._family(
+        return await self._family_model(
             "GetFamilyGroup",
             "get family group",
             {
                 "family_groupid": family_groupid,
                 "send_running_apps": send_running_apps or None,
             },
-            http_method="GET",
+            FamilyGroupResponse,
         )
 
     async def get_family_group_for_user(
@@ -278,7 +316,7 @@ class FamilyAPI(BaseAPI):
         self,
         family_groupid: FamilyID | None = None,
         steamid: SteamIDLike | None = None,
-    ) -> dict[str, Any]:
+    ) -> InviteCheckResultsResponse:
         """Get the results of Steam's checks on an invitation.
 
         Args:
@@ -286,14 +324,16 @@ class FamilyAPI(BaseAPI):
             steamid: Steam ID of the invited user
 
         Returns:
-            The raw response body (e.g. ``wallet_country_matches``,
-            ``ip_match``)
+            The check results
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
         """
-        return await self._family(
+        return await self._family_model(
             "GetInviteCheckResults",
             "get invite check results",
             {"family_groupid": family_groupid, "steamid": _steamid(steamid)},
-            http_method="GET",
+            InviteCheckResultsResponse,
         )
 
     async def get_playtime_summary(
@@ -324,20 +364,23 @@ class FamilyAPI(BaseAPI):
 
     async def get_preferred_lenders(
         self, family_groupid: FamilyID | None = None
-    ) -> dict[str, Any]:
+    ) -> PreferredLendersResponse:
         """Get the members' preferred lenders, per app.
 
         Args:
             family_groupid: Family group id
 
         Returns:
-            The raw response body (``members``)
+            Each member's preferred apps
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
         """
-        return await self._family(
+        return await self._family_model(
             "GetPreferredLenders",
             "get preferred lenders",
             {"family_groupid": family_groupid},
-            http_method="GET",
+            PreferredLendersResponse,
         )
 
     async def get_purchase_requests(
@@ -346,7 +389,7 @@ class FamilyAPI(BaseAPI):
         family_groupid: FamilyID | None = None,
         include_completed: bool = False,
         rt_include_completed_since: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> PurchaseRequestsResponse:
         """Get pending purchase requests for the family.
 
         Args:
@@ -358,9 +401,12 @@ class FamilyAPI(BaseAPI):
                 Unix time
 
         Returns:
-            The raw response body (``requests``)
+            The purchase requests
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
         """
-        return await self._family(
+        return await self._family_model(
             "GetPurchaseRequests",
             "get purchase requests",
             {
@@ -369,7 +415,7 @@ class FamilyAPI(BaseAPI):
                 "include_completed": include_completed,
                 "rt_include_completed_since": rt_include_completed_since,
             },
-            http_method="GET",
+            PurchaseRequestsResponse,
         )
 
     async def get_shared_library_apps(
@@ -426,7 +472,7 @@ class FamilyAPI(BaseAPI):
         family_groupid: FamilyID | None = None,
         client_session_id: int | None = None,
         client_instance_id: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> UsersSharingDeviceResponse:
         """Get the lenders or borrowers sharing a device with the user.
 
         Args:
@@ -435,9 +481,12 @@ class FamilyAPI(BaseAPI):
             client_instance_id: Instance id of the Steam client
 
         Returns:
-            The raw response body (``users``)
+            Steam IDs of the users sharing the device
+
+        Raises:
+            ResponseParsingError: If the response has an unexpected shape
         """
-        return await self._family(
+        return await self._family_model(
             "GetUsersSharingDevice",
             "get users sharing device",
             {
@@ -445,7 +494,7 @@ class FamilyAPI(BaseAPI):
                 "client_session_id": client_session_id,
                 "client_instance_id": client_instance_id,
             },
-            http_method="GET",
+            UsersSharingDeviceResponse,
         )
 
     async def invite_to_family_group(

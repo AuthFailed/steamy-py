@@ -77,6 +77,13 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `PlaytimeSummaryResponse`, `PlaytimeEntry` and `PlaytimeSummary` ([#14]).
 - Family models are based on `SteamModel` and exported from
   `steamy_py.models` ([#14]).
+- **Breaking:** Family read methods return models instead of raw dicts:
+  `get_family_group()` → `FamilyGroupResponse`, `get_change_log()` →
+  `FamilyGroupChangeLogResponse`, `get_preferred_lenders()` →
+  `PreferredLendersResponse`, `get_purchase_requests()` →
+  `PurchaseRequestsResponse`, `get_invite_check_results()` →
+  `InviteCheckResultsResponse`, `get_users_sharing_device()` →
+  `UsersSharingDeviceResponse` ([#1], [#14]).
 - `FamilyAPI.get_purchase_requests()`: `request_ids` is optional ([#19]).
 - Support-only Family methods (`force_accept_invite`, `clear_cooldown_skip`,
   `set_family_cooldown_overrides`, `rollback_family_group`,
@@ -170,7 +177,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 - Family models keep `pending_group_invites` and `family_group`
   (`FamilyGroup`) on the user's status, `entries_by_owner` on the playtime
   summary, and `owner_steamid` / `sort_as` on shared library apps; new
-  `EFamilyGroupRole` and `EPurchaseRequestAction` enums ([#14]).
+  `EFamilyGroupRole`, `EPurchaseRequestAction` and `EProtoAppType` enums
+  ([#14]).
 - `input_json` support and an `_indexed()` helper for repeated fields in
   `BaseAPI` ([#18]).
 - Support for Python 3.10, 3.11 and 3.12 (the minimum was 3.13) ([#6]).
@@ -264,6 +272,7 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   empty playtime summary ([#14]).
 
 [Unreleased]: https://github.com/AuthFailed/steamy-py/compare/ba78383...main
+[#1]: https://github.com/AuthFailed/steamy-py/issues/1
 [#6]: https://github.com/AuthFailed/steamy-py/issues/6
 [#8]: https://github.com/AuthFailed/steamy-py/issues/8
 [#10]: https://github.com/AuthFailed/steamy-py/issues/10

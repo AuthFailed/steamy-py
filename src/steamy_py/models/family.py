@@ -22,6 +22,28 @@ class EFamilyGroupRole(IntEnum):
     MAX = 3
 
 
+class EProtoAppType(IntEnum):
+    """Type of an app (``app_type`` of a shared library app)."""
+
+    INVALID = 0
+    GAME = 1
+    APPLICATION = 2
+    TOOL = 4
+    DEMO = 8
+    DLC = 32
+    GUIDE = 64
+    DRIVER = 128
+    CONFIG = 256
+    HARDWARE = 512
+    FRANCHISE = 1024
+    VIDEO = 2048
+    PLUGIN = 4096
+    MUSIC = 8192
+    SERIES = 16384
+    COMIC = 32768
+    BETA = 65536
+
+
 class EPurchaseRequestAction(IntEnum):
     """Response to a family member's purchase request."""
 
@@ -38,7 +60,7 @@ class MembershipHistoryEntry(SteamModel):
     rtime_left: int = Field(
         0, description="Time of leaving this family group (0 if still a member)"
     )
-    role: int = Field(0, description="Role of user in this family group")
+    role: int = Field(0, description="Role in this family group (EFamilyGroupRole)")
     participated: bool = Field(
         False, description="Whether the user took part in this family group"
     )
@@ -158,7 +180,7 @@ class SharedLibraryApp(SteamModel):
     rt_time_acquired: int = Field(0, description="Unix timestamp when app was acquired")
     rt_last_played: int = Field(0, description="Unix timestamp of last play time")
     rt_playtime: int = Field(0, description="Total playtime in seconds")
-    app_type: int = Field(0, description="Type of app")
+    app_type: int = Field(0, description="Type of app (an EProtoAppType)")
     content_descriptors: list[int] = Field(
         default_factory=list, description="Content descriptor IDs"
     )
@@ -171,3 +193,101 @@ class SharedLibraryAppsData(SteamModel):
 
 class SharedLibraryAppsResponse(SteamModel):
     response: SharedLibraryAppsData = Field(default_factory=SharedLibraryAppsData)
+
+
+class FamilyGroupResponse(SteamModel):
+    """Response of GetFamilyGroup."""
+
+    response: FamilyGroup = Field(default_factory=FamilyGroup)
+
+
+class FamilyGroupChange(SteamModel):
+    """One entry of a family group's change log."""
+
+    timestamp: int = Field(0, description="Unix time of the change")
+    actor_steamid: str = Field("", description="Steam ID of who made the change")
+    type: int = Field(0, description="EFamilyGroupChangeLogType of the change")
+    body: str = Field("", description="Details of the change (JSON text)")
+    by_support: bool = Field(False, description="Whether Steam Support made it")
+
+
+class FamilyGroupChangeLog(SteamModel):
+    changes: list[FamilyGroupChange] = Field(default_factory=list)
+
+
+class FamilyGroupChangeLogResponse(SteamModel):
+    """Response of GetChangeLog."""
+
+    response: FamilyGroupChangeLog = Field(default_factory=FamilyGroupChangeLog)
+
+
+class PreferredLender(SteamModel):
+    """A member and the apps they prefer to borrow from them."""
+
+    steamid: str = Field("", description="Steam ID of the member")
+    preferred_appids: list[int] = Field(default_factory=list)
+
+
+class PreferredLenders(SteamModel):
+    members: list[PreferredLender] = Field(default_factory=list)
+
+
+class PreferredLendersResponse(SteamModel):
+    """Response of GetPreferredLenders."""
+
+    response: PreferredLenders = Field(default_factory=PreferredLenders)
+
+
+class PurchaseRequest(SteamModel):
+    """A family member's request to have a cart bought for them."""
+
+    requester_steamid: str = Field("", description="Steam ID of the requester")
+    gidshoppingcart: str = Field("", description="Shopping cart id")
+    time_requested: int = Field(0, description="Unix time of the request")
+    time_responded: int = Field(0, description="Unix time of the response")
+    responder_steamid: str = Field("", description="Steam ID of the responder")
+    response_action: int = Field(0, description="An EPurchaseRequestAction")
+    is_completed: bool = Field(False, description="Whether the request is closed")
+    request_id: str = Field("", description="Purchase request id")
+    requested_packageids: list[int] = Field(default_factory=list)
+    purchased_packageids: list[int] = Field(default_factory=list)
+    requested_bundleids: list[int] = Field(default_factory=list)
+    purchased_bundleids: list[int] = Field(default_factory=list)
+
+
+class PurchaseRequests(SteamModel):
+    requests: list[PurchaseRequest] = Field(default_factory=list)
+
+
+class PurchaseRequestsResponse(SteamModel):
+    """Response of GetPurchaseRequests."""
+
+    response: PurchaseRequests = Field(default_factory=PurchaseRequests)
+
+
+class InviteCheckResults(SteamModel):
+    """Steam's checks on an invitation."""
+
+    wallet_country_matches: bool = Field(
+        False, description="Whether the wallet countries match"
+    )
+    ip_match: bool = Field(False, description="Whether the IP addresses match")
+    join_restricted: bool = Field(
+        False, description="Whether the invitee is restricted from joining"
+    )
+
+
+class InviteCheckResultsResponse(SteamModel):
+    """Response of GetInviteCheckResults."""
+
+    response: InviteCheckResults = Field(default_factory=InviteCheckResults)
+
+
+class UsersSharingDevice(SteamModel):
+    users: list[str] = Field(default_factory=list, description="Steam IDs of the users")
+
+
+class UsersSharingDeviceResponse(SteamModel):
+    """Response of GetUsersSharingDevice."""
+
+    response: UsersSharingDevice = Field(default_factory=UsersSharingDevice)

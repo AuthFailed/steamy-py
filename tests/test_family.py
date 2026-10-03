@@ -25,6 +25,7 @@ from steamy_py import (
     SteamID,
 )
 from steamy_py.models.family import (
+    EPurchaseRequestAction,
     FamilyGroupStatusResponse,
     PlaytimeSummaryResponse,
     SharedLibraryAppsResponse,
@@ -197,6 +198,7 @@ ENDPOINTS = [
                 ]
             }
         },
+        typed=True,
     ),
     Endpoint(
         "get_family_group",
@@ -207,6 +209,7 @@ ENDPOINTS = [
         "GET",
         {"family_groupid": GROUP, "send_running_apps": "1"},
         FAMILY_GROUP,
+        typed=True,
     ),
     Endpoint(
         "get_family_group_for_user",
@@ -226,6 +229,7 @@ ENDPOINTS = [
         "GET",
         {"family_groupid": GROUP, "steamid": INVITEE},
         {"response": {"wallet_country_matches": True, "ip_match": True}},
+        typed=True,
     ),
     Endpoint(
         "get_playtime_summary",
@@ -243,6 +247,7 @@ ENDPOINTS = [
         "GET",
         {"family_groupid": GROUP},
         {"response": {"members": [{"steamid": STEAMID, "preferred_appids": [620]}]}},
+        typed=True,
     ),
     Endpoint(
         "get_purchase_requests",
@@ -274,6 +279,7 @@ ENDPOINTS = [
                 ]
             }
         },
+        typed=True,
     ),
     Endpoint(
         "get_shared_library_apps",
@@ -299,6 +305,7 @@ ENDPOINTS = [
             "client_instance_id": "8130470118852919",
         },
         {"response": {"users": [ADULT]}},
+        typed=True,
     ),
     Endpoint(
         "invite_to_family_group",
@@ -1048,7 +1055,7 @@ async def test_get_purchase_requests_sends_family_and_completion_filters(
     endpoint = ENDPOINTS_BY_NAME["get_purchase_requests"]
     fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
 
-    assert await endpoint.call(steam) == endpoint.reply
+    await endpoint.call(steam)
 
     params = fake_steam.last.params
     assert params["family_groupid"] == GROUP
@@ -1125,3 +1132,104 @@ async def test_invalid_steamid_input_is_rejected_before_any_request(
         )
 
     assert fake_steam.requests == []
+
+
+# -- typed read methods ---------------------------------------------------------------
+
+
+async def test_get_family_group_parses_members(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_family_group"]
+    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    group = (await endpoint.call(steam)).response
+
+    expected = FAMILY_GROUP["response"]
+    assert group.name == expected["name"]
+    assert [member.steamid for member in group.members] == [
+        member["steamid"] for member in expected["members"]
+    ]
+
+
+async def test_get_change_log_parses_changes(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_change_log"]
+    fake_steam.api("POST", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    changes = (await endpoint.call(steam)).response.changes
+
+    assert [(c.timestamp, c.actor_steamid, c.type) for c in changes] == [
+        (JOINED, STEAMID, 1),
+        (JOINED + 3600, STEAMID, 4),
+    ]
+    assert not changes[0].by_support
+
+
+async def test_get_preferred_lenders_parses_members(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_preferred_lenders"]
+    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    (member,) = (await endpoint.call(steam)).response.members
+
+    assert (member.steamid, member.preferred_appids) == (STEAMID, [620])
+
+
+async def test_get_purchase_requests_parses_requests(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_purchase_requests"]
+    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    (request,) = (await endpoint.call(steam)).response.requests
+
+    assert request.requester_steamid == CHILD
+    assert request.gidshoppingcart == str(SHOPPING_CART)
+    assert request.request_id == str(REQUEST_ID)
+    assert request.requested_packageids == [7877]
+    assert not request.is_completed
+    assert request.response_action == EPurchaseRequestAction.NONE
+
+
+async def test_get_invite_check_results_parses_results(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_invite_check_results"]
+    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    results = (await endpoint.call(steam)).response
+
+    assert results.wallet_country_matches
+    assert results.ip_match
+    assert not results.join_restricted
+
+
+async def test_get_users_sharing_device_parses_users(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    endpoint = ENDPOINTS_BY_NAME["get_users_sharing_device"]
+    fake_steam.api("GET", rpc_path(endpoint.rpc), json=endpoint.reply)
+
+    assert (await endpoint.call(steam)).response.users == [ADULT]
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        pytest.param(endpoint, id=endpoint.name)
+        for endpoint in ENDPOINTS
+        if endpoint.typed
+    ],
+)
+async def test_typed_call_parses_empty_response(
+    steam: Steam, fake_steam: FakeSteam, endpoint: Endpoint
+) -> None:
+    """Steam leaves out every field at its default, down to ``{}``."""
+    serve_every_rpc(fake_steam, json={})
+
+    result = await endpoint.call(steam)
+
+    assert result.response == type(result.response)()
