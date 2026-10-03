@@ -2,16 +2,29 @@
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any
+from urllib.parse import quote, quote_plus
 
 import aiohttp
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from ._version import __version__
 from .config import Settings
+from .exceptions import (
+    NetworkError,
+    RateLimitError,
+    ResponseParsingError,
+    SteamAPIError,
+)
 
 logger = logging.getLogger(__name__)
+
+# Matches credential query parameters inside URLs embedded in error text.
+_CREDENTIAL_PARAM_RE = re.compile(
+    r"(?P<name>\b(?:key|access_token)=)[^&#\s'\"]+", re.IGNORECASE
+)
 
 
 class Client:
@@ -129,7 +142,7 @@ class Client:
         Raises:
             _RateLimitedError: On HTTP 429, after sleeping for ``Retry-After``
             ClientError: On HTTP errors
-            ValueError: On invalid JSON response
+            ResponseParsingError: On invalid JSON response
         """
         async with session.request(method, url, params=params, **kwargs) as response:
             if response.status == 429:
@@ -145,11 +158,16 @@ class Client:
             try:
                 data = await response.json()
             except (ValueError, aiohttp.ContentTypeError) as e:
-                logger.error("Invalid JSON response from %s: %s", url, e)
-                raise ValueError(f"Invalid JSON response: {e}") from e
+                reason = self._describe_error(e)
+            else:
+                logger.debug("Successful response from %s", self._redact(url))
+                return data
 
-            logger.debug("Successful response from %s", url)
-            return data
+        # Raised outside the except block so the original aiohttp error (whose
+        # text contains the full request URL) is not attached as __context__.
+        message = f"Invalid JSON response from {self._redact(url)}: {reason}"
+        logger.error("%s", message)
+        raise ResponseParsingError(message)
 
     async def request(
         self,
@@ -172,42 +190,79 @@ class Client:
             JSON response data
 
         Raises:
-            ClientError: On HTTP errors
-            ValueError: On invalid JSON response
+            SteamAPIError: On HTTP errors (``status_code`` is set)
+            RateLimitError: If every attempt was rate limited (HTTP 429)
+            NetworkError: On connection errors
+            ResponseParsingError: On invalid JSON response
+            ValueError: If the credential for ``auth_type`` is missing
+
+        Error messages and logs never contain the API key or access token.
         """
         session = await self._get_session()
         request_params = self._apply_auth(params or {}, auth_type)
 
         await self._rate_limit()
 
-        last_exception: ClientError | None = None
+        # Only sanitized library exceptions leave this method. They are raised
+        # after the loop, outside any except block, so the original aiohttp
+        # error (which embeds the full URL with credentials) is never chained.
+        failure: SteamAPIError | None = None
         for attempt in range(self.settings.MAX_RETRIES + 1):
             logger.debug(
-                "Making %s request to %s (attempt %d)", method, url, attempt + 1
+                "Making %s request to %s (attempt %d)",
+                method,
+                self._redact(url),
+                attempt + 1,
             )
             try:
                 return await self._send(session, method, url, request_params, **kwargs)
             except _RateLimitedError:
+                failure = RateLimitError(
+                    "Rate limited by Steam (HTTP 429) on every attempt"
+                )
                 continue
             except ClientError as e:
-                last_exception = e
-                if attempt < self.settings.MAX_RETRIES:
-                    sleep_time = self.settings.RETRY_DELAY * (2**attempt)
-                    logger.warning(
-                        "Request failed (attempt %d), retrying in %s seconds: %s",
-                        attempt + 1,
-                        sleep_time,
-                        e,
-                    )
-                    await asyncio.sleep(sleep_time)
-                else:
-                    logger.error(
-                        "Request failed after %d attempts: %s",
-                        self.settings.MAX_RETRIES + 1,
-                        e,
-                    )
+                failure = self._to_library_error(e)
 
-        raise last_exception or ClientError("Request failed for unknown reason")
+            if attempt < self.settings.MAX_RETRIES:
+                sleep_time = self.settings.RETRY_DELAY * (2**attempt)
+                logger.warning(
+                    "Request failed (attempt %d), retrying in %s seconds: %s",
+                    attempt + 1,
+                    sleep_time,
+                    failure,
+                )
+                await asyncio.sleep(sleep_time)
+            else:
+                logger.error(
+                    "Request failed after %d attempts: %s",
+                    self.settings.MAX_RETRIES + 1,
+                    failure,
+                )
+
+        raise failure or SteamAPIError("Request failed for unknown reason")
+
+    def _redact(self, text: str) -> str:
+        """Remove the API key and access token from ``text``."""
+        for secret in (self.api_key, self.access_token):
+            if secret:
+                for form in {secret, quote(secret, safe=""), quote_plus(secret)}:
+                    text = text.replace(form, "***")
+        return _CREDENTIAL_PARAM_RE.sub(r"\g<name>***", text)
+
+    def _describe_error(self, error: BaseException) -> str:
+        """Describe an aiohttp error without leaking credentials."""
+        if isinstance(error, aiohttp.ClientResponseError):
+            url = error.request_info.real_url.with_query(None)
+            return self._redact(f"HTTP {error.status} {error.message} for {url}")
+        return self._redact(f"{type(error).__name__}: {error}")
+
+    def _to_library_error(self, error: ClientError) -> SteamAPIError:
+        """Convert an aiohttp error into a sanitized library exception."""
+        message = self._describe_error(error)
+        if isinstance(error, aiohttp.ClientResponseError):
+            return SteamAPIError(message, status_code=error.status)
+        return NetworkError(message)
 
 
 class _RateLimitedError(Exception):
