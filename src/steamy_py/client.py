@@ -4,7 +4,7 @@ import asyncio
 import logging
 import re
 import time
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import quote, quote_plus
 
 import aiohttp
@@ -163,11 +163,9 @@ class Client:
                 logger.debug("Successful response from %s", self._redact(url))
                 return data
 
-        # Raised outside the except block so the original aiohttp error (whose
-        # text contains the full request URL) is not attached as __context__.
         message = f"Invalid JSON response from {self._redact(url)}: {reason}"
         logger.error("%s", message)
-        raise ResponseParsingError(message)
+        _raise_unchained(ResponseParsingError(message))
 
     async def request(
         self,
@@ -203,9 +201,9 @@ class Client:
 
         await self._rate_limit()
 
-        # Only sanitized library exceptions leave this method. They are raised
-        # after the loop, outside any except block, so the original aiohttp
-        # error (which embeds the full URL with credentials) is never chained.
+        # Only sanitized library exceptions leave this method, and never with
+        # the original aiohttp error (which embeds the full URL with
+        # credentials) attached as __cause__ or __context__.
         failure: SteamAPIError | None = None
         for attempt in range(self.settings.MAX_RETRIES + 1):
             logger.debug(
@@ -240,7 +238,7 @@ class Client:
                     failure,
                 )
 
-        raise failure or SteamAPIError("Request failed for unknown reason")
+        _raise_unchained(failure or SteamAPIError("Request failed for unknown reason"))
 
     def _redact(self, text: str) -> str:
         """Remove the API key and access token from ``text``."""
@@ -263,6 +261,20 @@ class Client:
         if isinstance(error, aiohttp.ClientResponseError):
             return SteamAPIError(message, status_code=error.status)
         return NetworkError(message)
+
+
+def _raise_unchained(error: Exception) -> NoReturn:
+    """Raise ``error`` with no exception attached as its context.
+
+    Raising outside an ``except`` block is not enough: under the pure-Python
+    asyncio Task a coroutine resumed with an exception (e.g. a refused
+    connection) still sees that exception as "being handled", and Python would
+    attach it as ``__context__``.
+    """
+    try:
+        raise error
+    finally:
+        error.__context__ = None
 
 
 class _RateLimitedError(Exception):
