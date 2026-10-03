@@ -1,0 +1,208 @@
+{
+  "apilist": {
+    "interfaces": [
+      {
+        "name": "IClientStats_1046930",
+        "methods": [
+          {
+            "name": "ReportEvent",
+            "version": 1,
+            "httpmethod": "POST",
+            "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "ISteamNews",
+        "methods": [
+          {
+            "name": "GetNewsForApp",
+            "version": 1,
+            "httpmethod": "GET",
+            "parameters": [
+              {
+                "name": "appid",
+                "type": "uint32",
+                "optional": false,
+                "description": "AppID to retrieve news for"
+              },
+              {
+                "name": "maxlength",
+                "type": "uint32",
+                "optional": true,
+                "description": "Maximum length for the content to return, if this is 0 the full content is returned, if it's less then a blurb is generated to fit."
+              },
+              {
+                "name": "enddate",
+                "type": "uint32",
+                "optional": true,
+                "description": "Retrieve posts earlier than this date (unix epoch timestamp)"
+              },
+              {
+                "name": "count",
+                "type": "uint32",
+                "optional": true,
+                "description": "# of posts to retrieve (default 20)"
+              },
+              {
+                "name": "tags",
+                "type": "string",
+                "optional": true,
+                "description": "Comma-separated list of tags to filter by (e.g. 'patchnodes')"
+              }
+            ]
+          },
+          {
+            "name": "GetNewsForApp",
+            "version": 2,
+            "httpmethod": "GET",
+            "parameters": [
+              {
+                "name": "appid",
+                "type": "uint32",
+                "optional": false,
+                "description": "AppID to retrieve news for"
+              },
+              {
+                "name": "maxlength",
+                "type": "uint32",
+                "optional": true,
+                "description": "Maximum length for the content to return, if this is 0 the full content is returned, if it's less then a blurb is generated to fit."
+              },
+              {
+                "name": "enddate",
+                "type": "uint32",
+                "optional": true,
+                "description": "Retrieve posts earlier than this date (unix epoch timestamp)"
+              },
+              {
+                "name": "count",
+                "type": "uint32",
+                "optional": true,
+                "description": "# of posts to retrieve (default 20)"
+              },
+              {
+                "name": "feeds",
+                "type": "string",
+                "optional": true,
+                "description": "Comma-separated list of feed names to return news for"
+              },
+              {
+                "name": "tags",
+                "type": "string",
+                "optional": true,
+                "description": "Comma-separated list of tags to filter by (e.g. 'patchnodes')"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "ISteamWebAPIUtil",
+        "methods": [
+          {
+            "name": "GetServerInfo",
+            "version": 1,
+            "httpmethod": "GET",
+            "parameters": []
+          },
+          {
+            "name": "GetSupportedAPIList",
+            "version": 1,
+            "httpmethod": "GET",
+            "parameters": [
+              {
+                "name": "key",
+                "type": "string",
+                "optional": true,
+                "description": "access key"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "IWishlistService",
+        "methods": [
+          {
+            "name": "GetWishlistSortedFiltered",
+            "version": 1,
+            "httpmethod": "GET",
+            "description": "Get a user's paginated wishlist applying various sorts and filters",
+            "parameters": [
+              {
+                "name": "steamid",
+                "type": "uint64",
+                "optional": false
+              },
+              {
+                "name": "context",
+                "type": "{message}",
+                "optional": false
+              },
+              {
+                "name": "data_request",
+                "type": "{message}",
+                "optional": false,
+                "description": "If passed, item data will be returned"
+              },
+              {
+                "name": "sort_order",
+                "type": "{enum}",
+                "optional": true
+              },
+              {
+                "name": "filters",
+                "type": "{message}",
+                "optional": false
+              },
+              {
+                "name": "start_index",
+                "type": "int32",
+                "optional": true,
+                "description": "Data in this range will be filled in with StoreBrowse data"
+              },
+              {
+                "name": "page_size",
+                "type": "int32",
+                "optional": true
+              },
+              {
+                "name": "share_token",
+                "type": "string",
+                "optional": false,
+                "description": "The wishlist share token. Determines what items are visible and the effective filters."
+              }
+            ]
+          },
+          {
+            "name": "GetWishlist",
+            "version": 1,
+            "httpmethod": "GET",
+            "description": "Get a user's wishlist.",
+            "parameters": [
+              {
+                "name": "steamid",
+                "type": "uint64",
+                "optional": false
+              }
+            ]
+          },
+          {
+            "name": "GetWishlistItemCount",
+            "version": 1,
+            "httpmethod": "GET",
+            "description": "Get the number of items on a user's wishlist.",
+            "parameters": [
+              {
+                "name": "steamid",
+                "type": "uint64",
+                "optional": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
