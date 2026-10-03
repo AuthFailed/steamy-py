@@ -3,43 +3,61 @@ name = "steamy-py"
 version = "1.2.0"
 description = "Asynchronous Python wrapper for the Steam Web API"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 
 authors = [
     { name = "Roman Chursanov", email = "roman@chrsnv.ru" }
 ]
 
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 
 keywords = [
     "steam",
     "steam-api",
+    "steam-web-api",
+    "valve",
     "async",
+    "asyncio",
     "aiohttp",
     "wrapper",
 ]
 
 classifiers = [
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Framework :: aiohttp",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 dependencies = [
-    "aiohttp[speedups]>=3.13.2",
+    "aiohttp>=3.13.2",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/AuthFailed/steam-py"
-Repository = "https://github.com/AuthFailed/steam-py"
-Issues = "https://github.com/AuthFailed/steam-py/issues"
-Changelog = "https://github.com/AuthFailed/steam-py/releases"
-
 [project.optional-dependencies]
-dev = [
-    "ruff>=0.14.10",
-    "ty>=0.0.8",
+speedups = [
+    "aiohttp[speedups]>=3.13.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/AuthFailed/steamy-py"
+Repository = "https://github.com/AuthFailed/steamy-py"
+Issues = "https://github.com/AuthFailed/steamy-py/issues"
+Changelog = "https://github.com/AuthFailed/steamy-py/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["uv-build>=0.9.21,<0.10.0"]
@@ -47,21 +65,10 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "twine>=6.2.0",
+    "aioresponses>=0.7.8",
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "pytest-cov>=7.0",
+    "ruff>=0.14.10",
+    "ty>=0.0.8",
 ]
-
-[tool.ruff]
-target-version = "py313"
-
-[tool.ruff.lint]
-# Enable common rule sets
-extend-select = ["E", "F", "I", "B", "C90", "RUF"]
-
-ignore = [
-    "D107", # Allow missing docstring in __init__ if trivial
-    "D104", # Allow missing docstrings in package modules
-]
-
-exclude = ["build", "dist", ".venv", "__pycache__"]
-
-select = ["C90"]

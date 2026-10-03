@@ -8,6 +8,7 @@ from typing import Any
 import aiohttp
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
+from ._version import __version__
 from .config import Settings
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class Client:
             timeout=timeout,
             connector=connector,
             headers={
-                "User-Agent": "steam-py/1.0.0",
+                "User-Agent": f"steamy-py/{__version__}",
                 "Accept": "application/json",
             },
         )

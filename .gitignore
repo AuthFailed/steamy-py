@@ -9,8 +9,17 @@ wheels/
 # Virtual environments
 .venv
 
+# Tooling caches and reports
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
 # IDE
 .idea
-.env
+.vscode
 
-# Tests
+# Local secrets
+.env

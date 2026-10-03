@@ -1,5 +1,5 @@
-# Main Steam client
 # Core components (for advanced users)
+from ._version import __version__
 from .client import Client
 from .config import Settings
 
@@ -40,7 +40,6 @@ from .models import (
 from .repos import FamilyAPI, GameAPI, MarketAPI, PlayerAPI, StatsAPI
 from .steam import Steam
 
-__version__ = "1.0.0"
 
 __all__ = [
     # Main client
