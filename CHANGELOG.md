@@ -81,6 +81,17 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   `MarketListingsResponse` shape (`listinginfo`, `assets`, `currency`);
   `search_market()` and `get_popular_items()` return `MarketSearchResponse`
   (the previous fields, `searchdata` and `results`) ([#22]).
+- **Breaking:** `StatsAPI.get_user_achievements_only()` calls
+  `GetPlayerAchievements`, so it returns locked achievements too, with
+  unlock times ([#20]).
+- **Breaking:** `get_news_for_app()` no longer caps `count` at 20 ([#20]).
+- **Breaking:** `GetFriendList` answering HTTP 401 (a private friends list)
+  raises `PrivateProfileError` instead of `AuthenticationError` ([#20]).
+- **Breaking:** `GlobalAchievementResponse` holds the parsed list in
+  `achievements`, and `GlobalStatsResponse.globalstats` maps each stat to
+  `GlobalStatTotal` ([#20]).
+- `resolve_vanity_url()` returns the Steam ID of a `/profiles/<id>` URL
+  without a request ([#20]).
 - `aiohttp[speedups]` is now optional: install `steamy-py[speedups]` to get
   it ([#6]).
 - `__version__` and the `User-Agent` header now report the installed package
@@ -129,6 +140,18 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 - Inventory models keep `actions` (CS2 inspect links), `owner_descriptions`,
   `owner_actions`, `market_actions`, restrictions and `asset_properties`
   ([#22]).
+- `end_date`, `feeds` and `tags` parameters for
+  `StatsAPI.get_news_for_app()` ([#20]).
+- `include_extended_appinfo`, `include_free_sub`, `skip_unvetted_apps`,
+  `include_family_licenses` and `language` parameters for
+  `GameAPI.get_owned_games()` ([#21]).
+- `OwnedGame` keeps `rtime_last_played` (and `last_played`),
+  `playtime_deck_forever`, `playtime_disconnected`,
+  `has_community_visible_stats`, `family_shared`, `capsule_filename`,
+  `sort_as`, `has_workshop/market/dlc/leaderboards` and
+  `content_descriptorids`; `AppDetails` keeps `dlc`, `packages`,
+  descriptions, requirements, `metacritic`, `achievements` and more as
+  optional fields ([#21]).
 - `py.typed` marker, so type checkers use the package's annotations ([#6]).
 - Test suite, CI workflow and Dependabot configuration ([#8], [#9]).
 
@@ -138,6 +161,8 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   with `LOG_LEVEL=info` in its environment crashed `Steam()` ([#12]).
 - **Breaking:** `MarketAPI.get_recent_items()`. It sorted search results by
   quantity and never returned recently listed items ([#11]).
+- **Breaking:** `OwnedGame.img_logo_url` and `OwnedGame.logo_url`. Steam no
+  longer sends the logo hash ([#21]).
 - The `dev` extra (`steamy-py[dev]`). Development tools are now a uv
   dependency group ([#6]).
 
@@ -152,6 +177,25 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
   every currency format, not only `$` ([#22]).
 - `MarketAPI.get_price_history()` no longer crashes on a non-object reply
   ([#22]).
+- `PlayerAPI.get_player_bans()` failed on every response: `PlayerBan` now
+  reads Steam's PascalCase keys ([#20]).
+- `get_global_achievement_percentages()` and `get_global_stats_for_game()`
+  failed on every real response; an unknown app raises `GameNotFoundError`
+  for global stats and `get_current_players()` instead of a validation
+  error ([#20]).
+- `resolve_vanity_url()` sent an empty vanity name for a URL with a trailing
+  slash ([#20]).
+- `GameAPI.get_player_achievements()` maps a private profile (HTTP 403) to
+  `PrivateProfileError` and an app without stats (HTTP 400) to
+  `GameNotFoundError` ([#21]).
+- `GameAPI.get_schema_for_game()` raises `GameNotFoundError` for an app
+  without a schema (`{"game": {}}`); `gameName`, `gameVersion` and
+  `SchemaAchievement.description` are optional ([#21]).
+- `GameAPI.get_app_details()` returns None for a JSON `null` body instead of
+  crashing ([#21]).
+- `GameAPI.search_games(owned_games=[])` no longer downloads the full app
+  list ([#21]).
+- `OwnedGame.icon_url` uses https ([#21]).
 - Project URLs in the package metadata pointed to the wrong repository
   ([#6]).
 - `FamilyAPI.resend_invitation_to_family_group()` called
@@ -174,4 +218,6 @@ Work towards 2.0.0 — see the [roadmap](https://github.com/AuthFailed/steamy-py
 [#17]: https://github.com/AuthFailed/steamy-py/issues/17
 [#18]: https://github.com/AuthFailed/steamy-py/issues/18
 [#19]: https://github.com/AuthFailed/steamy-py/issues/19
+[#20]: https://github.com/AuthFailed/steamy-py/issues/20
+[#21]: https://github.com/AuthFailed/steamy-py/issues/21
 [#22]: https://github.com/AuthFailed/steamy-py/issues/22

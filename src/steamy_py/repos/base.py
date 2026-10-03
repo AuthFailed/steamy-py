@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from ..client import Client
+from ..exceptions import GameNotFoundError, PrivateProfileError, SteamAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,37 @@ class BaseAPI:
             -> {"appids_filter[0]": "440", "appids_filter[1]": "620"}
         """
         return {f"{name}[{index}]": str(value) for index, value in enumerate(values)}
+
+    @staticmethod
+    def _playerstats_body(error: SteamAPIError) -> dict[str, Any]:
+        """Return the JSON body of an ISteamUserStats error, or re-raise.
+
+        GetUserStatsForGame and GetPlayerAchievements answer a private
+        profile with HTTP 403 and an app without stats with HTTP 400; the
+        reason is in ``playerstats.error``. Errors without that body (an
+        invalid key, an outage) are re-raised unchanged.
+        """
+        body = error.response_data if isinstance(error.response_data, dict) else {}
+        playerstats = body.get("playerstats")
+        if not isinstance(playerstats, dict) or not isinstance(
+            playerstats.get("error"), str
+        ):
+            raise error
+        return body
+
+    @staticmethod
+    def _raise_playerstats_error(message: str, steamid: str, app_id: int) -> None:
+        """Raise the library exception for a ``playerstats.error`` message."""
+        lowered = message.lower()
+        if "private" in lowered or "not public" in lowered:
+            raise PrivateProfileError(steamid)
+        if (
+            "no stats" in lowered
+            or "not found" in lowered
+            or "invalid appid" in lowered
+        ):
+            raise GameNotFoundError(str(app_id))
+        raise SteamAPIError(f"Steam API error: {message}")
 
     def _build_url(self, interface: str, method: str, version: str = "v1") -> str:
         """Build Steam API URL.

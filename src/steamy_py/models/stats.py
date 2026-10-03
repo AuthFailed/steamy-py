@@ -61,7 +61,10 @@ class GlobalAchievementStat(SteamModel):
 class PlayerCount(SteamModel):
     """Current player count for a game."""
 
-    player_count: int = Field(description="Current number of players")
+    player_count: int = Field(
+        default=0,
+        description="Current number of players (Steam omits it for unknown apps)",
+    )
     result: int = Field(description="Result code (1=success)")
 
     @property
@@ -110,11 +113,26 @@ class LeaderboardEntry(SteamModel):
 
 
 # Response wrapper models
+class GlobalStatTotal(SteamModel):
+    """One stat in a GetGlobalStatsForGame response.
+
+    Steam sends the total as a string, e.g. ``{"total": "2346826"}``.
+    """
+
+    total: int | float = Field(description="Total value across all players")
+    history: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Per-day totals when a date range was requested",
+    )
+
+
 class GlobalStatsResponse(SteamModel):
     """Response wrapper for GetGlobalStatsForGame."""
 
     result: int = Field(description="Result code")
-    globalstats: dict[str, int | float] = Field(description="Global statistics data")
+    globalstats: dict[str, GlobalStatTotal] = Field(
+        default_factory=dict, description="Global statistics data"
+    )
 
     @property
     def is_success(self) -> bool:
@@ -124,8 +142,8 @@ class GlobalStatsResponse(SteamModel):
     def to_global_stats(self) -> list[GlobalStat]:
         """Convert to list of GlobalStat objects."""
         return [
-            GlobalStat(name=name, total=value)
-            for name, value in self.globalstats.items()
+            GlobalStat(name=name, total=stat.total)
+            for name, stat in self.globalstats.items()
         ]
 
 
@@ -143,17 +161,13 @@ class UserStatsResponse(SteamModel):
 class GlobalAchievementResponse(SteamModel):
     """Response wrapper for global achievement percentages."""
 
-    achievementpercentages: dict[str, Any] = Field(
-        description="Achievement percentages"
+    achievements: list[GlobalAchievementStat] = Field(
+        default_factory=list, description="Achievement percentages"
     )
 
     def to_achievement_stats(self) -> list[GlobalAchievementStat]:
-        """Convert to list of GlobalAchievementStat objects."""
-        achievements = self.achievementpercentages.get("achievements", [])
-        return [
-            GlobalAchievementStat(name=ach["name"], percent=ach["percent"])
-            for ach in achievements
-        ]
+        """Return the achievement percentages."""
+        return list(self.achievements)
 
 
 class PlayerCountResponse(SteamModel):

@@ -37,6 +37,11 @@ class GameAPI(BaseAPI):
         include_appinfo: bool = True,
         include_played_free_games: bool = False,
         appids_filter: list[int] | None = None,
+        include_extended_appinfo: bool = False,
+        include_free_sub: bool = False,
+        skip_unvetted_apps: bool | None = None,
+        include_family_licenses: bool = False,
+        language: str | None = None,
     ) -> list[OwnedGame]:
         """Get games owned by a Steam user.
 
@@ -45,14 +50,20 @@ class GameAPI(BaseAPI):
             include_appinfo: Include game name and logo information
             include_played_free_games: Include free games that have been played
             appids_filter: Optional list of App IDs to filter results
+            include_extended_appinfo: Include capsule, sort name and the
+                has_workshop/market/dlc/leaderboards flags
+            include_free_sub: Include games from free subscriptions
+            skip_unvetted_apps: Skip apps that have not been vetted; Steam's
+                default is used when None
+            include_family_licenses: Include games shared through Steam Family
+            language: Language for game names
 
         Returns:
             List of owned games
 
         Raises:
             InvalidSteamIDError: If Steam ID format is invalid
-            PrivateProfileError: If profile is private
-            PlayerNotFoundError: If player not found
+            PrivateProfileError: If the game details are not public
             SteamAPIError: On API errors
         """
         self._validate_steam_id(steamid)
@@ -63,6 +74,16 @@ class GameAPI(BaseAPI):
             "include_played_free_games": "1" if include_played_free_games else "0",
         }
 
+        optional = {
+            "include_extended_appinfo": "1" if include_extended_appinfo else None,
+            "include_free_sub": "1" if include_free_sub else None,
+            "skip_unvetted_apps": (
+                None if skip_unvetted_apps is None else str(int(skip_unvetted_apps))
+            ),
+            "include_family_licenses": "1" if include_family_licenses else None,
+            "language": language,
+        }
+        params.update({k: v for k, v in optional.items() if v is not None})
         if appids_filter:
             params.update(self._indexed("appids_filter", appids_filter))
 
@@ -229,27 +250,25 @@ class GameAPI(BaseAPI):
         self._validate_app_id(app_id)
 
         try:
-            response_data = await self._request(
-                interface="ISteamUserStats",
-                method="GetPlayerAchievements",
-                version="v1",
-                params={"steamid": steamid, "appid": str(app_id), "l": language},
-            )
+            try:
+                response_data = await self._request(
+                    interface="ISteamUserStats",
+                    method="GetPlayerAchievements",
+                    version="v1",
+                    params={"steamid": steamid, "appid": str(app_id), "l": language},
+                )
+            except SteamAPIError as e:
+                response_data = self._playerstats_body(e)
 
             if "playerstats" not in response_data:
                 raise SteamAPIError("Invalid response structure from Steam API")
 
             playerstats = response_data["playerstats"]
 
-            # Check if the request was successful
             if not playerstats.get("success", False):
-                error = playerstats.get("error", "Unknown error")
-                if "profile is private" in error.lower():
-                    raise PrivateProfileError(steamid)
-                elif "invalid appid" in error.lower() or "not found" in error.lower():
-                    raise GameNotFoundError(str(app_id))
-                else:
-                    raise SteamAPIError(f"Steam API error: {error}")
+                self._raise_playerstats_error(
+                    str(playerstats.get("error", "Unknown error")), steamid, app_id
+                )
 
             response_obj = GetPlayerAchievementsResponse(**response_data)
             return response_obj.playerstats.achievements
@@ -291,8 +310,8 @@ class GameAPI(BaseAPI):
                 params={"appid": str(app_id), "l": language},
             )
 
-            if "game" not in response_data:
-                # This usually means the game doesn't exist or doesn't have stats
+            if not response_data.get("game"):
+                # No such app, or an app without stats: Steam sends {"game": {}}
                 raise GameNotFoundError(
                     str(app_id), "Game not found or has no statistics"
                 )
@@ -333,8 +352,15 @@ class GameAPI(BaseAPI):
                 params={"appids": str(app_id), "cc": country, "l": language},
             )
 
+            # Steam answers some app ids with a JSON null body.
+            if not isinstance(response_data, dict):
+                return None
             app_data = response_data.get(str(app_id))
-            if not app_data or not app_data.get("success"):
+            if (
+                not isinstance(app_data, dict)
+                or not app_data
+                or not app_data.get("success")
+            ):
                 return None
 
             return AppDetails(**app_data["data"])
@@ -363,7 +389,7 @@ class GameAPI(BaseAPI):
         """
         search_term = search_term.lower().strip()
 
-        if owned_games:
+        if owned_games is not None:
             # Search within owned games
             results = []
             for game in owned_games:

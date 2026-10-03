@@ -416,8 +416,7 @@ async def test_get_owned_games_builds_icon_url_from_appid_and_hash(
         "media.steampowered.com/steamcommunity/public/images/apps/220/"
         "fcfb366051782b8ebf2aa297f3b746395858cb62.jpg"
     )
-    # Steam stopped sending img_logo_url.
-    assert hl2.logo_url is None
+    assert hl2.icon_url.startswith("https://")
 
 
 async def test_get_owned_games_parses_entries_without_appinfo(
@@ -564,7 +563,7 @@ async def test_get_player_achievements_unrecognised_error_raises_steam_api_error
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
     # An error the library has no specific exception for. ("Requested app has
-    # no stats" is not used here: it should become GameNotFoundError, see #21.)
+    # no stats" is not used here: it becomes GameNotFoundError, tested below.)
     fake_steam.api(
         "GET",
         ACHIEVEMENTS_PATH,
@@ -591,19 +590,10 @@ async def test_get_player_achievements_without_playerstats_raises_steam_api_erro
     [
         pytest.param(
             200,
-            marks=pytest.mark.xfail(
-                reason="#21: 'Profile is not public' is not matched as private",
-                raises=SteamAPIError,
-            ),
             id="http-200",
         ),
         pytest.param(
             403,
-            marks=pytest.mark.xfail(
-                reason="#21: HTTP 403 from GetPlayerAchievements is not mapped "
-                "to PrivateProfileError",
-                raises=SteamAPIError,
-            ),
             id="http-403-as-steam-sends-it",
         ),
     ],
@@ -624,11 +614,6 @@ async def test_get_player_achievements_private_profile_raises_private_profile_er
     assert excinfo.value.steamid == STEAMID
 
 
-@pytest.mark.xfail(
-    reason="#21: HTTP 400 'Requested app has no stats' is not mapped "
-    "to GameNotFoundError",
-    raises=SteamAPIError,
-)
 async def test_get_player_achievements_app_without_stats_raises_game_not_found(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -702,11 +687,6 @@ async def test_get_schema_for_game_without_game_raises_game_not_found(
     assert excinfo.value.status_code == 404
 
 
-@pytest.mark.xfail(
-    reason="#21: an empty {'game': {}} schema fails validation instead of "
-    "raising GameNotFoundError",
-    raises=SteamAPIError,
-)
 async def test_get_schema_for_game_empty_game_raises_game_not_found(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -833,10 +813,6 @@ async def test_get_app_details_unknown_app_returns_none(
     assert await steam.games.get_app_details(9999999) is None
 
 
-@pytest.mark.xfail(
-    reason="#21: a JSON null appdetails body crashes instead of returning None",
-    raises=SteamAPIError,
-)
 async def test_get_app_details_null_body_returns_none(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1023,10 +999,6 @@ async def test_search_games_without_owned_games_searches_the_app_list(
     ]
 
 
-@pytest.mark.xfail(
-    reason="#21: search_games([]) downloads the full app list",
-    raises=AssertionError,
-)
 async def test_search_games_with_empty_owned_games_makes_no_request(
     steam: Steam, fake_steam: FakeSteam
 ) -> None:
@@ -1036,3 +1008,72 @@ async def test_search_games_with_empty_owned_games_makes_no_request(
 
     assert results == []
     assert fake_steam.requests == []
+
+
+async def test_get_owned_games_sends_optional_params_only_when_set(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", OWNED_GAMES_PATH, json=NO_GAMES)
+
+    await steam.games.get_owned_games(
+        STEAMID,
+        include_extended_appinfo=True,
+        include_free_sub=True,
+        skip_unvetted_apps=False,
+        include_family_licenses=True,
+        language="german",
+    )
+
+    params = fake_steam.last.params
+    assert params["include_extended_appinfo"] == "1"
+    assert params["include_free_sub"] == "1"
+    assert params["skip_unvetted_apps"] == "0"
+    assert params["include_family_licenses"] == "1"
+    assert params["language"] == "german"
+
+
+async def test_get_owned_games_parses_extended_fields(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    fake_steam.api("GET", OWNED_GAMES_PATH, json=load_fixture("game_owned_games.json"))
+
+    hl2, tf2, _ = await steam.games.get_owned_games(STEAMID)
+
+    assert hl2.has_community_visible_stats is True
+    assert hl2.content_descriptorids == [2, 5]
+    assert hl2.playtime_disconnected == 0
+    assert tf2.playtime_deck_forever == 95
+    assert tf2.rtime_last_played == 1727910021
+    assert tf2.last_played == datetime.fromtimestamp(1727910021)
+
+
+async def test_get_app_details_parses_optional_fields(
+    steam: Steam, fake_steam: FakeSteam
+) -> None:
+    body = load_fixture("game_appdetails_620.json")
+    body["620"]["data"]["linux_requirements"] = []
+    fake_steam.store("GET", "/appdetails", json=body)
+
+    details = await steam.games.get_app_details(620)
+
+    assert details is not None
+    assert details.dlc == [323180]
+    assert details.packages == [7877, 204343]
+    assert details.achievements == {"total": 51}
+    assert isinstance(details.pc_requirements, dict)
+    assert details.linux_requirements == []
+
+
+async def test_schema_achievement_without_description() -> None:
+    from steamy_py.models.game import SchemaAchievement
+
+    achievement = SchemaAchievement(
+        name="SECRET",
+        displayName="Secret",
+        icon="https://example.invalid/a.jpg",
+        icongray="https://example.invalid/b.jpg",
+        hidden=1,
+    )
+
+    assert achievement.description is None
+    assert achievement.is_hidden

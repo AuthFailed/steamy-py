@@ -106,13 +106,21 @@ class Friend(SteamModel):
 class PlayerBan(SteamModel):
     """Steam player ban information."""
 
-    steamid: str = Field(description="Steam ID of the player")
-    community_banned: bool = Field(description="Community ban status")
-    vac_banned: bool = Field(description="VAC ban status")
-    number_of_vac_bans: int = Field(description="Number of VAC bans")
-    days_since_last_ban: int = Field(description="Days since last ban")
-    number_of_game_bans: int = Field(description="Number of game bans")
-    economy_ban: str = Field(description="Economy ban status")
+    steamid: str = Field(alias="SteamId", description="Steam ID of the player")
+    community_banned: bool = Field(
+        alias="CommunityBanned", description="Community ban status"
+    )
+    vac_banned: bool = Field(alias="VACBanned", description="VAC ban status")
+    number_of_vac_bans: int = Field(
+        alias="NumberOfVACBans", description="Number of VAC bans"
+    )
+    days_since_last_ban: int = Field(
+        alias="DaysSinceLastBan", description="Days since last ban"
+    )
+    number_of_game_bans: int = Field(
+        alias="NumberOfGameBans", description="Number of game bans"
+    )
+    economy_ban: str = Field(alias="EconomyBan", description="Economy ban status")
 
     @property
     def is_banned(self) -> bool:
